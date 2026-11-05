@@ -1,0 +1,10 @@
+{
+  "name": "pixel-evolution",
+  "version": "1.0.0",
+  "description": "オリキャラファイターズ - 2D character raising & battle RPG",
+  "type": "module",
+  "scripts": {
+    "start": "python3 -m http.server 8000 --bind 0.0.0.0",
+    "test": "node test/logic.test.mjs"
+  }
+}
