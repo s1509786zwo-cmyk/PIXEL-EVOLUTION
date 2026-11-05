@@ -386,18 +386,17 @@ function tutorialActionButtons(app, s, t) {
   const nav = (label, to, facility, tab) => `<button class="btn btn-mini" data-action="nav" data-to="${to}" ${facility?`data-facility="${facility}"`:''} ${tab!==undefined?`data-tab="${tab}"`:''}>${label}</button>`;
   const act = (label, action, extra='') => `<button class="btn btn-mini btn-glass" data-action="${action}" ${extra}>${label}</button>`;
   switch (t.step) {
-    case 1: return nav('🎨 キャラクター作成画面を開く','create') + nav('🏰 街へ戻る','town');
-    case 2: return nav('✦ 育成の間へ','facility','nurture',0) + act('📈 練習で経験値を獲得','tutorialExp');
-    case 3: return nav('⚒ 工房へ','facility','forge',0) + nav('✧ ガチャタブを見る','facility','forge',1)
+    case 1: return nav('✦ 育成の間へ','facility','nurture',0) + act('📈 練習で経験値を獲得','tutorialExp');
+    case 2: return nav('⚒ 工房へ','facility','forge',0) + nav('✧ ガチャタブを見る','facility','forge',1)
       + act('🎁 無料の練習用ガチャを引く','tutorialGacha') + act('⚔ 獲得武器を装備する','tutorialEquip');
-    case 4: return nav('🏛 CPU対戦の画面へ','facility','guild',0) + act('⚔ 練習用の敵と戦う','tutorialBattle')
+    case 3: return nav('🏛 CPU対戦の画面へ','facility','guild',0) + act('⚔ 練習用の敵と戦う','tutorialBattle')
       + (app.screen === 'battle' ? act('AUTO を切り替える','battleAuto')
         + (app.battle?.autoMode
           ? `<button class="btn btn-mini btn-glass" data-action="battleSpeed" data-speed="2">2倍速にする</button>`
             + `<button class="btn btn-mini btn-glass" data-action="battleSpeed" data-speed="3">3倍速にする</button>`
           : '<small class="tp-hint">速度変更は AUTO を ON にしてから</small>')
         + act('🗡 手動で技を使う','tutorialManualSkill') : '');
-    case 5: return nav('💠 素材集めへ','gather') + act('📦 進化素材を獲得する','tutorialGather')
+    case 4: return nav('💠 素材集めへ','gather') + act('📦 進化素材を獲得する','tutorialGather')
       + nav('✦ 育成の間・進化へ','facility','nurture',4);
     default: return '';
   }
@@ -417,7 +416,7 @@ function tutorialPanel(app, s) {
     return wrap('tp-offer', `${closeBtn}
       <div class="tp-eyebrow">🎓 TUTORIAL</div>
       <h3>チュートリアルを始めますか？</h3>
-      <p>街のホーム画面からキャラクター作成、育成、装備・ガチャ、CPU対戦、素材集め、ランク進化まで<b>実際に操作しながら</b>覚えられます。強制ではありません。</p>
+      <p>ゲーム開始時に作成したキャラクターをそのまま使い、育成、装備・ガチャ、CPU対戦、素材集め、ランク進化まで<b>実際に操作しながら</b>覚えられます。キャラクター作成のやり直しは不要です。強制ではありません。</p>
       <p class="muted small">Clear で装備ガチャ ${TUTORIAL_REWARD_PULLS} 連分のコイン（${fmt(tutorialRewardCoins())}コイン）をプレゼント。</p>
       <div class="tp-btns"><button class="btn btn-primary" data-action="tutorialStart">チュートリアルを始める</button>
       <button class="btn btn-glass" data-action="tutorialSkip">チュートリアルをスキップする</button></div>`);

@@ -663,7 +663,6 @@ async function handleAction(action, ds, el) {
       };
       state.home = { ...(state.home||{}), started:true, lastVisit:new Date().toISOString() };
       S.tutorialOffer(state);            // 作成後に「始める / スキップ」を提示（強制ではない）
-      S.tutorialTrack(state, 'createFinish');
       save(true);
       sfx('win');
       app.draft = null; app.compare = false;

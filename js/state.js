@@ -1512,7 +1512,7 @@ export function tutorialRewardCoins() { return equipmentGachaCost() * TUTORIAL_R
 
 export function defaultTutorial() {
   return {
-    version: 1,
+    version: 2,              // v2: 旧 STEP1（キャラクター作成）を廃止して番号を 1 つ詰めた
     status: 'notOffered',      // notOffered / offered / active / skipped / complete
     step: 1,
     done: [],
@@ -1545,6 +1545,14 @@ export function normalizeTutorial(src, state) {
   if (!t || typeof t !== 'object') t = defaultTutorial();
   const d = defaultTutorial();
   for (const k of Object.keys(d)) if (t[k] === undefined) t[k] = d[k];
+  // v1 → v2: キャラクター作成 STEP を廃止したので、進行番号と完了リストを 1 つ詰める。
+  // 旧 STEP1 で止まっていた人は新しい STEP1（育成の間）から再開する。
+  if (Number(t.version) < 2 && src) {
+    const oldStep = Number(src.step) || 1;
+    const oldDone = Array.isArray(src.done) ? src.done : [];
+    t.step = Math.max(1, oldStep - 1);
+    t.done = oldDone.map(n => Number(n) - 1).filter(n => Number.isInteger(n) && n >= 1);
+  }
   if (!t.flags || typeof t.flags !== 'object' || Array.isArray(t.flags)) t.flags = {};
   t.done = Array.isArray(t.done)
     ? t.done.filter(n => Number.isInteger(n) && n >= 1 && n <= TUTORIAL_STEP_COUNT - 1) : [];
@@ -1568,7 +1576,7 @@ export function normalizeTutorial(src, state) {
       && (!src || src.status === 'notOffered')) t.status = 'offered';
   t.step = clamp(Number(t.step) || 1, 1, TUTORIAL_STEP_COUNT);
   if (t.status === 'complete') t.step = TUTORIAL_STEP_COUNT;
-  t.version = 1;
+  t.version = 2;
   return t;
 }
 /** チュートリアル中に獲得したコインを記録（報酬とは別に累計） */
@@ -1646,8 +1654,6 @@ export function tutorialTrack(state, event, p = {}) {
   const set = k => { if (!t.flags[k]) { t.flags[k] = true; hit = true; } };
   switch (event) {
     case 'nav':
-      if (p.to === 'create') set('visitedCreate');
-      if (p.to === 'town') set('returnedTown');
       if (p.to === 'gather') set('visitedGather');
       if (p.to === 'facility') {
         if (p.facility === 'nurture') set('visitedNurture');
@@ -1655,7 +1661,6 @@ export function tutorialTrack(state, event, p = {}) {
         if (p.facility === 'guild' || p.facility === 'training') set('visitedBattle');
       }
       break;
-    case 'createFinish': set('visitedCreate'); set('returnedTown'); break;
     case 'levelUp': if (p.levels > 0) set('leveled'); break;
     case 'equip': set('equipped'); break;
     case 'evolve': set('evolved'); break;
