@@ -165,9 +165,9 @@ export function renderHall(){
   function tabLook(){
     return el('div',{class:'panel center'},
       el('div',{class:'sec-title', style:{justifyContent:'center'}},'見た目を変更'),
-      el('img',{class:'pixel', src:ch.sprite, style:{width:'140px',margin:'12px auto'}}),
-      el('p',{class:'txt-dim'},'保存された元画像からドット絵を再生成して、キャラクターの見た目を変更できます。'),
-      el('button',{class:'btn btn-gold mt12', onclick:()=>go('create',{edit:ch.id})},'🎨 画像を再変換する'));
+      el('img',{src:ch.sprite, style:{width:'140px',margin:'12px auto',objectFit:'contain'}}),
+      el('p',{class:'txt-dim'},'保存された元画像を再編集して、キャラクターの見た目を変更できます。育成データ(レベル・技・装備など)はそのまま保持されます。'),
+      el('button',{class:'btn btn-gold mt12', onclick:()=>go('create',{edit:ch.id})},'🎨 画像を変更・再編集する'));
   }
   render();
   body.append(charSummary(ch,{compact:true}), el('div',{class:'mt12'},tabs), content);

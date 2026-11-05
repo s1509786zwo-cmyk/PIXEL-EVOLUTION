@@ -66,7 +66,7 @@ function charSelect(){
       return el('div',{class:'row clickable'+(c.id===S.activeCharId?' rar-border-L':''), onclick:()=>{
         S.activeCharId=c.id; persist(); sfx('confirm'); m.close(); go('hub');
       }},
-        el('div',{class:'opp-sprite'}, el('img',{class:'pixel', src:c.sprite})),
+        el('div',{class:'opp-sprite'}, el('img',{src:c.sprite, style:{objectFit:'contain'}})),
         el('div',{class:'r-main'},
           el('div',{class:'r-name'}, c.name, c.id===S.activeCharId?el('span',{class:'badge gold',style:{marginLeft:'6px'}},'使用中'):null),
           el('div',{class:'r-desc'},`Lv${c.level} ${j.name} / 戦力${fmt(charPower(c))} / ${c.wins}勝${c.losses}敗`)),

@@ -10,6 +10,7 @@ import { enemySprite } from './sprites.js';
 import { makeOpponent } from './data/enemies.js';
 import { sfx, playBGM } from './audio.js';
 import { AWAKEN_STAGES } from './data/items.js';
+import { SIZE_MULT } from './image-edit.js';
 
 const ELEM_FX = {none:'#cfd8ec',fire:'#ff8a50',ice:'#7fd4ff',bolt:'#ffe066',wind:'#9fe8b0',light:'#fff3b0',dark:'#b48cf2'};
 const CONSUMABLES = ['potion','hi_potion','ether','hi_ether','elixir','antidote'];
@@ -128,12 +129,18 @@ export function startBattle({enemy, enemies, bossId=null, noItems=false, noFlee=
   }
   function drawUnit(idx, x, gy, t, img, isPlayer){
     const u=battle.units[idx]; const v=vis[idx];
-    const sizeF = isPlayer ? (ch.spriteSettings?.size==='L'?1.2:ch.spriteSettings?.size==='S'?0.85:1) : (u.isBoss?1.25:1);
+    const ie = isPlayer ? (ch.imageEdit||{}) : {};
+    const sizeMult = isPlayer ? (SIZE_MULT[ie.size]||1) : 1;
+    const zoom = isPlayer ? Math.max(0.3, Math.min(4, ie.zoom||1)) : 1;
+    const sizeF = isPlayer ? sizeMult*zoom : (u.isBoss?1.25:1);
     const hgt = Math.min(H*0.42, 210*devicePixelRatio)*sizeF;
     const bob = Math.sin(t*2.2+idx*2)*3*devicePixelRatio;
     let dx=0; if(v.lunge>0){ dx=(isPlayer?1:-1)*Math.sin(v.lunge*Math.PI)*46*devicePixelRatio; v.lunge=Math.max(0,v.lunge-0.05*speed); }
     let shx=0; if(v.shake>0){ shx=(Math.random()-0.5)*v.shake*devicePixelRatio; v.shake*=0.85; if(v.shake<0.3)v.shake=0; }
-    const px=x+dx+shx, py=gy+bob;
+    // 画像エディタの位置オフセットを反映(プレイヤーのみ)
+    const offX = isPlayer ? (ie.x||0)*W*0.18 : 0;
+    const offY = isPlayer ? (ie.y||0)*H*0.12 : 0;
+    const px=x+dx+shx+offX, py=gy+bob+offY;
     // 覚醒オーラ
     if(isPlayer&&ch.awaken>0){ const col=AWAKEN_STAGES[ch.awaken-1].color;
       ctx.save(); ctx.globalAlpha=0.25+0.12*Math.sin(t*3);
@@ -142,12 +149,14 @@ export function startBattle({enemy, enemies, bossId=null, noItems=false, noFlee=
       ctx.fillRect(px-hgt,py-hgt*1.4,hgt*2,hgt*1.6); ctx.restore(); }
     if(v.glow>0){ ctx.save(); ctx.globalAlpha=v.glow*0.5; ctx.fillStyle=ELEM_FX[battle.lastElem||'none'];
       ctx.beginPath(); ctx.arc(px,py-hgt*0.5,hgt*0.6,0,7); ctx.fill(); ctx.restore(); v.glow=Math.max(0,v.glow-0.04*speed); }
-    // スプライト
-    ctx.save(); ctx.imageSmoothingEnabled=false;
-    const src = isPlayer?img:img;
+    // スプライト(プレイヤーは元画像を高品質のまま / 敵はドット絵)
+    ctx.save();
+    ctx.imageSmoothingEnabled = isPlayer ? true : false;
+    ctx.imageSmoothingQuality = 'high';
+    const src = img;
     if(src&&(isPlayer?img.complete: true)){
       const iw=src.width||src.naturalWidth, ih=src.height||src.naturalHeight;
-      const scale=hgt/ih; const dw=iw*scale;
+      const scale=hgt/ih; const dw=iw*scale; // 縦横比を維持
       if(!isPlayer){ ctx.translate(px,0); ctx.scale(-1,1); ctx.drawImage(src,-dw/2,py-hgt,dw,hgt); }
       else ctx.drawImage(src,px-dw/2,py-hgt,dw,hgt);
     }

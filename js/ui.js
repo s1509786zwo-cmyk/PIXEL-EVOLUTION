@@ -115,7 +115,7 @@ export function charSummary(ch, {compact=false}={}){
   const xpN = ch.level>=100?1:Math.max(1,require_xp(ch.level));
   return el('div',{class:'panel ornate'},
     el('div',{class:'char-head'},
-      el('div',{class:'char-sprite-box'+(ch.awaken>0?' awakened':'')}, el('img',{class:'pixel', src:ch.sprite, alt:ch.name})),
+      el('div',{class:'char-sprite-box'+(ch.awaken>0?' awakened':'')}, el('img',{src:ch.sprite, alt:ch.name, style:{objectFit:'contain'}})),
       el('div',{style:{flex:'1',minWidth:'180px'}},
         el('div',{class:'char-name'}, ch.name),
         el('div',{class:'char-sub'},

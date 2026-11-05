@@ -66,7 +66,7 @@ export function regenStamina(){
 }
 
 // ---------- キャラクター ----------
-export function createCharacter({name, job, style, sprite, source, crop, spriteSettings, weaponType, alloc}){
+export function createCharacter({name, job, style, sprite, source, imageEdit, weaponType, alloc}){
   const j = JOB_MAP[job];
   const ch = {
     id: uid(), name, job, style,
@@ -76,7 +76,7 @@ export function createCharacter({name, job, style, sprite, source, crop, spriteS
     skills: [], skillLv:{}, skillXp:{}, slots: [],
     awaken:0, rebirth:0, bossKills:0,
     equip: {weapon:null,armor:null,accessory:null,ornament:null},
-    source, sprite, crop: crop||null, spriteSettings: spriteSettings||null,
+    source, sprite, imageEdit: imageEdit||null,
     wins:0, losses:0, createdAt: Date.now(),
     hp:null, mp:null,
   };
