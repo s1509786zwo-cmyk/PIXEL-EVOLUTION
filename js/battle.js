@@ -70,7 +70,6 @@ export class Battle {
     };
     this.log(`【対戦開始】 ${this.player.name} Lv.${this.player.level} vs ${this.enemy.name} Lv.${this.enemy.level}`, 'system');
     this.log(`相手の戦闘スタイル：${JOB[this.enemy.job]?.name || '戦士'} / ${this.enemyDef.difficulty || 'CPU'}`, 'system');
-    if (this.enemyDef.tutorial) this.log('HP が 0 になると戦闘不能。通常攻撃は MP 不要、技は MP を消費します。', 'system');
   }
 
   /* ---------- 表示用 ---------- */

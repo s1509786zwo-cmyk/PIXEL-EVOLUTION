@@ -8,8 +8,7 @@ import {
   SLOT_NAME, AWAKENING_NAMES, MAX_LEVEL_BASE, collectedSkills, EFFECTS,
   LEARNABLE_SKILL_COUNT, SPECIAL_NAME_LABEL, specialNameKey, GOD_JOB_ID,
   ULTIMATE_GAUGE_MAX, JOB_ULTIMATE, GOD_ULTIMATE_ID, SPECIAL_ULTIMATE,
-  ULTIMATE_IDS, SKILL_COUNT, toCoreStats,
-  TUTORIAL_STEPS, TUTORIAL_HELP_TOPICS, TUTORIAL_STEP_COUNT,
+  ULTIMATE_IDS, SKILL_COUNT, toCoreStats, HINT_CATEGORIES,
   CHAR_RARITIES, CHAR_RARITY, CHAR_RARITY_ORDER, charRankIndex, EVOLUTION_RULES, RATE_TOTAL,
 } from './data.js?v=2';
 import {
@@ -22,8 +21,7 @@ import {
   buildEnemyCombatant, hasSaveFlag, AURAS, gachaRates, defaultPixelSettings,
   defaultImageSettings, evolutionPreview, equipmentEvolvePreview, instanceRank,
   PITY_LEGENDARY, PITY_MYTHIC, charRank, upgradeMaterial,
-  jobChangeCandidates, tutorialStepChecks, tutorialCanAdvance,
-  tutorialRewardCoins, equipmentGachaCost, TUTORIAL_REWARD_PULLS, defaultTutorial,
+  jobChangeCandidates, hintState, hintRewardCoins, equipmentGachaCost, HINT_REWARD_PULLS,
 } from './state.js?v=2';
 import {
   materialIcon, MATERIAL_ITEMS, MATERIAL_BY_ID, MAT_RANKS, MAT_RANK_INFO,
@@ -324,15 +322,11 @@ function gatherScreen(app, s) {
     <div class="panel soft mt"><h4>📗 素材図鑑を確認</h4><p class="muted">素材をクリックすると必要個数・入手方法・合成先を確認できます。</p><button class="btn btn-glass" data-action="nav" data-to="codex" data-codex-tab="6">素材図鑑を開く</button></div></main>${toastArea(app)}`;
 }
 function helpScreen(app, s) {
-  const t = s.tutorial || defaultTutorial();
-  const resumeLabel = t.status === 'skipped' ? 'チュートリアルを再開する'
-    : t.status === 'active' ? `チュートリアル STEP ${t.step} に戻る`
-    : t.completed ? 'チュートリアルをもう一度プレイする' : 'チュートリアルを始める';
   return `${navBar(app,s)}<main class="page"><div class="page-head"><div><h2>❓ ヘルプ / 遊び方</h2><p>各施設の使い方と育成の仕組み。閲覧してもゲームの進行状況は変わりません。</p></div><button class="btn btn-ghost" data-action="nav" data-to="town">🏰 街へ戻る</button></div>
-    <div class="callout gold">📘 <b>${e(resumeLabel)}</b> ／ チュートリアルは任意で開始・スキップでき、途中から再開できます。
-      <div class="row-btns mt"><button class="btn btn-primary btn-mini" data-action="tutorialResume">${e(resumeLabel)}</button></div></div>
-    <h3 class="section-title">📚 システム解説 <small>全 ${TUTORIAL_HELP_TOPICS.length} 項目</small></h3>
-    <div class="help-topics">${TUTORIAL_HELP_TOPICS.map(x=>`<section class="help-topic"><span>${x.icon}</span><div><b>${e(x.name)}</b><p>${e(x.text)}</p></div></section>`).join('')}</div>
+    <div class="callout gold">💡 <b>次にやるべきことは「ゲームのヒント」で確認できます。</b> 進行状況に合わせた目標・不足条件・施設への移動ボタンを表示します。
+      <div class="row-btns mt"><button class="btn btn-primary btn-mini" data-action="nav" data-to="hints">💡 ゲームのヒントを開く</button></div></div>
+    <h3 class="section-title">📚 システム解説 <small>全 ${HINT_CATEGORIES.length} 項目</small></h3>
+    <div class="help-topics">${HINT_CATEGORIES.map(x=>`<section class="help-topic"><span>${x.icon}</span><div><b>${e(x.name)}</b><p>${e(x.text)}</p></div></section>`).join('')}</div>
     <div class="two-col mt"><section class="panel soft"><h3>🎮 あそび方</h3><ol class="flow">
       <li>タイトルで<b>ゲームスタート</b> → <b>街のホーム画面</b></li>
       <li>キャラクター未作成なら街の「キャラクターを作成する」から作成（完了後は街へ戻る）</li>
@@ -381,85 +375,80 @@ function jobChangeModal(app, s) {
   </div></div>`;
 }
 
-/* ---------------- チュートリアル（任意開始・実操作で進む） ---------------- */
-function tutorialActionButtons(app, s, t) {
-  const nav = (label, to, facility, tab) => `<button class="btn btn-mini" data-action="nav" data-to="${to}" ${facility?`data-facility="${facility}"`:''} ${tab!==undefined?`data-tab="${tab}"`:''}>${label}</button>`;
-  const act = (label, action, extra='') => `<button class="btn btn-mini btn-glass" data-action="${action}" ${extra}>${label}</button>`;
-  switch (t.step) {
-    case 1: return nav('✦ 育成の間へ','facility','nurture',0) + act('📈 練習で経験値を獲得','tutorialExp');
-    case 2: return nav('⚒ 工房へ','facility','forge',0) + nav('✧ ガチャタブを見る','facility','forge',1)
-      + act('🎁 無料の練習用ガチャを引く','tutorialGacha') + act('⚔ 獲得武器を装備する','tutorialEquip');
-    case 3: return nav('🏛 CPU対戦の画面へ','facility','guild',0) + act('⚔ 練習用の敵と戦う','tutorialBattle')
-      + (app.screen === 'battle' ? act('AUTO を切り替える','battleAuto')
-        + (app.battle?.autoMode
-          ? `<button class="btn btn-mini btn-glass" data-action="battleSpeed" data-speed="2">2倍速にする</button>`
-            + `<button class="btn btn-mini btn-glass" data-action="battleSpeed" data-speed="3">3倍速にする</button>`
-          : '<small class="tp-hint">速度変更は AUTO を ON にしてから</small>')
-        + act('🗡 手動で技を使う','tutorialManualSkill') : '');
-    case 4: return nav('💠 素材集めへ','gather') + act('📦 進化素材を獲得する','tutorialGather')
-      + nav('✦ 育成の間・進化へ','facility','nurture',4);
-    default: return '';
-  }
+/* ---------------- ゲームのヒント（進行状況から自動生成） ---------------- */
+function hintAction(a, cls = 'btn-glass') {
+  if (!a) return '';
+  return `<button class="btn btn-mini ${cls}" data-action="${a.action}"
+    ${a.to ? `data-to="${a.to}"` : ''} ${a.facility ? `data-facility="${a.facility}"` : ''}
+    ${a.tab !== undefined ? `data-tab="${a.tab}"` : ''}>${e(a.label)}</button>`;
 }
-function tutorialPanel(app, s) {
-  const t = s.tutorial || defaultTutorial();
-  if (!t || t.status === 'notOffered') return '';
-  // ヘルプ閲覧中はパネルを出さない（進行状況も一切変化させない）
-  if (app.screen === 'help' && !app.tutorialHidden) return '';
-  if (app.tutorialHidden) {
-    return `<button class="tutorial-reopen" data-action="tutorialShow">📘 チュートリアル${t.status==='active'?` STEP ${t.step}`:''}</button>`;
-  }
-  const wrap = (cls, body) => `<aside class="tutorial-panel ${cls}">${body}</aside>`;
-  const closeBtn = `<button class="tp-close" data-action="tutorialHide" title="一時的に隠す">×</button>`;
+function hintCondRow(ch) {
+  return `<div class="hint-cond ${ch.met ? 'ok' : 'todo'}">
+    <span class="hc-mark">${ch.met ? '✔' : '○'}</span>
+    <div class="hc-body"><b>${e(ch.label)}</b>${ch.detail ? `<small class="${ch.met ? '' : 'short'}">${ch.met ? '' : '⚠ '}${e(ch.detail)}</small>` : ''}</div>
+    ${hintAction(ch.jump)}</div>`;
+}
+/** 街のホーム画面だけに出す小さなヒント。戦闘中・操作中には一切出さない */
+function hintBanner(app, s) {
+  const H = hintState(s);
+  if (H.bannerDismissed) return '';
+  return `<div class="hint-banner">
+    <span class="hb-icon">💡</span>
+    <div class="hb-text"><b>${e(H.bannerText)}</b><small>${e(H.next.desc)}</small></div>
+    <div class="hb-btns"><button class="btn btn-mini btn-primary" data-action="nav" data-to="hints">ヒントを見る</button>
+      <button class="btn btn-mini btn-ghost" data-action="hintDismiss" data-key="${e(H.bannerKey)}">閉じる</button></div>
+  </div>`;
+}
+function hintsScreen(app, s) {
+  const H = hintState(s);
+  const N = H.next;
+  const cid = app.hintCategory && app.hintCategory !== 'next' ? app.hintCategory : N.category;
+  const cat = H.categories.find(x => x.id === cid) || H.categories[0];
+  const chip = (icon, label, val) => `<span class="hint-chip">${icon} ${label} <b>${e(String(val))}</b></span>`;
+  return `${navBar(app,s)}<main class="page hints-page">
+    <div class="page-head"><div><h2>💡 ゲームのヒント</h2><p>いまの進行状況から、次にやるべきことと必要な条件を自動で案内します。</p></div>
+      <button class="btn btn-ghost" data-action="nav" data-to="town">🏰 街へ戻る</button></div>
 
-  if (t.status === 'offered') {
-    return wrap('tp-offer', `${closeBtn}
-      <div class="tp-eyebrow">🎓 TUTORIAL</div>
-      <h3>チュートリアルを始めますか？</h3>
-      <p>ゲーム開始時に作成したキャラクターをそのまま使い、育成、装備・ガチャ、CPU対戦、素材集め、ランク進化まで<b>実際に操作しながら</b>覚えられます。キャラクター作成のやり直しは不要です。強制ではありません。</p>
-      <p class="muted small">Clear で装備ガチャ ${TUTORIAL_REWARD_PULLS} 連分のコイン（${fmt(tutorialRewardCoins())}コイン）をプレゼント。</p>
-      <div class="tp-btns"><button class="btn btn-primary" data-action="tutorialStart">チュートリアルを始める</button>
-      <button class="btn btn-glass" data-action="tutorialSkip">チュートリアルをスキップする</button></div>`);
-  }
-  if (t.status === 'skipped') {
-    return wrap('tp-skipped', `${closeBtn}<div class="tp-eyebrow">🎓 TUTORIAL</div>
-      <p>チュートリアルはスキップしました。後からいつでも再開できます。<b>スキップだけでは報酬は付きません。</b></p>
-      <div class="tp-btns"><button class="btn btn-primary btn-mini" data-action="tutorialResume">途中から再開する</button></div>`);
-  }
-  if (t.status === 'complete') {
-    const coins = tutorialRewardCoins(), claimed = t.rewardClaimed;
-    return wrap('tp-complete', `${closeBtn}
-      <div class="tp-eyebrow">🎓 TUTORIAL CLEAR</div>
-      <h3>チュートリアルクリア！</h3>
-      <p>全 ${TUTORIAL_STEP_COUNT-1} STEP をクリアしました。お疲れさまでした！</p>
-      <div class="tp-reward">
-        <div class="tpr-label">🎁 完了報酬</div>
-        <div class="tpr-main">🪙 ${fmt(claimed ? t.rewardCoins : coins)} コイン</div>
-        <div class="tpr-sub">「装備ガチャ ${TUTORIAL_REWARD_PULLS} 連分」<small>（1回 ${fmt(equipmentGachaCost())} コイン × ${TUTORIAL_REWARD_PULLS}、現在の消費コインから自動計算）</small></div>
-      </div>
-      ${claimed
-        ? `<p class="muted small">✅ 報酬は受け取り済みです（再プレイでも再付与されません）。</p>
-           <div class="tp-btns"><button class="btn btn-primary btn-mini" data-action="nav" data-to="facility" data-facility="forge" data-tab="1">✧ 装備ガチャを引く</button>
-           <button class="btn btn-glass btn-mini" data-action="nav" data-to="town">🏰 街のホーム画面に戻る</button></div>
-           <div class="tp-btns"><button class="btn btn-ghost btn-mini" data-action="tutorialReplay">🔁 チュートリアルを再プレイ</button></div>`
-        : `<div class="tp-btns"><button class="btn btn-primary" data-action="tutorialClaim">🪙 コインを受け取る</button></div>`}
-      `);
-  }
-  // active
-  const def = TUTORIAL_STEPS.find(x => x.id === t.step) || TUTORIAL_STEPS[0];
-  const checks = tutorialStepChecks(s, t.step);
-  const ready = tutorialCanAdvance(s);
-  return wrap('tp-active', `${closeBtn}
-    <div class="tp-eyebrow">🎓 TUTORIAL　STEP ${t.step} / ${TUTORIAL_STEP_COUNT-1}</div>
-    <h3>${e(def.title)}</h3>
-    <p>${e(def.desc)}</p>
-    ${def.tips?.length ? `<ul class="tp-tips">${def.tips.map(x=>`<li>${e(x)}</li>`).join('')}</ul>` : ''}
-    ${def.note ? `<p class="tp-note">${e(def.note)}</p>` : ''}
-    ${checks.length ? `<div class="tp-checks">${checks.map(ch=>`<div class="tp-check ${ch.done?'done':''}"><span>${ch.done?'✔':'○'}</span>${e(ch.label)}</div>`).join('')}</div>` : ''}
-    <div class="tp-btns">${tutorialActionButtons(app, s, t)}</div>
-    <div class="tp-btns"><button class="btn btn-primary btn-mini" data-action="tutorialNext" ${ready?'':'disabled'}>${ready?'次の STEP へ →':'上の操作をすべて体験すると進めます'}</button>
-    <button class="btn btn-ghost btn-mini" data-action="tutorialHide">あとで</button></div>
-    <div class="tp-progress">${TUTORIAL_STEPS.slice(0,TUTORIAL_STEP_COUNT-1).map(x=>`<span class="${t.done.includes(x.id)?'done':x.id===t.step?'now':''}">${x.id}</span>`).join('')}</div>`);
+    <section class="hint-next">
+      <div class="hn-eye">🎯 次にやるべきこと</div>
+      <h2>次の目標：${e(N.title)}</h2>
+      <p class="hn-desc">${e(N.desc)}</p>
+      <div class="hint-chips">${chip('🧙','キャラ',H.summary.hasChar?'作成済み':'未作成')}${chip('📈','Lv',H.summary.level)}
+        ${chip('✦','ランク',H.summary.rarity)}${chip('⚒','装備',`${H.summary.equipped}/${H.summary.slots}`)}
+        ${chip('🪙','コイン',fmt(H.summary.coins))}${chip('💠','素材種',H.summary.matKinds)}
+        ${chip('📜','章',H.summary.storyChapter)}${chip('🏛','対戦',`${H.summary.wins}勝`)}</div>
+      <h4>達成に必要な条件 <small>${N.conditions.filter(x=>x.met).length} / ${N.conditions.length} 満たしています</small></h4>
+      <div class="hint-conds">${N.conditions.map(hintCondRow).join('')}</div>
+      <div class="hint-actions">${N.actions.map(a=>hintAction(a,'btn-primary')).join('')}</div>
+      <div class="hint-progress">🏁 主要な目標 ${H.completed} / ${H.goalCount} 達成済み　${H.unlocks.length?`<span class="hint-unlock">${e(H.unlocks.map(u=>u.text).join(' ／ '))}</span>`:''}</div>
+    </section>
+
+    <section class="hint-reward ${H.reward.claimed ? 'claimed' : ''}">
+      <div class="hr-eye">🎁 ゲーム開始記念ボーナス</div>
+      <div class="hr-main">🪙 ${fmt(H.reward.claimed ? H.reward.coins : H.reward.amount)} コイン</div>
+      <div class="hr-sub">「装備ガチャ ${H.reward.pulls} 連分」<small>1 回 ${fmt(H.reward.perPull)} コイン × ${H.reward.pulls}　/　現在の消費コインから自動計算（固定値ではありません）</small></div>
+      ${H.reward.claimed
+        ? `<p class="muted small">✅ 受け取り済みです。1 アカウントにつき 1 回のみで、再受取はできません。</p>
+           <div class="hint-actions">${hintAction({label:'✧ 装備ガチャを引く',action:'nav',to:'facility',facility:'forge',tab:1},'btn-primary')}
+           ${hintAction({label:'🏰 街のホーム画面に戻る',action:'nav',to:'town'},'btn-glass')}</div>`
+        : `<div class="hint-actions"><button class="btn btn-primary" data-action="hintClaim">🪙 コインを受け取る</button></div>`}
+    </section>
+
+    <h3 class="section-title">📚 ヒントの分類 <small>全 ${H.categories.length} カテゴリ</small></h3>
+    <div class="hint-cats">${H.categories.map(x=>`<button class="hint-cat ${x.id===cat.id?'sel':''} ${x.met?'done':''}" data-action="hintCategory" data-cat="${x.id}">
+      <span>${x.icon}</span><b>${e(x.name)}</b><small>${x.met?'✔ 達成済み':'○ 挑戦中'}</small></button>`).join('')}</div>
+
+    <section class="hint-detail">
+      <div class="hd-head"><span class="hd-icon">${cat.icon}</span><div><h3>${e(cat.name)}</h3><p>${e(cat.text)}</p></div>
+        <span class="pill ${cat.met?'on':''}">${cat.met?'達成済み':'これから'}</span></div>
+      <div class="hd-status">📊 現在の状況：<b>${e(cat.status)}</b></div>
+      <h4>🎯 具体的な目標：${e(cat.goal)}</h4>
+      <div class="hint-conds">${cat.conditions.map(hintCondRow).join('') || '<p class="muted">条件はありません</p>'}</div>
+      <div class="hint-actions">${cat.actions.map(a=>hintAction(a,'btn-primary')).join('')}</div>
+    </section>
+    <div class="hint-foot"><button class="btn btn-ghost btn-mini" data-action="hintShowBanner">🔔 街のホームにヒントを再表示する</button>
+      <span class="muted small">ヒントは閲覧するだけでは進行状況・所持アイテムは変化しません。閉じても「💡 ゲームのヒント」からいつでも確認できます。</span></div>
+  </main>${toastArea(app)}`;
 }
 
 /* ============================ 街 ============================ */
@@ -482,14 +471,15 @@ function townScreen(app, s) {
         <button class="btn btn-primary" data-action="nav" data-to="facility" data-facility="guild" data-tab="0">⚔ CPU対戦へ</button>
         <button class="btn btn-glass" data-action="nav" data-to="character">🧙 キャラクター</button>
         <button class="btn btn-glass" data-action="nav" data-to="codex">📖 図鑑</button>
-        <button class="btn btn-glass" data-action="nav" data-to="help">📖 遊び方 / チュートリアル</button>
-        ${s.tutorial?.status === 'active' ? `<button class="btn btn-glass" data-action="tutorialShow">📘 チュートリアル再表示</button>` : ''}
+        <button class="btn btn-primary" data-action="nav" data-to="hints">💡 ゲームのヒント</button>
+        <button class="btn btn-glass" data-action="nav" data-to="help">📖 遊び方</button>
         <button class="btn btn-glass" data-action="nav" data-to="endgame">🏆 やり込み</button>
         ${c ? `<button class="btn btn-glass" data-action="newChar">🎨 新規作成</button>` : ''}
         <button class="btn btn-ghost" data-action="saveNow">💾 今すぐセーブ</button>
       </div>
       ${c && c.specialKey ? `<div class="callout gold">✵ 特殊ギミック発動：<b>${e(SPECIAL_NAME_LABEL[c.specialKey])}</b> の名を宿す者。特殊役職「神」と専用奥義が解放されています。${c.godUnlocked && c.jobId===GOD_JOB_ID ? '現在「神」に就いています。' : '役職変更はランクアップ時・転生時のみ可能です。'}</div>` : ''}
     </div>
+    ${hintBanner(app,s)}
     ${!c ? `<div class="home-create-banner"><div><h3>🎨 まずはキャラクターを作成しよう</h3><p>元画像をそのまま使って、街の施設で育成・装備・ガチャ・対戦ができます。</p></div><button class="btn btn-primary btn-lg" data-action="newChar">キャラクターを作成する →</button></div>` : ''}
     <h3 class="section-title">🏛 5つの施設 <small>それぞれの背景はあなたが添付した画像をそのまま使用しています</small></h3>
     <div class="facility-cards">${FACILITIES.map(f => `
@@ -1483,6 +1473,7 @@ export function renderScreen(app, s) {
     case 'story': return storyScreen(app,s);
     case 'gather': return gatherScreen(app,s);
     case 'help': return helpScreen(app,s);
+    case 'hints': return hintsScreen(app,s);
     case 'facility': return facilityScreen(app,s);
     case 'character': return characterScreen(app,s);
     case 'appearance': return appearanceScreen(app,s);
@@ -1494,6 +1485,5 @@ export function renderScreen(app, s) {
     default: return titleScreen(app,s);
   } })();
   return html + materialModal(app, s) + gachaRatesModal(app, s)
-    + weaponDetailModal(app, s) + gachaPresentation(app, s) + jobChangeModal(app, s)
-    + tutorialPanel(app, s);
+    + weaponDetailModal(app, s) + gachaPresentation(app, s) + jobChangeModal(app, s);
 }

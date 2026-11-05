@@ -10,8 +10,7 @@ import {
   SKILL_COUNT, LEARNABLE_SKILLS, ULTIMATE_IDS, JOB_ULTIMATE, GOD_ULTIMATE_ID,
   SPECIAL_ULTIMATE, specialNameKey, SPECIAL_NAME_LABEL, GOD_JOB_ID, GOD_SKILL_IDS,
   GOD_EQUIPMENT_IDS, GOD_EQUIPMENT, ULTIMATE_GAUGE_MAX,
-  toCoreStats, LEGACY_TO_CORE, LEGACY_STAT_KEYS,
-  TUTORIAL_STEPS, TUTORIAL_STEP_COUNT, TUTORIAL_ENEMY,
+  toCoreStats, LEGACY_TO_CORE, LEGACY_STAT_KEYS, HINT_CATEGORIES,
 } from './data.js?v=2';
 import { MATERIAL_ITEMS, MATERIAL_BY_ID, MAT_RANKS, MAT_RANK_INFO, RANK_REQUIREMENTS, materialUpgradeTarget } from './materials.js?v=2';
 import {
@@ -168,7 +167,9 @@ function migrate(s) {
   merged.version = VERSION;
   merged.home = { ...d.home, ...(s.home || {}) };
   merged.story = { ...d.story, ...(s.story || {}), seen:s.story?.seen || [], cleared:s.story?.cleared || [] };
-  merged.tutorial = normalizeTutorial(s.tutorial, merged);
+  // 旧チュートリアルの報酬受取状況だけ hints へ引き継ぎ、進行データは破棄する
+  merged.hints = normalizeHints(s.hints, s.tutorial);
+  delete merged.tutorial;
   merged.settings = { ...d.settings, ...(s.settings || {}) };
   merged.settings.autoSpeed = clamp(Number(merged.settings.autoSpeed) || 1, 1, 3);
   merged.settings.autoUltimate = merged.settings.autoUltimate !== false;
@@ -287,7 +288,7 @@ export function newState() {
       autoOn: false, autoSpeed: 1, autoUltimate: true },
     home: { started:false, lastVisit:null, lastMenu:null },
     story: { chapter:1, seen:[], cleared:[] },
-    tutorial: defaultTutorial(),
+    hints: defaultHints(),
     inventory: { items: { potion_s:3, ether_s:2, antidote:1, mat_ore:2, evo_stone_R:3, weapon_ore_R:2 }, equipment: [] },
     pity: { weapon: normalizePity(), armor: normalizePity() },
     catalog: { equipment: [], skills: [], jobs: [], enemies: [], titles: ['t_none'], materials: ['evo_stone_R','weapon_ore_R'] },
@@ -1343,8 +1344,7 @@ export function rankInfo(state) {
 export function battleRewards(state, c, enemy, won, meta = {}) {
   const eff = { ...computeStats(c, state).effects, ...(TITLE[c.titleId]?.bonus || {}) };
   const effBonus = (id) => 1 + (eff[id] || 0) / 100;
-  const base = enemy.tutorial ? 110
-    : enemy.level * 14 + (enemy.tier || 0) * 90 + (enemy.boss ? 260 : 0) + (meta.floor ? meta.floor * 22 : 0);
+  const base = enemy.level * 14 + (enemy.tier || 0) * 90 + (enemy.boss ? 260 : 0) + (meta.floor ? meta.floor * 22 : 0);
   const mult = won ? 1 : 0.22;
   const streakBonus = won ? 1 + Math.min(0.6, state.winStreak * 0.04) : 1;
   const coins = Math.max(12, Math.round(base * mult * streakBonus * effBonus('coinBonus') * (meta.dungeon ? 1.3 : 1)));
@@ -1493,7 +1493,6 @@ export function buildEnemyCombatant(enemy, scale = 1) {
 }
 
 export function enemyUnlocked(state, enemy) {
-  if (enemy.tutorial) return true;
   if (enemy.hidden) return hiddenBossUnlocked(state, activeChar(state) || blankCharacter());
   if (enemy.boss) return state.stats.wins >= 6 && rankInfo(state).idx >= 1;
   if (enemy.tier >= 1) return state.stats.wins >= 3;
@@ -1501,276 +1500,304 @@ export function enemyUnlocked(state, enemy) {
 }
 
 /* ===========================================================
-   チュートリアル（任意開始・途中再開・完了報酬は 1 アカウント 1 回）
+   ゲームのヒント（進行状況から「次にやるべきこと」を組み立てる）
    =========================================================== */
-export const TUTORIAL_REWARD_PULLS = 30;
+export const HINT_REWARD_PULLS = 30;
 
 /** 装備ガチャ 1 回分のコイン。将来 GACHA_COST が変わっても追従する */
 export function equipmentGachaCost() { return GACHA_COST; }
 /** 「装備ガチャ 30 連分」を固定値ではなく現在の消費コインから計算 */
-export function tutorialRewardCoins() { return equipmentGachaCost() * TUTORIAL_REWARD_PULLS; }
+export function hintRewardCoins() { return equipmentGachaCost() * HINT_REWARD_PULLS; }
 
-export function defaultTutorial() {
+export function defaultHints() {
   return {
-    version: 2,              // v2: 旧 STEP1（キャラクター作成）を廃止して番号を 1 つ詰めた
-    status: 'notOffered',      // notOffered / offered / active / skipped / complete
-    step: 1,
-    done: [],
-    skipped: false,
-    completed: false,
-    rewardClaimed: false,
+    version: 1,
+    rewardClaimed: false,      // 旧チュートリアル完了報酬を引き継ぐ（1 アカウント 1 回）
     rewardCoins: 0,
     rewardAt: null,
-    practicePulls: 0,
-    practiceEquip: [],          // 練習ガチャで獲得した装備 uid（消失防止）
-    earnedCoins: 0,             // チュートリアル中に獲得したコイン総額
-    charLevel: 0,               // チュートリアル時点のキャラ Lv / ランク
-    charRank: 'R',
-    startSkills: [],            // 開始時点の技・奥義（差分だけ記録）
-    startUltimates: [],
-    learnedSkills: [],          // チュートリアル中に習得した技
-    learnedUltimates: [],       // チュートリアル中に習得した奥義
-    flags: {},                  // 各ステップの操作完了フラグ
-    startedAt: null,
+    dismissed: [],             // 閉じた街ホームのヒント（目標 id / 解放 id）
     updatedAt: null,
-    replays: 0,
   };
 }
-/** 旧セーブ／破損データの補完。報酬受取済みフラグは絶対に消さない */
-export function normalizeTutorial(src, state) {
-  // 既存オブジェクトの参照を保ったまま補完する。
-  // 呼ぶたびに別オブジェクトへ差し替えると、呼び出し元が保持した t への
-  // step++ / rewardClaimed などの書き込みが state.tutorial へ反映されない。
-  let t = src;
-  if (!t || typeof t !== 'object') t = defaultTutorial();
-  const d = defaultTutorial();
-  for (const k of Object.keys(d)) if (t[k] === undefined) t[k] = d[k];
-  // v1 → v2: キャラクター作成 STEP を廃止したので、進行番号と完了リストを 1 つ詰める。
-  // 旧 STEP1 で止まっていた人は新しい STEP1（育成の間）から再開する。
-  if (Number(t.version) < 2 && src) {
-    const oldStep = Number(src.step) || 1;
-    const oldDone = Array.isArray(src.done) ? src.done : [];
-    t.step = Math.max(1, oldStep - 1);
-    t.done = oldDone.map(n => Number(n) - 1).filter(n => Number.isInteger(n) && n >= 1);
+/** 旧セーブ補完。既存オブジェクトの参照を保つ（書き込みが消えないように） */
+export function normalizeHints(src, legacyTutorial) {
+  let h = src && typeof src === 'object' ? src : defaultHints();
+  const d = defaultHints();
+  for (const k of Object.keys(d)) if (h[k] === undefined) h[k] = d[k];
+  if (legacyTutorial?.rewardClaimed && !h.rewardClaimed) {
+    h.rewardClaimed = true;
+    h.rewardCoins = Number(legacyTutorial.rewardCoins) || hintRewardCoins();
+    h.rewardAt = legacyTutorial.rewardAt || null;
   }
-  if (!t.flags || typeof t.flags !== 'object' || Array.isArray(t.flags)) t.flags = {};
-  t.done = Array.isArray(t.done)
-    ? t.done.filter(n => Number.isInteger(n) && n >= 1 && n <= TUTORIAL_STEP_COUNT - 1) : [];
-  t.practiceEquip = Array.isArray(t.practiceEquip) ? t.practiceEquip.filter(Boolean) : [];
-  for (const k of ['startSkills','startUltimates','learnedSkills','learnedUltimates'])
-    t[k] = Array.isArray(t[k]) ? t[k].filter(Boolean) : [];
-  t.earnedCoins = Number(t.earnedCoins) || 0;
-  t.charLevel = Number(t.charLevel) || 0;
-  t.charRank = t.charRank || 'R';
-  t.practicePulls = Number(t.practicePulls) || 0;
-  t.rewardClaimed = !!t.rewardClaimed;
-  t.rewardCoins = Number(t.rewardCoins) || 0;
-  t.rewardAt = t.rewardAt || null;
-  t.completed = !!t.completed || (t.status === 'complete');
-  t.skipped = !!t.skipped;
-  t.replays = Number(t.replays) || 0;
-  const statuses = ['notOffered','offered','active','skipped','complete'];
-  if (!statuses.includes(t.status)) t.status = 'notOffered';
-  // 既存キャラがいる旧セーブ／未提示セーブには「任意で始められる」選択肢を出す
-  if (state?.characters?.length && t.status === 'notOffered'
-      && (!src || src.status === 'notOffered')) t.status = 'offered';
-  t.step = clamp(Number(t.step) || 1, 1, TUTORIAL_STEP_COUNT);
-  if (t.status === 'complete') t.step = TUTORIAL_STEP_COUNT;
-  t.version = 2;
-  return t;
+  h.rewardClaimed = !!h.rewardClaimed;
+  h.rewardCoins = Number(h.rewardCoins) || 0;
+  h.dismissed = Array.isArray(h.dismissed) ? h.dismissed.filter(x => typeof x === 'string') : [];
+  h.version = 1;
+  return h;
 }
-/** チュートリアル中に獲得したコインを記録（報酬とは別に累計） */
-export function tutorialAddEarnedCoins(state, amount) {
-  const t = state.tutorial = normalizeTutorial(state.tutorial, state);
-  if (!t || t.status === 'notOffered' || t.status === 'offered') return;
-  const n = Math.max(0, Math.round(Number(amount) || 0));
-  if (!n) return;
-  t.earnedCoins += n;
-  t.updatedAt = new Date().toISOString();
-}
-/** キャラの Lv / ランクと、開始時点から増えた技・奥義を保存（二重記録しない） */
-export function tutorialCaptureProgress(state) {
-  const t = state.tutorial = normalizeTutorial(state.tutorial, state);
-  const c = activeChar(state);
-  if (!c) return t;
-  t.charLevel = c.level;
-  t.charRank = c.rarity || 'R';
-  for (const sk of (c.skills || [])) {
-    const id = sk.id || sk;
-    if (!t.startSkills.includes(id) && !t.learnedSkills.includes(id)) t.learnedSkills.push(id);
-  }
-  for (const id of (c.ultimateSkills || []))
-    if (!t.startUltimates.includes(id) && !t.learnedUltimates.includes(id)) t.learnedUltimates.push(id);
-  t.updatedAt = new Date().toISOString();
-  return t;
-}
-export function tutorialOffer(state) {
-  const t = state.tutorial = normalizeTutorial(state.tutorial, state);
-  if (t.status === 'notOffered') { t.status = 'offered'; t.updatedAt = new Date().toISOString(); }
-  return t;
-}
-export function tutorialStart(state) {
-  const t = state.tutorial = normalizeTutorial(state.tutorial, state);
-  // 完了後の再プレイでは進行だけリセット。報酬受取済み・獲得装備は保持。
-  if (t.completed || t.status === 'complete') {
-    t.done = []; t.flags = {}; t.step = 1; t.replays++;
-  }
-  t.status = 'active'; t.skipped = false;
-  const c0 = activeChar(state);
-  if (!t.startSkills.length && c0) {
-    t.startSkills = (c0.skills || []).map(k => k.id || k);
-    t.startUltimates = [...(c0.ultimateSkills || [])];
-  }
-  t.startedAt = t.startedAt || new Date().toISOString();
-  t.updatedAt = new Date().toISOString();
-  tutorialCaptureProgress(state);
-  return { ok:true, msg:'チュートリアルを開始しました' };
-}
-export function tutorialSkip(state) {
-  const t = state.tutorial = normalizeTutorial(state.tutorial, state);
-  t.status = 'skipped'; t.skipped = true; t.updatedAt = new Date().toISOString();
-  return { ok:true, msg:'チュートリアルをスキップしました（後から再開できます）' };
-}
-/** 進行状況はそのままに再開（スキップ／一時中断から） */
-export function tutorialResume(state) {
-  const t = state.tutorial = normalizeTutorial(state.tutorial, state);
-  if (t.completed) return tutorialStart(state);
-  t.status = 'active'; t.skipped = false; t.updatedAt = new Date().toISOString();
-  return { ok:true, msg:`チュートリアル STEP ${t.step} から再開しました` };
-}
-export function tutorialMarkFlag(state, key, value = true) {
-  const t = state.tutorial = normalizeTutorial(state.tutorial, state);
-  if (!t || !key) return false;
-  const changed = t.flags[key] !== value;
-  t.flags[key] = value;
-  t.updatedAt = new Date().toISOString();
-  return changed;
-}
-/** 実際の操作イベントを進行フラグへ反映する（画面遷移・戦闘など） */
-export function tutorialTrack(state, event, p = {}) {
-  const t = state.tutorial = normalizeTutorial(state.tutorial, state);
-  if (t.status !== 'active') return false;
-  let hit = false;
-  const set = k => { if (!t.flags[k]) { t.flags[k] = true; hit = true; } };
-  switch (event) {
-    case 'nav':
-      if (p.to === 'gather') set('visitedGather');
-      if (p.to === 'facility') {
-        if (p.facility === 'nurture') set('visitedNurture');
-        if (p.facility === 'forge') set('visitedForge');
-        if (p.facility === 'guild' || p.facility === 'training') set('visitedBattle');
-      }
-      break;
-    case 'levelUp': if (p.levels > 0) set('leveled'); break;
-    case 'equip': set('equipped'); break;
-    case 'evolve': set('evolved'); break;
-    case 'battleAuto': set('autoToggled'); break;
-    case 'battleSpeed': set('speedChanged'); break;
-    case 'manualSkill': set('manualSkill'); break;
-    case 'battleEnd': if (p.won) set('battleWon'); break;
-  }
-  if (hit) t.updatedAt = new Date().toISOString();
-  return hit;
-}
-export function tutorialStepChecks(state, step = null) {
-  const t = state.tutorial = normalizeTutorial(state.tutorial, state);
-  const n = clamp(step || t.step, 1, TUTORIAL_STEP_COUNT);
-  const def = TUTORIAL_STEPS.find(x => x.id === n);
-  return (def?.checks || []).map(ch => ({ ...ch, done: !!t.flags[ch.key] }));
-}
-export function tutorialCanAdvance(state) {
-  const t = state.tutorial = normalizeTutorial(state.tutorial, state);
-  if (t.status !== 'active' || t.step >= TUTORIAL_STEP_COUNT) return false;
-  return tutorialStepChecks(state, t.step).every(ch => ch.done);
-}
-/** 全チェックが揃ったときだけ進む。STEP 5 完了で完了画面へ */
-export function tutorialNext(state) {
-  const t = state.tutorial = normalizeTutorial(state.tutorial, state);
-  if (t.status !== 'active') return { ok:false, msg:'チュートリアルが開始されていません' };
-  if (t.step >= TUTORIAL_STEP_COUNT) return { ok:false, msg:'最終ステップです' };
-  if (!tutorialCanAdvance(state)) return { ok:false, msg:'このステップの操作をすべて体験してください' };
-  if (!t.done.includes(t.step)) t.done.push(t.step);
-  t.step++;
-  t.updatedAt = new Date().toISOString();
-  tutorialCaptureProgress(state);
-  if (t.step >= TUTORIAL_STEP_COUNT) {
-    t.status = 'complete'; t.completed = true;
-    logEvent(state, 'チュートリアルを全ステップクリアした！', 'tutorial');
-    return { ok:true, completed:true, msg:'チュートリアルクリア！' };
-  }
-  return { ok:true, completed:false, msg:`STEP ${t.step} へ進みました` };
-}
-/** 完了報酬。1 アカウント 1 回のみ、全ステップ完了が条件 */
-export function tutorialClaimReward(state) {
-  const t = state.tutorial = normalizeTutorial(state.tutorial, state);
-  if (t.rewardClaimed) return { ok:false, msg:'報酬はすでに受け取り済みです' };
-  if (!t.completed || t.status !== 'complete') return { ok:false, msg:'チュートリアルを最後までクリアしてください' };
-  if (t.done.length < TUTORIAL_STEP_COUNT - 1) return { ok:false, msg:'未クリアのステップがあります' };
-  const coins = tutorialRewardCoins();       // 固定値ではなく現在のガチャ消費から算出
+/** ゲーム開始記念の「装備ガチャ 30 連分」。1 アカウント 1 回のみ */
+export function claimHintReward(state) {
+  const h = state.hints = normalizeHints(state.hints);
+  if (h.rewardClaimed) return { ok:false, msg:'報酬はすでに受け取り済みです' };
+  const coins = hintRewardCoins();          // 固定値禁止・現在の 1 回コストから算出
   addCoins(state, coins);
-  tutorialAddEarnedCoins(state, coins);
-  tutorialCaptureProgress(state);
-  t.rewardClaimed = true; t.rewardCoins = coins;
-  t.rewardAt = new Date().toISOString(); t.updatedAt = t.rewardAt;
-  logEvent(state, `チュートリアル完了報酬：装備ガチャ ${TUTORIAL_REWARD_PULLS} 連分（${fmt(coins)}コイン）を受け取った。`, 'tutorial');
-  return { ok:true, coins, pulls:TUTORIAL_REWARD_PULLS,
-    msg:`装備ガチャ ${TUTORIAL_REWARD_PULLS} 連分（${fmt(coins)}コイン）を獲得！` };
+  h.rewardClaimed = true; h.rewardCoins = coins;
+  h.rewardAt = new Date().toISOString(); h.updatedAt = h.rewardAt;
+  logEvent(state, `ゲームのヒント：装備ガチャ ${HINT_REWARD_PULLS} 連分（${fmt(coins)}コイン）を受け取った。`, 'hint');
+  return { ok:true, coins, pulls:HINT_REWARD_PULLS,
+    msg:`装備ガチャ ${HINT_REWARD_PULLS} 連分（${fmt(coins)}コイン）を獲得！` };
+}
+export function dismissHint(state, key) {
+  const h = state.hints = normalizeHints(state.hints);
+  if (key && !h.dismissed.includes(key)) h.dismissed.push(key);
+  h.updatedAt = new Date().toISOString();
+  return h;
+}
+export function clearHintDismissed(state) {
+  const h = state.hints = normalizeHints(state.hints);
+  h.dismissed = []; h.updatedAt = new Date().toISOString();
+  return h;
 }
 
-/* ---------- チュートリアル専用の練習機能（通常ガチャ・天井に影響しない） ---------- */
-export function tutorialPracticePull(state, c = null) {
-  const t = state.tutorial = normalizeTutorial(state.tutorial, state);
-  if (t.status !== 'active') return { ok:false, msg:'チュートリアル実行中のみ利用できます' };
-  const ch = c || activeChar(state);
-  const types = ch ? (JOB[ch.jobId]?.weapons || []) : [];
-  const pool = EQUIPMENT.filter(e => e.slot === 'weapon' && !e.godOnly
-    && ['N','R','E'].includes(e.rarity) && (!types.length || types.includes(e.type)));
-  const def = rand(pool.length ? pool : EQUIPMENT.filter(e => e.slot === 'weapon'));
-  const inst = addEquipment(state, def.id);   // コイン消費なし / pity 変更なし / 通常排出率変更なし
-  t.practicePulls++;
-  t.practiceEquip.push(inst.uid);
-  tutorialMarkFlag(state, 'practiceGacha');
-  logEvent(state, `練習用ガチャ（無料）で ${def.name} を獲得。所持品に追加した。`, 'tutorial');
-  return { ok:true, uid:inst.uid, defId:def.id, name:def.name, rarity:def.rarity,
-    msg:`練習用ガチャ：${def.name} を獲得！（無料・所持品に追加）` };
-}
-export function tutorialEquipPractice(state, c = null) {
-  const t = state.tutorial = normalizeTutorial(state.tutorial, state);
-  const ch = c || activeChar(state);
-  if (!ch) return { ok:false, msg:'キャラクターがいません' };
-  const uidv = (t.practiceEquip || []).find(u => findInstance(state, u));
-  if (!uidv) return { ok:false, msg:'まず練習用ガチャを引いてください' };
-  const inst = findInstance(state, uidv);
-  if (!equipItem(state, ch, uidv, inst && instanceDef(inst).slot)) return { ok:false, msg:'この武器は装備できません' };
-  tutorialMarkFlag(state, 'equipped');
-  return { ok:true, msg:`${instanceDef(inst).name} を装備しました。攻撃力が上がりました` };
-}
-export function tutorialGrantExp(state, c = null) {
-  const ch = c || activeChar(state);
-  if (!ch) return { ok:false, msg:'キャラクターがいません' };
-  const need = Math.max(80, xpForLevel(ch.level) - ch.exp + 5);
-  const r = grantExp(state, ch, need);
-  tutorialCaptureProgress(state);
-  tutorialMarkFlag(state, 'leveled', true);
-  return { ok:true, levels:r.levels, gain:r.gain,
-    msg:`練習で ${fmt(r.gain)} EXP を獲得${r.levels ? ` / Lv.${r.levels}アップ！` : ''}。ステータス画面で 4 つの能力値を確認しよう` };
-}
-export function tutorialGather(state, c = null) {
-  const ch = c || activeChar(state);
-  const mats = {};
-  for (const m of (RANK_REQUIREMENTS.SR || [])) mats[m.id] = (mats[m.id] || 0) + m.n;
-  grantMaterials(state, mats);
-  // 進化条件（Lv.20 / コイン）もチュートリアル用の練習ステージで満たす
-  if (ch) {
-    let guard = 0;
-    while (ch.level < 20 && ch.level < levelCap(ch) && guard++ < 30) {
-      grantExp(state, ch, Math.max(20, xpForLevel(ch.level) - ch.exp + 2));
+/* ---------- 施設へ直行するボタン（ヒント画面・条件行で共用） ---------- */
+const HJ = {
+  create:      { label:'🎨 キャラクター作成へ', action:'newChar' },
+  nurture:     { label:'✦ 育成の間へ', action:'nav', to:'facility', facility:'nurture', tab:0 },
+  evolve:      { label:'✦ 育成の間・進化へ', action:'nav', to:'facility', facility:'nurture', tab:4 },
+  skills:      { label:'✵ 技・覚醒へ', action:'nav', to:'facility', facility:'nurture', tab:2 },
+  forgeEquip:  { label:'⚒ 装備画面へ', action:'nav', to:'facility', facility:'forge', tab:0 },
+  gacha:       { label:'✧ ガチャへ', action:'nav', to:'facility', facility:'forge', tab:1 },
+  strengthen:  { label:'🔨 装備強化へ', action:'nav', to:'facility', facility:'forge', tab:2 },
+  guild:       { label:'🏛 CPU対戦へ', action:'nav', to:'facility', facility:'guild', tab:0 },
+  dungeon:     { label:'🕳 ダンジョンへ', action:'nav', to:'facility', facility:'guild', tab:1 },
+  quests:      { label:'📜 クエストへ', action:'nav', to:'facility', facility:'guild', tab:2 },
+  training:    { label:'⚔ 修行場へ', action:'nav', to:'facility', facility:'training', tab:0 },
+  shop:        { label:'🛒 道具屋へ', action:'nav', to:'facility', facility:'shop', tab:0 },
+  gather:      { label:'💠 素材集めへ', action:'nav', to:'gather' },
+  story:       { label:'📜 ストーリーへ', action:'nav', to:'story' },
+  endgame:     { label:'🏆 やりこみへ', action:'nav', to:'endgame' },
+  character:   { label:'🧙 キャラクターへ', action:'nav', to:'character' },
+};
+const cond = (label, met, detail, jump) => ({ label, met:!!met, detail:detail || '', jump:jump || null });
+
+/**
+ * 現在のセーブデータからヒントを組み立てる。
+ * 条件は必ず実ゲームの判定関数（evolutionPreview / awakenStatus / canRebirth …）と
+ * 同じ値を使い、達成済みの目標を未達成として出さない。
+ */
+export function hintState(state) {
+  const h = state.hints = normalizeHints(state.hints);
+  const c = activeChar(state);
+  const hasChar = !!c;
+  const level = c?.level || 0;
+  const rankIdx = c ? charRankIndex(c.rarity) : -1;
+  const rarity = c?.rarity || 'R';
+  const equipped = c ? SLOTS.filter(sl => c.equipment[sl]).length : 0;
+  const invEq = state.inventory?.equipment?.length || 0;
+  const coins = state.coins || 0;
+  const wins = state.stats?.wins || 0;
+  const battles = state.stats?.battles || 0;
+  const pulls = state.stats?.pulls || 0;
+  const skillLearned = state.stats?.skillLearned || 0;
+  const storyChapter = state.story?.chapter || 1;
+  const storySeen = (state.story?.seen || []).length;
+  const jobHistory = (c?.jobChangeHistory || []).length;
+  const ultimates = (c?.ultimateSkills || []).length;
+  const dungeonBest = state.dungeon?.best || 0;
+  const achCount = Object.values(state.achievements || {}).filter(Boolean).length;
+  const matKinds = Object.keys(state.inventory?.items || {}).filter(id => MATERIAL_BY_ID[id]).length;
+  const evo = c ? evolutionPreview(state, c) : null;
+  const awaken = c ? awakenStatus(state, c) : null;
+  const canReb = c ? canRebirth(state, c) : false;
+  const levelMax = c ? levelCap(c) : MAX_LEVEL_BASE;
+
+  /* --- 進化条件（evolutionPreview と完全に同じ値） --- */
+  const evoConditions = () => {
+    if (!evo) return [cond('キャラクターを作成する', false, 'キャラクター未作成', HJ.create)];
+    if (evo.max) return [cond('最終ランク LR に到達済み', true, '', HJ.endgame)];
+    const rule = evo.rule;
+    const list = [
+      cond(`キャラクターのレベルを Lv.${rule.level} まで上げる`, level >= rule.level,
+        `現在 Lv.${level}${level < rule.level ? ` / あと ${rule.level - level} レベル` : ''}`, HJ.training),
+      cond(`コイン ${fmt(rule.coins)} を用意する`, coins >= rule.coins,
+        `現在 ${fmt(coins)} コイン${coins < rule.coins ? ` / 不足 ${fmt(rule.coins - coins)} コイン` : ''}`, HJ.guild),
+    ];
+    for (const m of evo.mats) {
+      list.push(cond(`${MATERIAL_BY_ID[m.id]?.name || m.id} を ${m.n} 個集める`, m.have >= m.n,
+        `現在 ${m.have} / ${m.n} 個${m.have < m.n ? ` / 不足 ${m.n - m.have} 個` : ''}`, HJ.gather));
     }
-  }
-  if (state.coins < 3000) { const add = 3000 - state.coins; addCoins(state, add); tutorialAddEarnedCoins(state, add); }
-  tutorialCaptureProgress(state);
-  tutorialMarkFlag(state, 'gathered', true);
-  tutorialMarkFlag(state, 'visitedGather', true);
-  logEvent(state, 'チュートリアル：素材集めステージで進化素材・EXP・コインを獲得した。', 'tutorial');
-  return { ok:true, mats, msg:'進化素材を獲得！育成の間 →「進化」から R → SR へランクアップできます' };
+    list.push(cond('育成の間「進化」からランクアップを実行する', false, 'まだ実行していません', HJ.evolve));
+    return list;
+  };
+  const evoActions = [HJ.evolve, HJ.gather, HJ.guild, HJ.quests, HJ.shop, HJ.training];
+
+  /* --- 優先順位付きの「次にやるべきこと」。最初の未達成だけを出す --- */
+  const goals = [];
+  goals.push({ id:'create', category:'create', done:hasChar,
+    title:'キャラクターを作成しよう！',
+    desc:'まずはキャラクター作成から始めましょう。街のキャラクター作成施設で、自分だけのキャラクターを作成できます。',
+    conditions:[cond('街のキャラクター作成で名前・画像を設定し「作成を完了する」', false, 'キャラクター未作成', HJ.create)],
+    actions:[HJ.create] });
+  goals.push({ id:'levelup', category:'growth', done:hasChar && level >= 2,
+    title:'育成の間でレベルアップしよう！',
+    desc:'まずは育成の間でキャラクターをレベルアップさせましょう。経験値を獲得すると HP・攻撃力・防御力・MP の能力値が上昇します。',
+    conditions:[
+      cond(`EXP を獲得して Lv.${level + 1} 以上にする（現在 Lv.${level}）`, level >= 2,
+        hasChar ? `次のレベルまで ${fmt(Math.max(0, xpForLevel(level) - c.exp))} EXP` : '', HJ.guild),
+      cond('増えたステータスポイントを育成の間で振り分ける', hasChar && level >= 2 && c.statPoints === 0,
+        hasChar ? `残り ${c.statPoints} P` : '', HJ.nurture),
+    ], actions:[HJ.nurture, HJ.guild, HJ.training] });
+  goals.push({ id:'firstGacha', category:'gacha', done:pulls > 0,
+    title:'ガチャを引いて武器や装備を入手しよう！',
+    desc:'ガチャを引いて武器や装備を入手しましょう。装備すると攻撃力や防御力が大幅に上昇します。',
+    conditions:[
+      cond(`装備ガチャ 1 回分のコイン ${fmt(GACHA_COST)} を用意する`, coins >= GACHA_COST,
+        `現在 ${fmt(coins)} コイン${coins < GACHA_COST ? ` / 不足 ${fmt(GACHA_COST - coins)} コイン` : ''}`, HJ.guild),
+      cond('工房の「ガチャ」タブで 1 回引く', pulls > 0,
+        `現在 ${pulls} 回 / 所持装備 ${invEq} 個`, HJ.gacha),
+    ], actions:[HJ.gacha, HJ.guild, HJ.shop] });
+  goals.push({ id:'firstBattle', category:'battle', done:battles > 0,
+    title:'CPU対戦で経験値とコインを集めよう！',
+    desc:'修行場でCPU対戦を行い、経験値やコインを集めましょう。勝利すると EXP / コイン / BP / 進化素材が手に入ります。',
+    conditions:[
+      cond('CPU対戦を 1 回行う', battles > 0, `現在 ${battles} 戦`, HJ.guild),
+      cond('敵に勝利する', wins > 0, `現在 ${wins} 勝`, HJ.guild),
+    ], actions:[HJ.guild, HJ.training, HJ.dungeon] });
+  goals.push({ id:'rankup', category:'evolution', done:rankIdx >= 1 || !!evo?.max,
+    title:`キャラクターを ${evo?.rule?.to || 'SR'} に進化させよう！`,
+    desc:'進化素材を集めて、キャラクターをランクアップさせましょう。ランクアップすると、すべての基本ステータスが大幅に上昇します。',
+    conditions:evoConditions(), actions:evoActions });
+  goals.push({ id:'story', category:'story', done:storyChapter >= 2,
+    title:'ストーリーを進めよう！',
+    desc:'街の「ストーリー」から章を読み進めましょう。読んだ章はセーブされ、やりこみ要素の条件にも使われます。',
+    conditions:[cond(`第1章を読む（現在 第${storyChapter}章）`, storySeen >= 1 || storyChapter >= 2,
+      `読了 ${storySeen} 章`, HJ.story)], actions:[HJ.story] });
+  goals.push({ id:'skills', category:'skills', done:skillLearned > 4 || ultimates > 0,
+    title:'新しい技を習得しよう！',
+    desc:'育成の間の「技」タブで技を習得し、付け替えましょう。LR 進化や指定名の R→SR 進化で奥義も習得できます。',
+    conditions:[
+      cond('技を 1 つ以上新しく習得する', skillLearned > 4, `習得済み ${skillLearned} 種`, HJ.skills),
+      cond('奥義を習得する（LR 進化など）', ultimates > 0, `現在 ${ultimates} 種`, HJ.evolve),
+    ], actions:[HJ.skills, HJ.evolve, HJ.nurture] });
+  goals.push({ id:'awaken', category:'endgame', done:(c?.awakening || 0) >= 1,
+    title:'覚醒に挑戦しよう！',
+    desc:'育成の間「覚醒」で段階を解放すると全能力が上がり、覚醒限定技も習得できます。',
+    conditions:(() => {
+      if (!awaken) return [cond('キャラクターを作成する', false, '', HJ.create)];
+      if (awaken.max) return [cond('覚醒は最終段階まで完了', true, '', HJ.endgame)];
+      const st = awaken.stage;
+      return [
+        cond(`Lv.${st.level} まで育てる`, level >= st.level, `現在 Lv.${level}`, HJ.training),
+        cond(`職業熟練度 合計${st.jobSum}`, awaken.jobSum >= st.jobSum, `現在 ${awaken.jobSum}`, HJ.training),
+        cond(`ボスを ${st.boss} 体撃破`, (state.stats?.bossKills || 0) >= st.boss, `現在 ${state.stats?.bossKills || 0} 体`, HJ.guild),
+        cond(`コイン ${fmt(st.coins)}`, coins >= st.coins, `現在 ${fmt(coins)} コイン`, HJ.guild),
+        ...Object.entries(st.materials).map(([id,n]) => cond(`${ITEM[id]?.name || id} を ${n} 個`, itemCount(state,id) >= n,
+          `現在 ${itemCount(state,id)} / ${n} 個`, HJ.gather)),
+      ];
+    })(), actions:[HJ.skills, HJ.nurture, HJ.endgame] });
+  goals.push({ id:'job', category:'job', done:rankIdx >= 1 || jobHistory > 0,
+    title:'役職変更の機会を確認しよう！',
+    desc:'役職変更はランクアップ時・転生時だけです。「現在の役職を維持する」か「別の役職に変更する」かを選べます。',
+    conditions:[cond('ランクアップまたは転生の機会を迎える', rankIdx >= 1 || jobHistory > 0,
+      `役職変更履歴 ${jobHistory} 件`, HJ.evolve)], actions:[HJ.evolve, HJ.nurture, HJ.character] });
+  goals.push({ id:'rebirth', category:'rebirth', done:(c?.rebirth || 0) > 0,
+    title:'転生に挑戦しよう！',
+    desc:'レベル上限に到達したら転生できます。レベル上限 +10、永続ボーナス、ステータスポイント +15 が得られます。',
+    conditions:[
+      cond(`Lv.${levelMax} に到達する`, level >= levelMax, `現在 Lv.${level} / 上限 Lv.${levelMax}`, HJ.training),
+      cond('転生の証を 1 個入手する', itemCount(state,'mat_rebirth') >= 1,
+        `現在 ${itemCount(state,'mat_rebirth')} 個`, HJ.dungeon),
+      cond('コイン 5,000 を用意する', coins >= 5000, `現在 ${fmt(coins)} コイン`, HJ.guild),
+    ], actions:[HJ.nurture, HJ.guild, HJ.endgame] });
+  goals.push({ id:'endgame', category:'endgame',
+    done:dungeonBest >= 1 || (c?.awakening || 0) >= 1 || (state.stats?.hiddenKills || 0) > 0,
+    title:'やりこみ要素に挑戦しよう！',
+    desc:'ダンジョン・隠しボス・図鑑コンプ・実績・称号を目指しましょう。',
+    conditions:[
+      cond('ダンジョンを 1 階以上進める', dungeonBest >= 1, `最高 ${dungeonBest} F`, HJ.dungeon),
+      cond('実績を 1 つ以上達成する', achCount > 0, `現在 ${achCount} 件`, HJ.endgame),
+    ], actions:[HJ.endgame, HJ.dungeon, HJ.quests] });
+
+  const next = goals.find(g => !g.done) || { id:'allDone', category:'endgame', done:true,
+    title:'すべての目標を達成しました！', desc:'やりこみ要素や図鑑コンプを楽しみましょう。',
+    conditions:[cond('主要な目標はすべて達成済み', true, '', HJ.endgame)], actions:[HJ.endgame] };
+
+  /* --- 新機能解放の通知（街ホームのヒント表示に使う） --- */
+  const unlocks = [];
+  if (hasChar && evo?.ok) unlocks.push({ id:'evoReady', text:`🎉 ${evo.rule.to} へのランクアップ条件が揃いました！` });
+  if (hasChar && awaken?.ok) unlocks.push({ id:'awakenReady', text:'🌟 覚醒の条件が揃いました！' });
+  if (hasChar && canReb) unlocks.push({ id:'rebirthReady', text:'🔄 転生できるようになりました！' });
+  if (hasChar && rankIdx >= 1 && !jobHistory) unlocks.push({ id:'jobReady', text:'🔀 役職変更の機会が解放されました！' });
+  const bannerKey = unlocks.length ? `unlock:${unlocks[0].id}` : `goal:${next.id}`;
+  const bannerText = unlocks.length ? unlocks[0].text : `💡 次の目標：${next.title}`;
+
+  /* --- 12 カテゴリの現在値・具体的な目標 --- */
+  const cat = {};
+  cat.create = { status:hasChar ? `作成済み：${c.name}` : '未作成', goal:'キャラクターを作成する', met:hasChar,
+    conditions:[cond('街のキャラクター作成で作成を完了する', hasChar, hasChar ? '' : '未作成', HJ.create)], actions:[HJ.create, HJ.character] };
+  cat.growth = { status:hasChar ? `Lv.${level} / EXP ${fmt(c.exp)} / ${fmt(xpForLevel(level))} / 残り ${c.statPoints} P` : '—',
+    goal:'レベルを上げて 4 基本ステータスを伸ばす', met:level >= 2,
+    conditions:[cond('Lv.2 以上にする', level >= 2, `現在 Lv.${level}`, HJ.guild),
+      cond('ステータスポイントを使い切る', hasChar && c.statPoints === 0, hasChar ? `残り ${c.statPoints} P` : '', HJ.nurture)],
+    actions:[HJ.nurture, HJ.guild, HJ.training] };
+  cat.equipment = { status:`${equipped} / ${SLOTS.length} スロット装備・所持 ${invEq} 個`,
+    goal:'4 つのスロットすべてに装備する', met:hasChar && equipped === SLOTS.length,
+    conditions:SLOTS.map(sl => cond(`${sl} スロットに装備する`, !!c?.equipment[sl], c?.equipment[sl] ? '装備済み' : '空き', HJ.forgeEquip)),
+    actions:[HJ.forgeEquip, HJ.strengthen, HJ.gacha] };
+  cat.gacha = { status:`${pulls} 回 / コイン ${fmt(coins)} / 1 回 ${fmt(GACHA_COST)} コイン`,
+    goal:'装備ガチャを引いて装備を増やす', met:pulls > 0,
+    conditions:[cond(`コイン ${fmt(GACHA_COST)} を用意する`, coins >= GACHA_COST,
+      `現在 ${fmt(coins)} コイン${coins < GACHA_COST ? ` / 不足 ${fmt(GACHA_COST - coins)}` : ''}`, HJ.guild),
+      cond('工房のガチャを 1 回引く', pulls > 0, `現在 ${pulls} 回`, HJ.gacha)],
+    actions:[HJ.gacha, HJ.guild, HJ.shop] };
+  cat.battle = { status:`${wins} 勝 ${state.stats?.losses || 0} 敗 / ${battles} 戦`,
+    goal:'CPU対戦で 3 勝して上位の敵を解放する', met:wins >= 3,
+    conditions:[cond('3 勝する', wins >= 3, `現在 ${wins} 勝 / あと ${Math.max(0,3-wins)} 勝`, HJ.guild),
+      cond('勝利報酬でコイン・EXP・素材を得る', wins > 0, `現在 ${wins} 勝`, HJ.guild)],
+    actions:[HJ.guild, HJ.training, HJ.dungeon] };
+  cat.materials = { status:`所持 ${matKinds} 種 / 進化素材は ${evo?.mats?.length || 0} 種必要`,
+    goal:'次のランク進化に必要な素材を揃える', met:!!evo?.ok,
+    conditions:(evo?.mats || []).map(m => cond(`${MATERIAL_BY_ID[m.id]?.name || m.id} ×${m.n}`, m.have >= m.n,
+      `現在 ${m.have} / ${m.n} 個${m.have < m.n ? ` / 不足 ${m.n - m.have} 個` : ''}`, HJ.gather)),
+    actions:[HJ.gather, HJ.guild, HJ.quests, HJ.shop] };
+  cat.evolution = { status:`${rarity}${evo?.rule ? ` → ${evo.rule.to}` : '（最終ランク）'}`,
+    goal:`${evo?.rule?.to || 'LR'} へランクアップする`, met:!!evo?.ok,
+    conditions:evoConditions(), actions:evoActions };
+  cat.job = { status:`${hasChar ? (JOB[c.jobId]?.name || c.jobId) : '—'} / 変更履歴 ${jobHistory} 件`,
+    goal:'ランクアップ時・転生時に役職を選ぶ', met:jobHistory > 0 || rankIdx >= 1,
+    conditions:[cond('ランクアップまたは転生の機会を迎える', rankIdx >= 1 || jobHistory > 0,
+      '役職変更はこの機会だけ可能', HJ.evolve)], actions:[HJ.evolve, HJ.nurture, HJ.character] };
+  cat.rebirth = { status:`転生 ${c?.rebirth || 0} 回 / Lv 上限 ${levelMax}`,
+    goal:'転生して永続ボーナスを得る', met:(c?.rebirth || 0) > 0,
+    conditions:[cond(`Lv.${levelMax} に到達する`, level >= levelMax, `現在 Lv.${level}`, HJ.training),
+      cond('転生の証 ×1', itemCount(state,'mat_rebirth') >= 1, `現在 ${itemCount(state,'mat_rebirth')} 個`, HJ.dungeon),
+      cond('コイン 5,000', coins >= 5000, `現在 ${fmt(coins)} コイン`, HJ.guild)],
+    actions:[HJ.nurture, HJ.guild, HJ.endgame] };
+  cat.skills = { status:`習得技 ${hasChar ? c.skills.length : 0} / 奥義 ${ultimates}`,
+    goal:'新しい技と奥義を習得する', met:skillLearned > 4 || ultimates > 0,
+    conditions:[cond('技を 1 つ以上新しく習得する', skillLearned > 4, `習得済み ${skillLearned} 種`, HJ.skills),
+      cond('奥義を習得する', ultimates > 0, `現在 ${ultimates} 種`, HJ.evolve)],
+    actions:[HJ.skills, HJ.evolve, HJ.nurture] };
+  cat.story = { status:`第 ${storyChapter} 章 / 読了 ${storySeen} 章`,
+    goal:'ストーリーを読み進める', met:storyChapter >= 2,
+    conditions:[cond('第 1 章を読む', storySeen >= 1 || storyChapter >= 2, `読了 ${storySeen} 章`, HJ.story)],
+    actions:[HJ.story, HJ.endgame] };
+  cat.endgame = { status:`覚醒 ${c?.awakening || 0} / ダンジョン最高 ${dungeonBest} F / 実績 ${achCount}`,
+    goal:'覚醒・ダンジョン・実績に挑戦する', met:dungeonBest >= 1 || (c?.awakening || 0) >= 1,
+    conditions:[cond('覚醒段階を 1 つ上げる', (c?.awakening || 0) >= 1, `現在 覚醒 ${c?.awakening || 0}`, HJ.nurture),
+      cond('ダンジョンを 1 階以上進める', dungeonBest >= 1, `最高 ${dungeonBest} F`, HJ.dungeon),
+      cond('実績を達成する', achCount > 0, `現在 ${achCount} 件`, HJ.endgame)],
+    actions:[HJ.endgame, HJ.dungeon, HJ.quests] };
+
+  return {
+    goalCount:goals.length, completed:goals.filter(g => g.done).length, next,
+    categories:HINT_CATEGORIES.map(x => ({ ...x, ...(cat[x.id] || {}) })),
+    unlocks, bannerKey, bannerText,
+    bannerDismissed:h.dismissed.includes(bannerKey),
+    reward:{ claimed:h.rewardClaimed, coins:h.rewardCoins || hintRewardCoins(),
+      amount:hintRewardCoins(), pulls:HINT_REWARD_PULLS, perPull:equipmentGachaCost() },
+    summary:{ hasChar, level, rarity, rankIdx, equipped, slots:SLOTS.length, invEq, coins,
+      wins, battles, pulls, storyChapter, storySeen, matKinds, evoReady:!!evo?.ok,
+      levelMax, awakening:c?.awakening || 0, rebirth:c?.rebirth || 0, ultimates, skillLearned },
+  };
 }
