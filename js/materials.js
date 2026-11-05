@@ -180,6 +180,35 @@ for (const k of MATERIAL_KINDS) for (const r of MAT_RANKS) {
     stack: weight,
   });
 }
+/**
+ * 素材詳細から直行できる「入手先」の定義。
+ * nav は実際の画面遷移（facility + tab / 単独画面）と一致させる。
+ */
+export const MATERIAL_SOURCE_LINKS = [
+  { id:'cpu',      icon:'⚔',  label:'CPU対戦・ボス撃破', note:'勝利報酬／ボス・隠しボス撃破',
+    keys:['CPU対戦','ボス','強敵','魔法系','連戦'],            nav:{ to:'facility', facility:'guild', tab:0 } },
+  { id:'dungeon',  icon:'🕳', label:'ダンジョン・深淵',   note:'5階ごとの報酬／高難易度ダンジョン',
+    keys:['ダンジョン','深淵','階'],                            nav:{ to:'facility', facility:'guild', tab:1 } },
+  { id:'quest',    icon:'📜', label:'クエスト・実績',     note:'デイリー／高難易度クエスト／実績報酬',
+    keys:['クエスト','ミッション','実績'],                      nav:{ to:'facility', facility:'guild', tab:2 } },
+  { id:'training', icon:'⚔',  label:'修行クエスト',       note:'修行場の修行クエスト報酬',
+    keys:['修行'],                                            nav:{ to:'facility', facility:'training', tab:2 } },
+  { id:'shop',     icon:'🛒', label:'道具屋・素材合成',   note:'R 素材の購入／3個→1個の合成',
+    keys:['道具屋','素材合成','購入'],                        nav:{ to:'facility', facility:'shop', tab:2 } },
+  { id:'exchange', icon:'🔷', label:'BP交換所',           note:'BP と交換して上位素材を入手',
+    keys:['交換所','BP交換','素材交換'],                      nav:{ to:'facility', facility:'guild', tab:3 } },
+  { id:'gacha',    icon:'✧',  label:'ガチャ10連',         note:'10連ボーナスで R 素材',
+    keys:['ガチャ','10連'],                                  nav:{ to:'facility', facility:'forge', tab:1 } },
+  { id:'gather',   icon:'💠', label:'素材集め一覧',       note:'入手先をまとめて確認',
+    keys:[], always:true,                                     nav:{ to:'gather' } },
+];
+/** 素材の入手方法テキスト（ランク別・種類別・ランク解説）から該当する移動先を返す */
+export function materialSources(m) {
+  if (!m) return MATERIAL_SOURCE_LINKS.filter(x => x.always);
+  const text = [m.obtain, MATERIAL_KIND[m.matKind]?.obtain, MAT_RANK_INFO[m.rank]?.source]
+    .filter(Boolean).join('・');
+  return MATERIAL_SOURCE_LINKS.filter(x => x.always || x.keys.some(k => text.includes(k)));
+}
 export const MATERIAL_BY_ID = Object.fromEntries(MATERIAL_ITEMS.map(m => [m.id, m]));
 export const isMaterial = id => !!MATERIAL_BY_ID[id];
 

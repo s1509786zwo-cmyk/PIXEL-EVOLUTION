@@ -25,7 +25,7 @@ import {
 } from './state.js?v=2';
 import {
   materialIcon, MATERIAL_ITEMS, MATERIAL_BY_ID, MAT_RANKS, MAT_RANK_INFO,
-  RANK_REQUIREMENTS, isMaterial, materialUpgradeTarget,
+  RANK_REQUIREMENTS, isMaterial, materialUpgradeTarget, materialSources,
 } from './materials.js?v=2';
 import {
   GACHA_BANNERS, currentBanner, bannerRates, rateTotals, featuredDefs,
@@ -678,6 +678,11 @@ function materialModal(app, s) {
       <div class="list-line"><span>売値</span><b>🪙 ${fmt(m.sell)}</b></div>
       <div class="list-line"><span>図鑑</span><b>${s.catalog.materials.includes(id)||itemCount(s,id)>0?'発見済':'未発見'}</b></div>
     </div>
+    <h4>入手先へ移動 <small class="muted">この素材が取れる場所へ直接移動できます</small></h4>
+    <div class="mat-sources">${materialSources(m).map(x=>`<button class="mat-source" data-action="matSourceGo"
+      data-to="${x.nav.to}" ${x.nav.facility?`data-facility="${x.nav.facility}"`:''}
+      ${x.nav.tab!==undefined?`data-tab="${x.nav.tab}"`:''}><span class="ms-icon">${x.icon}</span>
+      <b>${e(x.label)}</b><small>${e(x.note)}</small></button>`).join('')}</div>
     <h4>進化先と必要個数</h4>
     ${uses.length?`<div class="mat-use-list">${uses.map(u=>`<div class="mat-use"><b>${rankBadge(u.rank)} への進化</b><span>必要 ${u.n} 個 / 所持 ${itemCount(s,id)} 個</span><small>キャラクター進化・武器/防具/装飾品のランク進化で使用</small></div>`).join('')}</div>`:'<p class="muted">最終ランク素材は上位進化の直接条件には使われません。交換・売却に利用できます。</p>'}
     ${target?`<div class="mat-upgrade"><div><b>素材合成・交換</b><small>${e(m.name)} ×3 ＋ 🪙${fmt(160*step)} → ${e(MATERIAL_BY_ID[target]?.name||target)} ×1</small></div>

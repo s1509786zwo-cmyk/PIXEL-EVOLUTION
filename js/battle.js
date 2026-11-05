@@ -95,6 +95,15 @@ export class Battle {
     if (this.autoTimer) { clearTimeout(this.autoTimer); this.autoTimer = null; }
     this.autoPending = false;
   }
+  /**
+   * 戦闘開始のキック。設定で AUTO が ON のまま新しい戦闘へ入った場合、
+   * コンストラクタは autoMode を復元するだけでは自動進行が始まらないため、
+   * ここで最初の AUTO ターンの予約を行う（ボタンを押し直す必要をなくす）。
+   */
+  start() {
+    if (this.autoMode && !this.finished && this.phase === 'player') this.queueAuto(350);
+    return this;
+  }
   canUseUltimate(sk) {
     return !!(sk && sk.ultimate && this.ultimateGauge >= ULTIMATE_GAUGE_MAX
       && this.player.mp >= (sk.mp || 0) && (this.player.cds[sk.id] || 0) === 0 && this.canAct(this.player));

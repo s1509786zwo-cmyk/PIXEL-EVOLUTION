@@ -489,6 +489,7 @@ async function startBattle(enemyDef, mode = 'cpu', floor = 0) {
   app.battle = b; app.result = null; app.battleTab = 'skill'; app.screen = 'battle';
   ready = true;
   render();
+  b.start();                 // AUTO 設定が ON なら新しい戦闘でも即座に自動進行を開始
   window.scrollTo({ top:0 });
   sfx('ok');
 }
@@ -701,6 +702,14 @@ async function handleAction(action, ds, el) {
     /* --- 素材・進化 --- */
     case 'matDetail': app.materialDetail = ds.id; return render();
     case 'matDetailClose': app.materialDetail = null; return render();
+    case 'matSourceGo': {
+      // 素材詳細を閉じてから入手先の画面へ。移動後も所持品・進行状況はそのまま。
+      app.materialDetail = null;
+      if (ds.to === 'facility') return navigate('facility', {
+        facility: ds.facility, tab: ds.tab === undefined ? undefined : Number(ds.tab),
+      });
+      return navigate(ds.to);
+    }
     case 'matUpgrade': { const r = S.upgradeMaterial(state, ds.id); return commit(r.msg, r.ok); }
     case 'evolveChar': {
       const r = S.evolveCharacter(state, c);
@@ -878,11 +887,11 @@ async function handleAction(action, ds, el) {
       if (app.battle) app.battle.act(ds.id).catch(err=>console.error(err));
       return;
     }
-    case 'battleAuto': if (app.battle) { app.battle.toggleAuto(); save(); render(); } return;
+    case 'battleAuto': if (app.battle) { app.battle.toggleAuto(); save(true); render(); } return;
     case 'battleSpeed': {
       if (!app.battle) return;
       if (!app.battle.autoMode) return toast('戦闘速度の変更は AUTO が ON のときだけ可能です', 'error');
-      app.battle.setAutoSpeed(Number(ds.speed) || 1); save(); render(); return;
+      app.battle.setAutoSpeed(Number(ds.speed) || 1); save(true); render(); return;
     }
     case 'battleSurrender': if (app.battle) app.battle.surrender(); return;
     case 'resultRetry': {

@@ -714,6 +714,15 @@ small{font-size:11px}
 .mat-detail-top h3{font-size:21px;margin:0 0 4px}.mat-detail-top p{font-size:12px;color:var(--muted);margin:0 0 4px;line-height:1.55}
 .mat-detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px 14px;margin:10px 0 16px}
 .mat-detail h4{margin-top:14px}
+.mat-detail h4 small{font-size:10px;font-family:inherit;margin-left:6px}
+.mat-sources{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:7px;margin:8px 0 12px}
+.mat-source{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;padding:9px 10px;
+  border-radius:10px;border:1px solid var(--line);background:rgba(90,140,255,.08);color:var(--text);
+  font:inherit;cursor:pointer;transition:border-color .15s,background .15s,transform .15s}
+.mat-source:hover{border-color:var(--gold);background:rgba(255,215,122,.13);transform:translateY(-1px)}
+.ms-icon{font-size:15px;line-height:1.2;color:var(--gold2)}
+.mat-source b{font-size:11.5px;line-height:1.35}
+.mat-source small{font-size:9.5px;color:var(--muted);line-height:1.45}
 
 /* ---------- 進化画面 ---------- */
 .evo-ladder{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin:12px 0 16px}
@@ -807,6 +816,7 @@ small{font-size:11px}
   .mat-card{min-height:96px;padding:8px 3px}.mat-card .mat-icon{width:44px;height:44px}
   .mat-detail-grid{grid-template-columns:1fr}
   .mat-detail-top .mat-icon{width:68px;height:68px;flex-basis:68px}
+  .mat-sources{grid-template-columns:repeat(2,1fr)}
   .gacha-hist-line{grid-template-columns:78px 1fr 80px;gap:4px}
   .gacha-hist-line time{display:none}
   .battle-size{min-width:86px}.battle-size input[type=range]{width:86px}
