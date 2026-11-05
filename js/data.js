@@ -31,15 +31,20 @@ export const RATE_TOTAL = Math.round(RARITIES.reduce((a, r) => a + r.rate, 0) * 
    ----------------------------------------------------------- */
 export const CHAR_RARITIES = [
   { id:'R',   name:'R',   color:'#aebfd4', glow:'#dbe8ff', mult:1.00, css:'rank-R',
-    label:'基本的な色彩と控えめな光', decor:'素朴な光の輪' },
+    label:'控えめな枠と小さな光の粒子', decor:'素朴な光の輪',
+    fx:{ tier:0, main:'#aebfd4', glow:'#dbe8ff', sub:'#8b9ab0', soft:'rgba(174,191,212,.10)', theme:'plain' } },
   { id:'SR',  name:'SR',  color:'#78c8ff', glow:'#c8efff', mult:1.18, css:'rank-SR',
-    label:'銀色・青色の装飾と小さな光', decor:'銀青の装飾リング' },
+    label:'銀色の枠とゆっくり流れる光', decor:'銀の装飾リングと光の流れ',
+    fx:{ tier:1, main:'#d8eefa', glow:'#f0faff', sub:'#78c8ff', soft:'rgba(190,230,255,.16)', theme:'silver' } },
   { id:'SSR', name:'SSR', color:'#ffd77a', glow:'#fff2b8', mult:1.42, css:'rank-SSR',
-    label:'金色・紫色の装飾、目立つオーラ', decor:'金紫の紋章とオーラ' },
+    label:'金色の枠と強く輝くオーラ', decor:'金の紋章と強いオーラ',
+    fx:{ tier:2, main:'#ffd77a', glow:'#fff2b8', sub:'#b98bff', soft:'rgba(255,205,100,.20)', theme:'gold' } },
   { id:'UR',  name:'UR',  color:'#d2a0ff', glow:'#f2d4ff', mult:1.72, css:'rank-UR',
-    label:'強い発光、特別な紋章、豪華な粒子', decor:'神秘の紋章と粒子' },
+    label:'紫と青の豪華な枠、巡る稲妻とエネルギー', decor:'紫青の紋章と稲妻',
+    fx:{ tier:3, main:'#c997ff', glow:'#e2b6ff', sub:'#65d9ff', soft:'rgba(160,110,255,.22)', theme:'arcane' } },
   { id:'LR',  name:'LR',  color:'#f7f0c8', glow:'#ffffff', mult:2.10, css:'rank-LR',
-    label:'虹色・白金色、専用オーラ、特別進化演出', decor:'虹白金の専用オーラ' },
+    label:'紅蓮の専用枠、枠の外周を燃え上がる炎', decor:'紅蓮の炎枠と立ち昇る火花',
+    fx:{ tier:4, main:'#ff4b36', glow:'#ffb347', sub:'#ff8fa8', soft:'rgba(255,70,40,.24)', theme:'flame' } },
 ];
 export const CHAR_RARITY = Object.fromEntries(CHAR_RARITIES.map(r => [r.id, r]));
 export const CHAR_RARITY_ORDER = CHAR_RARITIES.map(r => r.id);

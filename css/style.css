@@ -791,6 +791,261 @@ small{font-size:11px}
 .rank-SSR .evo-fx-ring{border-color:#ffd77a;border-width:9px;box-shadow:0 0 70px rgba(255,215,122,.95),0 0 110px rgba(185,139,255,.6)}
 .rank-UR .evo-fx-ring{border-color:#e2b6ff;border-width:10px;box-shadow:0 0 80px rgba(185,139,255,.95),0 0 140px rgba(104,247,212,.55)}
 
+/* ===========================================================
+   ランク別ビジュアル（強化版）
+   画像そのものは差し替えず、枠・背景・発光・粒子・オーラ・アニメだけを変える。
+   重ねるレイヤーは外周マスク／枠マスクで中央を抜き、キャラは常に鮮明。
+   =========================================================== */
+.char-stage .char-frame{z-index:1}
+.rank-fx.rank-bg,.rank-fx.rank-magic,.rank-fx.rank-vortex,.rank-fx.rank-flow,
+.rank-fx.rank-bolts,.rank-fx.rank-flames,.rank-fx.rank-heat,.rank-fx.rank-sparks{z-index:0;mix-blend-mode:normal}
+.rank-fx.rank-magic,.rank-fx.rank-vortex,.rank-fx.rank-flow,.rank-fx.rank-bolts,
+.rank-fx.rank-flames,.rank-fx.rank-heat,.rank-fx.rank-sparks{display:none}
+.rank-fx.rank-bg{background:radial-gradient(circle at 50% 38%,var(--rk-soft),rgba(3,6,16,.82) 78%)}
+/* 外周だけに効くマスク（中央のキャラクター画像を覆わない） */
+.rank-fx.rank-flow,.rank-fx.rank-bolts,.rank-fx.rank-flames,.rank-fx.rank-heat,.rank-fx.rank-sparks,
+.es-flames,.es-bolts{
+  -webkit-mask-image:radial-gradient(ellipse 74% 84% at 50% 50%,transparent 58%,#000 88%);
+  mask-image:radial-gradient(ellipse 74% 84% at 50% 50%,transparent 58%,#000 88%);
+}
+.rank-fx.rank-magic{border-radius:50%;inset:7%;border:1px dashed var(--rk-glow);
+  background:repeating-conic-gradient(from 0deg,transparent 0 22deg,var(--rk-soft) 22deg 23deg,transparent 23deg 45deg);
+  box-shadow:0 0 22px var(--rk-soft),inset 0 0 26px var(--rk-soft);opacity:.55;animation:rankSpin 12s linear infinite}
+.rank-fx.rank-vortex{border-radius:50%;inset:-28%;
+  background:conic-gradient(from 0deg,transparent,var(--rk-main),transparent,var(--rk-sub),transparent);
+  -webkit-mask-image:radial-gradient(circle,transparent 32%,#000 58%,transparent 80%);
+  mask-image:radial-gradient(circle,transparent 32%,#000 58%,transparent 80%);opacity:.5;animation:rankSpin 3.4s linear infinite}
+/* 枠本体：padding 部分だけを描く（中央は完全に透明） */
+.rank-fx.rank-frame{z-index:3;mix-blend-mode:normal;border:2px solid var(--rk-main);border-radius:inherit;
+  background:transparent;opacity:.55}
+/* マスク対応ブラウザだけ「枠の帯」をグラデーションで描く。未対応でも border だけで画像は覆わない */
+@supports (mask-composite:exclude) or (-webkit-mask-composite:xor){
+  .rank-fx.rank-frame{border:0;padding:2px;background:var(--frame-bg,var(--rk-main));
+    -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);mask-composite:exclude}
+}
+.rank-fx.rank-edge{z-index:0;inset:9%;border-radius:50%;border:1px solid var(--rk-glow);opacity:0}
+.rank-fx.rank-particles{z-index:2;
+  -webkit-mask-image:radial-gradient(ellipse 76% 86% at 50% 50%,transparent 56%,#000 86%);
+  mask-image:radial-gradient(ellipse 76% 86% at 50% 50%,transparent 56%,#000 86%)}
+.rank-fx.rank-aura{z-index:0;mix-blend-mode:screen}
+
+/* ---- R：控えめな枠と小さな光の粒子 ---- */
+.rank-R .rank-fx.rank-frame{--frame-bg:linear-gradient(135deg,#7d8ca4,#dbe8ff,#7d8ca4);opacity:.4}
+.rank-R .rank-fx.rank-particles{opacity:.16;animation-duration:11s}
+.rank-R .rank-fx.rank-ring{border-color:rgba(174,191,212,.35)}
+.rank-R .rank-fx.rank-aura{opacity:.18}
+/* ---- SR：銀色の枠とゆっくり流れる光 ---- */
+.tier-1 .rank-fx.rank-magic{display:block;opacity:.35}
+.tier-1 .rank-fx.rank-flow{display:block;
+  background:linear-gradient(115deg,transparent 28%,rgba(240,250,255,.62) 45%,rgba(120,200,255,.32) 53%,transparent 70%);
+  background-size:250% 100%;animation:rankFlow 5.2s linear infinite;opacity:.8}
+.rank-SR .rank-fx.rank-frame{--frame-bg:linear-gradient(110deg,#8fa8bd,#f0faff 32%,#78c8ff 52%,#f0faff 72%,#8fa8bd);
+  background-size:230% 100%;padding:3px;opacity:.92;animation:rankFlow 5.2s linear infinite}
+.rank-SR .rank-fx.rank-particles{opacity:.3;animation-duration:7s}
+.rank-SR .rank-fx.rank-edge{display:block;opacity:.3;border-color:#c8e8ff}
+/* ---- SSR：金色の枠と強く輝くオーラ ---- */
+.tier-2 .rank-fx.rank-magic,.tier-2 .rank-fx.rank-vortex{display:block}
+.rank-SSR .rank-fx.rank-magic{border-style:double;border-width:3px;opacity:.8}
+.rank-SSR .rank-fx.rank-frame{--frame-bg:linear-gradient(125deg,#a9741f,#fff2b8 30%,#ffd77a 55%,#fff8dc 75%,#a9741f);
+  padding:4px;opacity:1;box-shadow:0 0 16px rgba(255,215,122,.55)}
+.rank-SSR .rank-fx.rank-aura{background:radial-gradient(circle at 50% 45%,rgba(255,215,122,.42),rgba(185,139,255,.18) 52%,transparent 74%);
+  opacity:.9;animation:rankPulse 2.1s ease-in-out infinite}
+.rank-SSR .rank-fx.rank-particles{opacity:.55;animation-duration:5s}
+.rank-SSR .rank-fx.rank-edge{display:block;opacity:.5;border-color:#fff2b8}
+/* ---- UR：紫と青の豪華な枠、稲妻・エネルギーが周囲を巡る ---- */
+.tier-3 .rank-fx.rank-magic,.tier-3 .rank-fx.rank-vortex,.tier-3 .rank-fx.rank-bolts{display:block}
+.rank-UR .rank-fx.rank-frame{--frame-bg:linear-gradient(120deg,#65d9ff,#c997ff,#e2b6ff,#65d9ff,#8c6bff,#65d9ff);
+  background-size:260% 100%;padding:4px;opacity:1;animation:rankFlow 3.2s linear infinite}
+.rank-fx.rank-bolts{border-radius:50%;inset:-22%;
+  background:repeating-conic-gradient(from 0deg,transparent 0 12deg,rgba(160,220,255,.72) 13deg 14deg,
+    transparent 15deg 30deg,rgba(200,150,255,.55) 31deg 32deg,transparent 33deg 58deg);
+  animation:rankSpin 4.2s linear infinite,rankBolt .3s steps(2) infinite;opacity:.8}
+.rank-UR .rank-fx.rank-aura{opacity:.85}
+.rank-UR .rank-fx.rank-particles{opacity:.7;animation-duration:3.6s}
+.rank-UR .rank-fx.rank-edge{display:block;opacity:.55;border-color:#e2b6ff;animation:rankPulse 1.9s ease-in-out infinite}
+/* ---- LR：赤を基調にした専用枠。枠の外周で炎が揺らめき立ち昇る ---- */
+.tier-4 .rank-fx.rank-magic,.tier-4 .rank-fx.rank-vortex,.tier-4 .rank-fx.rank-bolts,
+.tier-4 .rank-fx.rank-flames,.tier-4 .rank-fx.rank-heat,.tier-4 .rank-fx.rank-sparks{display:block}
+.rank-LR .rank-fx.rank-bg{background:radial-gradient(circle at 50% 60%,rgba(255,60,25,.28),rgba(28,4,6,.92) 78%)}
+.rank-LR .rank-fx.rank-frame{--frame-bg:linear-gradient(0deg,#ff2d16,#ff7a2f 32%,#ffd166 62%,#ff4b36 88%,#ff2d16);
+  padding:5px;opacity:1;box-shadow:0 0 24px #ff4b36;animation:rankFlicker .4s ease-in-out infinite alternate}
+.rank-fx.rank-flames{
+  background:
+    radial-gradient(ellipse 9% 26% at 6% 108%,#ff2d16,transparent 72%),
+    radial-gradient(ellipse 8% 22% at 20% 112%,#ff6a20,transparent 74%),
+    radial-gradient(ellipse 9% 28% at 36% 110%,#ffb43c,transparent 72%),
+    radial-gradient(ellipse 8% 24% at 52% 112%,#ff4b1e,transparent 74%),
+    radial-gradient(ellipse 9% 26% at 68% 110%,#ffd166,transparent 72%),
+    radial-gradient(ellipse 8% 22% at 84% 112%,#ff3b12,transparent 74%),
+    radial-gradient(ellipse 7% 20% at 96% 108%,#ff8a2b,transparent 72%),
+    radial-gradient(ellipse 20% 9% at -2% 48%,#ff5a1e,transparent 74%),
+    radial-gradient(ellipse 20% 9% at 102% 48%,#ff5a1e,transparent 74%);
+  animation:rankFlameRise 1.7s linear infinite,rankFlicker .36s ease-in-out infinite alternate}
+.rank-fx.rank-heat{background:repeating-linear-gradient(0deg,rgba(255,160,80,.12) 0 2px,transparent 2px 7px);
+  animation:rankHeat 1.05s ease-in-out infinite alternate;opacity:.6}
+.rank-fx.rank-sparks{background-image:radial-gradient(circle,#ffd166 1.6px,transparent 2px),radial-gradient(circle,#ff6b3d 1.1px,transparent 2px);
+  background-size:26px 34px,39px 47px;animation:rankSparks 1.45s linear infinite}
+.rank-LR .rank-fx.rank-aura{background:conic-gradient(from 0deg at 50% 50%,rgba(255,60,25,.34),rgba(255,180,70,.3),rgba(255,60,25,.34));
+  opacity:.9;animation:rankSpin 5s linear infinite,rankPulse 1.7s ease-in-out infinite}
+.rank-LR .rank-fx.rank-particles{opacity:.85;animation-duration:2.6s}
+.rank-LR .rank-fx.rank-edge{display:block;opacity:.75;border-color:#ffb347;animation:rankPulse 1.4s ease-in-out infinite}
+.rank-LR .rank-fx.rank-ring{border-color:rgba(255,140,80,.85);box-shadow:0 0 34px rgba(255,70,35,.8),inset 0 0 30px rgba(255,160,70,.35)}
+/* 小さなサムネイルでは重いレイヤーを省略してもランク枠・色は残す */
+.char-stage.tiny .rank-fx.rank-magic,.char-stage.tiny .rank-fx.rank-vortex,
+.char-stage.tiny .rank-fx.rank-bolts,.char-stage.tiny .rank-fx.rank-flames,
+.char-stage.tiny .rank-fx.rank-heat,.char-stage.tiny .rank-fx.rank-sparks{display:none!important}
+.char-stage.tiny .rank-fx.rank-frame{padding:2px}
+@keyframes rankFlow{from{background-position:160% 0}to{background-position:-90% 0}}
+@keyframes rankBolt{0%,100%{opacity:.42}50%{opacity:1}}
+@keyframes rankFlameRise{0%{transform:translateY(7%) scaleY(.9);filter:blur(1px)}50%{transform:translateY(-5%) scaleY(1.15);filter:blur(2px)}100%{transform:translateY(7%) scaleY(.9);filter:blur(1px)}}
+@keyframes rankFlicker{from{opacity:.72}to{opacity:1}}
+@keyframes rankHeat{from{transform:translateY(-2px) scaleX(1.02);opacity:.3}to{transform:translateY(2px) scaleX(.98);opacity:.8}}
+@keyframes rankSparks{from{background-position:0 0,10px 6px}to{background-position:0 -68px,10px -88px}}
+
+/* ---- キャラクターカードの外周リング（ユーザー選択のフレーム色は維持） ---- */
+.char-portrait{isolation:isolate}
+/* まず box-shadow で確実なランク枠を描く（マスク非対応環境でも画像は隠れない） */
+.char-portrait.rank-R{box-shadow:inset 0 0 30px rgba(233,201,121,.12),0 10px 30px rgba(0,0,0,.4),0 0 0 3px rgba(174,191,212,.55)}
+.char-portrait.rank-SR{box-shadow:inset 0 0 30px rgba(233,201,121,.12),0 10px 30px rgba(0,0,0,.4),0 0 0 4px #d8eefa,0 0 22px rgba(120,200,255,.5)}
+.char-portrait.rank-SSR{box-shadow:inset 0 0 30px rgba(233,201,121,.12),0 10px 30px rgba(0,0,0,.4),0 0 0 5px #ffd77a,0 0 30px rgba(255,215,122,.7)}
+.char-portrait.rank-UR{box-shadow:inset 0 0 30px rgba(233,201,121,.12),0 10px 30px rgba(0,0,0,.4),0 0 0 5px #c997ff,0 0 34px rgba(101,217,255,.6)}
+.char-portrait.rank-LR{box-shadow:inset 0 0 30px rgba(233,201,121,.12),0 10px 30px rgba(0,0,0,.4),0 0 0 6px #ff4b36,0 0 34px #ff4b36,0 0 64px rgba(255,90,30,.6)}
+/* 追加レイヤーは外周マスクで中央を抜く。マスク非対応でも薄い発光だけで画像は鮮明 */
+/* 外周リングは border で描くので、マスク非対応環境でも画像を覆わない */
+.char-portrait::before{content:'';position:absolute;inset:-7px;border-radius:19px;z-index:0;pointer-events:none;
+  border:6px solid var(--rk-main);opacity:.5}
+.char-portrait>*{position:relative;z-index:1}
+.char-portrait.rank-R::before{opacity:.3;border-color:#aebfd4}
+.char-portrait.rank-SR::before{opacity:.85;border-color:#d8eefa;animation:rankGlow 5.2s ease-in-out infinite}
+.char-portrait.rank-SSR::before{opacity:1;border-color:#ffd77a;box-shadow:0 0 22px rgba(255,215,122,.6);animation:rankGlow 2.1s ease-in-out infinite}
+.char-portrait.rank-UR::before{opacity:1;border-color:#c997ff;box-shadow:0 0 26px rgba(190,120,255,.65);animation:rankGlow 2.8s ease-in-out infinite}
+.char-portrait.rank-LR::before{opacity:1;border-color:#ff4b36;
+  box-shadow:0 0 28px #ff4b36,0 0 54px rgba(255,90,30,.6);animation:rankFlicker .4s ease-in-out infinite alternate}
+@keyframes rankGlow{0%,100%{filter:brightness(.85)}50%{filter:brightness(1.5)}}
+/* LR の火花はカードの外側だけに置く（中央は char-stage が覆う） */
+.char-portrait.rank-LR::after{content:'';position:absolute;inset:-22px;border-radius:26px;z-index:0;pointer-events:none;
+  background-image:radial-gradient(circle,#ffd166 1.6px,transparent 2px),radial-gradient(circle,#ff6b3d 1.1px,transparent 2px);
+  background-size:26px 34px,39px 47px;animation:rankSparks 1.45s linear infinite}
+.rank-ladder-step.rank-R.active{border-color:#aebfd4;box-shadow:0 0 14px rgba(174,191,212,.3)}
+.rank-ladder-step.rank-SR.active{border-color:#d8eefa;box-shadow:0 0 16px rgba(120,200,255,.45)}
+.rank-ladder-step.rank-SSR.active{border-color:#ffd77a;box-shadow:0 0 20px rgba(255,215,122,.55)}
+.rank-ladder-step.rank-UR.active{border-color:#c997ff;box-shadow:0 0 24px rgba(190,120,255,.6)}
+.rank-ladder-step.rank-LR.active{border-color:#ff4b36;box-shadow:0 0 28px rgba(255,70,35,.7)}
+.switch-line.rank-SSR{border-color:rgba(255,215,122,.35)}
+.switch-line.rank-UR{border-color:rgba(190,120,255,.4)}
+.switch-line.rank-LR{border-color:rgba(255,75,54,.5);background:linear-gradient(90deg,rgba(255,60,25,.12),rgba(255,255,255,.035))}
+
+/* ===========================================================
+   キャラクター進化：専用ワンショット演出
+   =========================================================== */
+.evo-seq{position:fixed;inset:0;z-index:170;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:clamp(8px,2vh,20px);pointer-events:none;overflow:hidden;color:#fff;animation:esFadeIn .45s ease-out both}
+.evo-seq.is-out{animation:esFadeOut .42s ease-in forwards}
+@keyframes esFadeIn{from{opacity:0}to{opacity:1}}
+@keyframes esFadeOut{from{opacity:1}to{opacity:0}}
+.es-backdrop{position:absolute;inset:0;z-index:0;background:#02040c;opacity:0;animation:esDark .5s ease-out forwards}
+@keyframes esDark{to{opacity:.94}}
+.es-vignette{position:absolute;inset:0;z-index:1;background:radial-gradient(circle at 50% 44%,transparent 28%,rgba(0,0,0,.72) 88%)}
+.es-field{position:absolute;inset:0;z-index:2;pointer-events:none;opacity:0;
+  animation:esFieldIn .4s ease-out .38s forwards}
+@keyframes esFieldIn{to{opacity:1}}
+.es-magic{position:absolute;left:50%;top:45%;width:min(80vmin,620px);height:min(80vmin,620px);transform:translate(-50%,-50%)}
+.es-circle{position:absolute;inset:0;border-radius:50%;border:2px solid var(--rk-main);opacity:.65;
+  box-shadow:0 0 34px var(--rk-soft),inset 0 0 34px var(--rk-soft);animation:rankSpin 9s linear infinite}
+.es-circle.c2{inset:12%;border-style:dashed;border-color:var(--rk-glow);animation:rankSpin 7s linear infinite reverse;display:none}
+.es-circle.c3{inset:24%;border-width:1px;border-color:var(--rk-sub);animation:rankSpin 5s linear infinite;display:none}
+.es-rune-ring{position:absolute;inset:4%;border-radius:50%;opacity:.55;animation:rankSpin 16s linear infinite;
+  background:repeating-conic-gradient(from 0deg,transparent 0 28deg,var(--rk-glow) 28deg 29deg,transparent 29deg 60deg);
+  -webkit-mask-image:radial-gradient(circle,transparent 72%,#000 76%,transparent 96%);
+  mask-image:radial-gradient(circle,transparent 72%,#000 76%,transparent 96%)}
+.es-vortex{position:absolute;inset:-14%;border-radius:50%;opacity:.48;animation:rankSpin 3s linear infinite;
+  background:conic-gradient(from 0deg,transparent,var(--rk-main),transparent,var(--rk-sub),transparent);
+  -webkit-mask-image:radial-gradient(circle,transparent 30%,#000 55%,transparent 78%);
+  mask-image:radial-gradient(circle,transparent 30%,#000 55%,transparent 78%)}
+.tier-2 .es-circle.c2{display:block}
+.tier-3 .es-circle.c2,.tier-3 .es-circle.c3{display:block}
+.tier-4 .es-circle.c2,.tier-4 .es-circle.c3{display:block}
+.es-particles{position:absolute;inset:0}
+.es-particle{position:absolute;left:50%;top:45%;width:var(--sz);height:var(--sz);border-radius:50%;opacity:0;
+  background:var(--rk-glow);box-shadow:0 0 10px var(--rk-main),0 0 22px var(--rk-glow);
+  animation:esParticle var(--pd) ease-in var(--dl) infinite}
+@keyframes esParticle{0%{opacity:0;transform:rotate(var(--a)) translateY(calc(-1 * var(--d))) scale(1)}
+  22%{opacity:.95}100%{opacity:0;transform:rotate(var(--a)) translateY(-2vmin) scale(.2)}}
+.es-bolts,.es-flames{display:none;position:absolute;left:50%;top:45%;width:min(92vmin,700px);height:min(92vmin,700px);
+  transform:translate(-50%,-50%);border-radius:50%}
+.es-bolts{background:repeating-conic-gradient(from 0deg,transparent 0 12deg,rgba(160,220,255,.7) 13deg 14deg,
+  transparent 15deg 30deg,rgba(200,150,255,.55) 31deg 32deg,transparent 33deg 58deg);
+  -webkit-mask-image:radial-gradient(circle,transparent 58%,#000 72%,transparent 88%);
+  mask-image:radial-gradient(circle,transparent 58%,#000 72%,transparent 88%);
+  animation:rankSpin 3.2s linear infinite,rankBolt .3s steps(2) infinite}
+.tier-3 .es-bolts,.tier-4 .es-bolts{display:block}
+.rank-LR .es-flames{display:block;
+  background:
+    radial-gradient(ellipse 6% 18% at 8% 100%,#ff2d16,transparent 72%),
+    radial-gradient(ellipse 5% 15% at 22% 104%,#ff7a22,transparent 74%),
+    radial-gradient(ellipse 6% 19% at 38% 102%,#ffc247,transparent 72%),
+    radial-gradient(ellipse 5% 16% at 54% 105%,#ff4b1e,transparent 74%),
+    radial-gradient(ellipse 6% 18% at 70% 102%,#ffd166,transparent 72%),
+    radial-gradient(ellipse 5% 15% at 86% 104%,#ff3b12,transparent 74%),
+    radial-gradient(ellipse 6% 18% at 96% 100%,#ff8a2b,transparent 72%),
+    radial-gradient(ellipse 18% 6% at 0% 46%,#ff5a1e,transparent 74%),
+    radial-gradient(ellipse 18% 6% at 100% 46%,#ff5a1e,transparent 74%);
+  -webkit-mask-image:radial-gradient(circle,transparent 60%,#000 76%,transparent 92%);
+  mask-image:radial-gradient(circle,transparent 60%,#000 76%,transparent 92%);
+  animation:rankFlameRise 1.6s linear infinite,rankFlicker .35s ease-in-out infinite alternate}
+.es-shock{position:absolute;left:50%;top:45%;width:34vmin;height:34vmin;border-radius:50%;opacity:0;
+  border:6px solid var(--rk-glow);box-shadow:0 0 44px var(--rk-main),inset 0 0 44px var(--rk-main)}
+.evo-seq.is-burst .es-shock.s1{animation:esShock 1.05s ease-out forwards}
+.evo-seq.is-burst .es-shock.s2{animation:esShock 1.05s ease-out .16s forwards}
+@keyframes esShock{0%{transform:translate(-50%,-50%) scale(.1);opacity:.95}100%{transform:translate(-50%,-50%) scale(3.5);opacity:0}}
+.es-flash{position:absolute;inset:0;z-index:3;opacity:0;
+  background:radial-gradient(circle at 50% 45%,#fff,rgba(255,255,255,.7) 28%,transparent 70%)}
+.evo-seq.is-burst .es-flash{animation:esFlash .62s ease-out forwards}
+@keyframes esFlash{0%{opacity:0}18%{opacity:.9}45%{opacity:.3}100%{opacity:0}}
+.es-stage{position:relative;z-index:4;display:grid;place-items:center;width:min(58vw,340px);height:min(46vh,360px)}
+.es-stage>*{grid-area:1/1}
+.char-stage.evo-seq{width:100%;height:100%;border-radius:18px}
+.es-halo{position:relative;z-index:0;inset:-18%;border-radius:50%;opacity:0;filter:blur(20px);
+  background:radial-gradient(circle,var(--rk-glow),transparent 64%)}
+.evo-seq.is-burst .es-halo{animation:esHalo 1.2s ease-out forwards}
+@keyframes esHalo{0%{opacity:0;transform:scale(.5)}30%{opacity:.85}100%{opacity:.3;transform:scale(1.16)}}
+.es-before,.es-after{position:relative;z-index:2;width:100%;height:100%;display:grid;place-items:center;
+  transition:opacity .5s ease,transform .65s cubic-bezier(.16,1,.3,1)}
+.es-after{opacity:0;transform:scale(.82)}
+.evo-seq.is-burst .es-before{opacity:0;transform:scale(1.14)}
+.evo-seq.is-burst .es-after{opacity:1;transform:scale(1.07)}
+.evo-seq.is-reveal .es-after{transform:scale(1)}
+.evo-seq.is-burst .es-stage{animation:esShake .55s ease-in-out 1}
+@keyframes esShake{0%,100%{transform:translate(0,0)}20%{transform:translate(-5px,2px)}40%{transform:translate(5px,-3px)}
+  60%{transform:translate(-3px,-2px)}80%{transform:translate(3px,2px)}}
+.es-caption{position:relative;z-index:5;text-align:center;max-width:min(92vw,720px);padding:0 12px;opacity:0;
+  transform:translateY(16px);transition:opacity .55s ease,transform .55s ease;
+  text-shadow:0 3px 18px rgba(0,0,0,.95),0 0 30px rgba(0,0,0,.85)}
+.evo-seq.is-reveal .es-caption{opacity:1;transform:none}
+.es-kicker{font-size:11px;letter-spacing:.3em;color:var(--rk-glow)}
+.es-rank-line{display:flex;align-items:baseline;justify-content:center;gap:14px;line-height:1.05}
+.es-from{font-size:clamp(20px,4vw,34px);color:#9aa9c6}
+.es-arrow{font-size:clamp(18px,3vw,28px);color:var(--rk-glow)}
+.es-rank-name{font-family:var(--serif);font-size:clamp(64px,17vw,150px);font-weight:900;letter-spacing:.02em;color:#fff;
+  text-shadow:0 0 24px var(--rk-main),0 0 64px var(--rk-glow),0 6px 30px rgba(0,0,0,.95)}
+.rank-LR .es-rank-name{background:linear-gradient(180deg,#fff2c4,#ff8a3d 55%,#ff2d16);
+  -webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 0 26px rgba(255,80,30,.9))}
+.es-rank-sub{font-size:13px;color:var(--rk-glow);margin-top:2px}
+.es-gains{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin-top:10px}
+.es-gains span{padding:4px 10px;border-radius:8px;font-size:11px;color:#d6ffe2;
+  background:rgba(140,230,168,.14);border:1px solid rgba(140,230,168,.45)}
+.es-note{font-size:11px;color:#c8d6ef;margin-top:8px}
+.es-skip,.evo-fx-skip{pointer-events:auto;padding:8px 16px;border-radius:10px;font-size:12px;letter-spacing:.04em;
+  color:#eaf0ff;background:rgba(10,16,34,.74);border:1px solid rgba(255,255,255,.35);backdrop-filter:blur(6px)}
+.es-skip{position:absolute;right:clamp(12px,3vw,28px);bottom:clamp(12px,3vw,26px);z-index:6}
+.evo-fx-skip{position:absolute;right:clamp(12px,3vw,28px);bottom:clamp(12px,3vw,26px)}
+.es-skip:hover,.evo-fx-skip:hover{border-color:var(--rk-glow);background:rgba(30,40,70,.9)}
+@media (prefers-reduced-motion:reduce){
+  .evo-seq .es-circle,.evo-seq .es-vortex,.evo-seq .es-particle,.evo-seq .es-bolts,
+  .evo-seq .es-flames,.evo-seq .es-rune-ring{animation-duration:8s!important}
+}
+
 /* ---------- レスポンシブ（縦スマホはプレビュー→設定→名前の順） ---------- */
 @media (max-width:1000px){
   .editor-grid{grid-template-columns:1fr}
@@ -802,6 +1057,11 @@ small{font-size:11px}
   .char-stage.portrait{height:200px}
   .char-stage.battle{width:110px;height:145px}
   .char-stage.evo{height:200px}
+  .es-stage{width:min(74vw,290px);height:min(38vh,270px)}
+  .es-rank-name{font-size:clamp(52px,19vw,96px)}
+  .es-gains span{font-size:10px;padding:3px 7px}
+  .es-note{font-size:10px}
+  .char-portrait::before{inset:-5px;border-width:4px;border-radius:16px}
   .editor-grid{gap:12px}
   .profile-row{grid-template-columns:1fr}
   .profile-row .row-btns{justify-content:stretch}

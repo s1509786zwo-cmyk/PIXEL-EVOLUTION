@@ -5,7 +5,7 @@ import * as D from './data.js?v=2';
 import * as S from './state.js?v=2';
 import * as P from './pixel.js?v=2';
 import { Battle } from './battle.js?v=2';
-import { renderScreen, imageFilter, imageTransform, e } from './ui.js?v=2';
+import { renderScreen, imageFilter, imageTransform, e, charImage, rankVisualStyle } from './ui.js?v=2';
 
 const app = {
   screen: 'title', params: {}, tabs: {}, draft: null, look: null, compare: false,
@@ -15,7 +15,7 @@ const app = {
   confirmReset: false, charName: '', started: false,
   materialDetail: null, evolveEquip: null, lastBonus: [],
   gacha: null, gachaRatesDetail: false, gachaItemDetail: null,
-  jobChangeOffer: null, hintCategory: 'next',
+  jobChangeOffer: null, hintCategory: 'next', evoFxPlaying: false,
 };
 let state = S.newState();
 let toastTimer = null, regenTimer = null;
@@ -229,6 +229,7 @@ async function handleFile(el) {
       if (!text) throw new Error('空のファイルです');
       const data = S.importSave(text);
       state = data;
+      skipEvolutionFx(); evoFx.lastSeq = -1;   // 読み込んだセーブの進化回数と一致しても演出を再生できるように
       app.confirmReset = false; app.look = null; app.materialDetail = null;
       await S.saveState(state, true);
       ensureEnemySprites();
@@ -259,13 +260,89 @@ function showLevelUpFx(info) {
   setTimeout(() => el.remove(), 2600);
   sfx('ok');
 }
-function showEvolutionFx(rank, label = '') {
+/* ---------------- キャラクター進化：専用のワンショット演出 ----------------
+   - 画面中央にキャラクター、暗転、魔法陣・渦・粒子・揺れ・フラッシュ・衝撃波
+   - ランクが上がるほど層を増やして豪華に
+   - 進化後のキャラと新ランク枠を大きく、最後に新ランク名を大きく表示
+   - fx-layer は render() の対象外なので、画面を開き直しても再再生されない
+--------------------------------------------------------------------------- */
+const evoFx = { el:null, timers:[], playing:false, lastSeq:-1 };
+function evoFxClearTimers() { for (const t of evoFx.timers) clearTimeout(t); evoFx.timers = []; }
+function finishEvolutionFx() {
+  evoFxClearTimers();
+  if (evoFx.el) { evoFx.el.remove(); evoFx.el = null; }
+  evoFx.playing = false;
+  app.evoFxPlaying = false;
+  if (app.jobChangeOffer) render();   // 演出中は隠していた役職変更モーダルを再表示
+}
+function skipEvolutionFx() {
+  const simple = document.querySelectorAll('.fx-evolution');
+  for (const x of simple) x.remove();
+  if (evoFx.playing) finishEvolutionFx(); else app.evoFxPlaying = false;
+}
+function beginEvolutionFx(c, r) {
+  const layer = $('fx-layer'); if (!layer) return;
+  const seq = state.stats.evolutions;
+  if (evoFx.lastSeq === seq) return;              // 同じ進化を二度再生しない
+  if (evoFx.playing) finishEvolutionFx();
+  evoFx.lastSeq = seq;
+  const from = r.rule.from, to = r.rule.to;
+  const idx = D.charRankIndex(to);
+  const rk = D.CHAR_RARITY[to] || D.CHAR_RARITY.R;
+  const before = { ...c, rarity: from };         // 元画像・見た目設定はそのまま
+  const after  = { ...c, rarity: to };           // c.rarity は進化後に更新済み
+  const n = 14 + idx * 10;
+  const particles = Array.from({ length:n }, (_,i) => {
+    const a = (i * 137.508) % 360, d = 18 + (i * 29) % 62;
+    const pd = 1.35 + ((i * 7) % 14) / 10, dl = ((i * 11) % 9) / 10;
+    return `<span class="es-particle" style="--a:${a.toFixed(1)}deg;--d:${d}vmin;--pd:${pd.toFixed(2)}s;--dl:${dl.toFixed(2)}s;--sz:${3+(i%4)}px"></span>`;
+  }).join('');
+  const gains = (r.gains || []).map(g => `<span>${e(D.STAT_NAMES[g.key] || g.key)} <b>+${g.value}</b></span>`).join('')
+    || '<span>全ステータス大幅上昇</span>';
+  const el = document.createElement('div');
+  el.className = `evo-seq rank-${to} tier-${idx} is-intro`;
+  el.setAttribute('style', `${rankVisualStyle(after)};--es-tier:${idx}`);
+  el.innerHTML = `
+    <div class="es-backdrop"></div><div class="es-vignette"></div>
+    <div class="es-field">
+      <div class="es-magic"><span class="es-circle c1"></span><span class="es-circle c2"></span>
+        <span class="es-circle c3"></span><span class="es-rune-ring"></span><div class="es-vortex"></div></div>
+      <div class="es-particles">${particles}</div>
+      <div class="es-bolts"></div><div class="es-flames"></div>
+      <div class="es-shock s1"></div><div class="es-shock s2"></div>
+      <div class="es-flash"></div>
+    </div>
+    <div class="es-stage">
+      <div class="es-halo"></div>
+      <div class="es-before">${charImage(before,'evo-seq')}</div>
+      <div class="es-after">${charImage(after,'evo-seq')}</div>
+    </div>
+    <div class="es-caption">
+      <div class="es-kicker">EVOLUTION COMPLETE</div>
+      <div class="es-rank-line"><span class="es-from">${e(from)}</span><span class="es-arrow">➜</span><span class="es-rank-name">${e(to)}</span></div>
+      <div class="es-rank-sub">${e(rk.label)}</div>
+      <div class="es-gains">${gains}</div>
+      <div class="es-note">元画像・レベル・職業・技・装備・戦績はそのまま ／ 新ランク枠を付与</div>
+    </div>
+    <button class="es-skip" type="button" data-action="evoFxSkip">⏭ 演出をスキップ</button>`;
+  layer.appendChild(el);
+  evoFx.el = el; evoFx.playing = true; app.evoFxPlaying = true;
+  const dur = 3400 + idx * 430;
+  const add = (ms, fn) => evoFx.timers.push(setTimeout(fn, ms));
+  add(Math.round(dur * .33), () => { el.classList.remove('is-intro'); el.classList.add('is-burst'); sfx('ultimate'); });
+  add(Math.round(dur * .52), () => { el.classList.add('is-reveal'); sfx('win'); });
+  add(dur - 420, () => el.classList.add('is-out'));
+  add(dur, () => finishEvolutionFx());
+}
+/** 装備進化用の簡易演出（こちらもスキップ可能） */
+function showEquipmentEvolutionFx(rank, label = '') {
   const layer = $('fx-layer'); if (!layer) return;
   const el = document.createElement('div');
   el.className = `fx-evolution rank-${rank}`;
   el.innerHTML = `<div class="evo-fx-ring"></div><div class="evo-fx-rays"></div>
     <div class="evo-fx-title">${e(label || 'EVOLUTION')}</div><div class="evo-fx-rank">${e(rank)}</div>
-    <div class="evo-fx-sub">元画像・レベル・職業・技・装備・戦績はそのまま</div>`;
+    <div class="evo-fx-sub">形状・種類・装備中の状態はそのまま</div>
+    <button class="evo-fx-skip" type="button" data-action="evoFxSkip">⏭ スキップ</button>`;
   layer.appendChild(el);
   setTimeout(() => el.remove(), rank === 'LR' ? 3800 : 2600);
   sfx('win');
@@ -528,6 +605,7 @@ function recordJobChange(offer, jobId, kept) {
 async function handleAction(action, ds, el) {
   const c = S.activeChar(state);
   sfx('click');
+  if (app.evoFxPlaying && action !== 'evoFxSkip' && action !== 'evolveChar') skipEvolutionFx();
   switch (action) {
     /* --- ナビ --- */
     case 'nav': {
@@ -716,15 +794,17 @@ async function handleAction(action, ds, el) {
       if (r.ok) {
         app.evoResult = { type:'char', r:{ ...r, skill:D.SKILL[r.rule.skill] } };
         if (r.jobChangeOffer) app.jobChangeOffer = r.jobChangeOffer;
-        save(true); showEvolutionFx(r.rule.to, `${r.rule.from} → ${r.rule.to} 進化！`);
+        save(true);
+        beginEvolutionFx(c, r);   // commit() の render より先に開始（役職変更モーダルを隠す）
       }
       return commit(r.msg, r.ok);
     }
     case 'evoResultClose': app.evoResult = null; return render();
+    case 'evoFxSkip': return skipEvolutionFx();
     case 'equipEvolveSelect': app.evolveEquip = ds.uid; return render();
     case 'evolveEquip': {
       const r = S.evolveEquipment(state, ds.uid);
-      if (r.ok) { app.evoResult = { type:'equip', r }; showEvolutionFx(r.next, `装備ランク ${r.next} 進化！`); }
+      if (r.ok) { app.evoResult = { type:'equip', r }; showEquipmentEvolutionFx(r.next, `装備ランク ${r.next} 進化！`); }
       return commit(r.msg, r.ok);
     }
 
@@ -913,10 +993,11 @@ async function handleAction(action, ds, el) {
     case 'resetGameConfirm': {
       await S.eraseSave();
       state = S.newState();
+      skipEvolutionFx(); evoFx.lastSeq = -1;
       Object.assign(app, { screen:'title', params:{}, tabs:{}, draft:null, look:null, battle:null, result:null,
         lastPull:[], lastBonus:[], selectedSynth:[], selectedEquip:null, confirmReset:false,
         enemyGroup:'normal', compare:false, materialDetail:null, evolveEquip:null,
-        gacha:null, gachaRatesDetail:false, gachaItemDetail:null, jobChangeOffer:null, hintCategory:'next' });
+        gacha:null, gachaRatesDetail:false, gachaItemDetail:null, jobChangeOffer:null, hintCategory:'next', evoFxPlaying:false });
       render(); window.scrollTo({top:0});
       return toast('データを初期化しました');
     }

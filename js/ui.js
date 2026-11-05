@@ -62,6 +62,13 @@ export function rankBadge(r) {
   const x = CHAR_RARITY[r] || CHAR_RARITY.R;
   return `<span class="rank-badge ${x.css}">${x.name}</span>`;
 }
+export function rankClassOf(c) { return (CHAR_RARITY[c?.rarity || 'R'] || CHAR_RARITY.R).css; }
+/** ランクごとの配色を CSS 変数として埋め込む（画像そのものは一切差し替えない） */
+export function rankVisualStyle(c) {
+  const rank = CHAR_RARITY[c?.rarity || 'R'] || CHAR_RARITY.R;
+  const fx = rank.fx || { tier:0, main:rank.color, glow:rank.glow, sub:rank.color, theme:'plain' };
+  return `--rk-main:${fx.main};--rk-glow:${fx.glow};--rk-sub:${fx.sub};--rk-soft:${fx.soft || 'rgba(255,255,255,.10)'};--rk-tier:${fx.tier}`;
+}
 export function charImage(c, cls = 'portrait', opts = {}) {
   if (!c) return `<div class="char-stage empty ${cls}">✦</div>`;
   const set = imageSettings(c);
@@ -71,11 +78,18 @@ export function charImage(c, cls = 'portrait', opts = {}) {
   const fit = set.fit === 'face' ? 'face' : 'full';
   const aura = c.aura && c.aura !== 'none' ? `aura-${c.aura}` : '';
   const crest = { SR:'✦', SSR:'✧', UR:'❖', LR:'✺' }[rank.id] || '';
-  return `<div class="char-stage ${cls} ${rank.css} ${aura} fit-${fit}" data-rank="${rank.id}">
+  const tier = rank.fx?.tier ?? 0;
+  return `<div class="char-stage ${cls} ${rank.css} ${aura} fit-${fit} tier-${tier}" data-rank="${rank.id}"
+    data-rank-tier="${tier}" style="${rankVisualStyle(c)}">
+    <div class="rank-fx rank-bg"></div>
+    <div class="rank-fx rank-magic"></div><div class="rank-fx rank-vortex"></div>
+    <div class="rank-fx rank-flow"></div><div class="rank-fx rank-bolts"></div>
+    <div class="rank-fx rank-flames"></div><div class="rank-fx rank-heat"></div><div class="rank-fx rank-sparks"></div>
     <div class="rank-fx rank-ring"></div><div class="rank-fx rank-aura"></div>
     <div class="char-frame ${e(c.frame || 'gold')}"><img class="char-img" src="${e(src)}" alt="${e(c.name || 'キャラクター')}"
       style="filter:${imageFilter(set)};transform:${imageTransform(set, cls)};transform-origin:${fit === 'face' ? 'center 22%' : 'center center'}"
       draggable="false"></div>
+    <div class="rank-fx rank-frame"></div><div class="rank-fx rank-edge"></div>
     <div class="rank-fx rank-particles"></div>${crest ? `<div class="rank-fx rank-crest">${crest}</div>` : ''}
   </div>`;
 }
@@ -356,6 +370,7 @@ function helpScreen(app, s) {
 
 /* ---------------- 役職変更の機会（ランクアップ / 転生のみ） ---------------- */
 function jobChangeModal(app, s) {
+  if (app.evoFxPlaying) return '';   // 進化演出の邪魔をしない（終了後に再表示）
   const o = app.jobChangeOffer;
   if (!o) return '';
   const c = activeChar(s);
@@ -459,7 +474,7 @@ function townScreen(app, s) {
   return `${navBar(app,s)}
   <main class="page town-page" style="background-image:linear-gradient(180deg,rgba(9,13,28,.86),rgba(9,13,28,.96)),url('assets/title_bg.jpg')">
     <div class="town-hero">
-      <div class="town-char">${c ? `<div class="char-portrait ${c.frame}">${charImage(c,'portrait')}</div>` : ''}</div>
+      <div class="town-char">${c ? `<div class="char-portrait ${c.frame} ${rankClassOf(c)}" style="${rankVisualStyle(c)}">${charImage(c,'portrait')}</div>` : ''}</div>
       <div class="town-info">
         <div class="eyebrow">✦ 冒険の拠点・クリスタルタウン</div>
         <h2>${c ? e(c.name) : 'キャラクター未作成'} <small>${c ? `Lv.${c.level} / ${JOB[c.jobId].name} / ${AWAKENING_NAMES[c.awakening]}` : ''}</small></h2>
@@ -556,7 +571,7 @@ function equipRankVisual(def, rank, size = 112) {
 }
 function rankLine(rank, active) {
   const r = CHAR_RARITY[rank];
-  return `<div class="rank-ladder-step ${r.css} ${active?'active':''}"><b>${r.name}</b><small>${e(r.label)}</small></div>`;
+  return `<div class="rank-ladder-step ${r.css} ${active?'active':''}" style="${rankVisualStyle({rarity:rank})}"><b>${r.name}</b><small>${e(r.label)}</small></div>`;
 }
 function materialReqList(mats, s) {
   return `<div class="mat-req-list">${mats.map(m => `<div class="mat-req ${m.have>=m.n?'ok':'bad'}" data-action="matDetail" data-id="${m.id}" role="button" tabindex="0">
@@ -1251,7 +1266,7 @@ function characterScreen(app, s) {
     <div class="page-head"><div><h2>🧙 キャラクター</h2><p>画像・能力値・職業・技・装備・戦績を一元管理</p></div><div class="row-btns"><button class="btn btn-primary" data-action="nav" data-to="appearance">🎨 見た目を変更</button><button class="btn btn-glass" data-action="newChar">＋ 新規作成</button></div></div>
     <div class="char-layout">
       <div class="panel char-sheet">
-        <div class="char-portrait large ${c.frame}">${charImage(c,'portrait')}<div class="portrait-name">${e(c.name)}</div></div>
+        <div class="char-portrait large ${c.frame} ${rankClassOf(c)}" style="${rankVisualStyle(c)}">${charImage(c,'portrait')}<div class="portrait-name">${e(c.name)}</div></div>
         <div class="char-badges">${rankBadge(c.rarity)}<span class="pill">Lv.${c.level}</span><span class="pill">${e(AWAKENING_NAMES[c.awakening])}</span></div>
         <div class="exp-line"><small>EXP</small>${bar(c.exp, xpForLevel(c.level), 'linear-gradient(90deg,#ffd77a,#ffe9a8)', `EXP ${fmt(c.exp)} / ${fmt(xpForLevel(c.level))}（次Lvまで ${fmt(Math.max(0,xpForLevel(c.level)-c.exp))}）`)}</div>
         <div class="row-btns"><button class="btn btn-mini" data-action="nav" data-to="facility" data-facility="nurture" data-tab="4">✦ 進化画面へ</button></div>
@@ -1269,7 +1284,7 @@ function characterScreen(app, s) {
         <div class="panel soft"><h4>能力値</h4>${statTable(st)}${bar(c.hp,st.hp,'linear-gradient(90deg,#ff6b6b,#ff9e7a)',`HP ${fmt(c.hp)} / ${fmt(st.hp)}`)}${bar(c.mp,st.mp,'linear-gradient(90deg,#5b9dff,#8ce6ff)',`MP ${fmt(c.mp)} / ${fmt(st.mp)}`)}${bar(c.exp,xpForLevel(c.level),'linear-gradient(90deg,#ffd77a,#ffe9a8)',`EXP ${fmt(c.exp)} / ${fmt(xpForLevel(c.level))}`)}</div>
         <div class="panel soft"><h4>装備中</h4>${SLOTS.map(slot=>{const inst=findInstance(s,c.equipment[slot]);const def=instanceDef(inst);return `<div class="list-line"><span>${e(SLOT_NAME[slot])}</span><b style="color:${def?.color||'#889'}">${e(def?.name||'なし')} ${def?`+${inst.enhance||0}`:''}</b></div>`;}).join('')}</div>
         <div class="panel soft"><h4>習得技（装備中 ★）</h4><div class="chip-row">${c.skills.map(k=>`<span class="chip ${c.equippedSkills.includes(k.id)?'on':''}">${c.equippedSkills.includes(k.id)?'★':'☆'} ${e(SKILL[k.id]?.name||k.id)}</span>`).join('')}</div></div>
-        <div class="panel soft"><h4>キャラクター切替 <span class="pill">${s.characters.length} 人</span></h4>${s.characters.map(ch=>`<div class="switch-line">${charImage(ch,'tiny')}<div><b>${e(ch.name)}</b><small>Lv.${ch.level} / ${e(JOB[ch.jobId].name)}</small></div>${ch.id===s.activeId?'<span class="pill on">選択中</span>':`<button class="btn btn-mini" data-action="switchChar" data-id="${ch.id}">選択</button>`}${s.characters.length>1?`<button class="btn btn-mini ghost" data-action="deleteChar" data-id="${ch.id}">削除</button>`:''}</div>`).join('')}</div>
+        <div class="panel soft"><h4>キャラクター切替 <span class="pill">${s.characters.length} 人</span></h4>${s.characters.map(ch=>`<div class="switch-line ${rankClassOf(ch)}" style="${rankVisualStyle(ch)}">${charImage(ch,'tiny')}<div><b>${e(ch.name)}</b><small>${rankBadge(ch.rarity)} Lv.${ch.level} / ${e(JOB[ch.jobId].name)}</small></div>${ch.id===s.activeId?'<span class="pill on">選択中</span>':`<button class="btn btn-mini" data-action="switchChar" data-id="${ch.id}">選択</button>`}${s.characters.length>1?`<button class="btn btn-mini ghost" data-action="deleteChar" data-id="${ch.id}">削除</button>`:''}</div>`).join('')}</div>
       </div>
     </div></main>${toastArea(app)}`;
 }
@@ -1310,7 +1325,7 @@ function endgameScreen(app, s) {
     { icon:'📈', name:'職業ごとの熟練度', cond:'全21職を経験し、各職業Lv.30まで鍛える', reward:'コイン20,000 / BP500 / 称号「職業の覇者」', status:`${Object.keys(c.jobLevels).length} / ${JOBS.length} 職経験 / 合計Lv.${Object.values(c.jobLevels).reduce((a,b)=>a+b,0)}`, btn:'<button class="btn btn-glass" data-action="nav" data-to="facility" data-facility="nurture" data-tab="1">職業へ</button>' },
     { icon:'✦', name:'全技の収集', cond:`${SKILLS.length}種すべてを習得`, reward:'BP1,200 / コイン30,000 / 称号「技の化身」', status:`${collected.length} / ${SKILLS.length}`, btn:'<button class="btn btn-glass" data-action="nav" data-to="facility" data-facility="nurture" data-tab="2">技習得へ</button>' },
     { icon:'🌟', name:'覚醒段階の完全解放', cond:'覚醒Vまで到達（レベル・熟練度・ボス・素材）', reward:'全能力×1.65 / 覚醒限定技6種 / 称号「極致の超越者」', status:`覚醒 ${c.awakening} / 5`, btn:'<button class="btn btn-glass" data-action="nav" data-to="facility" data-facility="nurture" data-tab="3">覚醒へ</button>' },
-    { icon:'🌟', name:'レアリティ R → LR 完全進化', cond:'レベル条件と進化素材を揃えて4回進化', reward:'全能力×2.10 / 進化限定技4種 / 虹白金の専用オーラ', status:`${e(c.rarity)} / 累計進化 ${s.stats.evolutions||0} 回`, btn:'<button class="btn btn-glass" data-action="nav" data-to="facility" data-facility="nurture" data-tab="4">進化へ</button>' },
+    { icon:'🌟', name:'レアリティ R → LR 完全進化', cond:'レベル条件と進化素材を揃えて4回進化', reward:'全能力×2.10 / 進化限定技4種 / 紅蓮の炎枠', status:`${e(c.rarity)} / 累計進化 ${s.stats.evolutions||0} 回`, btn:'<button class="btn btn-glass" data-action="nav" data-to="facility" data-facility="nurture" data-tab="4">進化へ</button>' },
     { icon:'⚒', name:'装備ランク進化 LR', cond:'武器・防具・装飾品を素材で R→LR まで進化', reward:'攻撃力・特殊効果の大幅強化 / ランク固有の装飾と発光', status:`装備進化 ${s.stats.equipEvolutions||0} 回`, btn:'<button class="btn btn-glass" data-action="nav" data-to="facility" data-facility="forge" data-tab="4">工房へ</button>' },
     { icon:'📖', name:'武器・装備・技・職業図鑑', cond:`装備${EQUIPMENT.length}種 / 技${SKILLS.length}種 / 職業${JOBS.length}種を記録`, reward:'称号「鑑定士」「技博覧」ほか', status:`装備${s.catalog.equipment.length} / 技${collected.length} / 職${s.catalog.jobs.length}`, btn:'<button class="btn btn-glass" data-action="nav" data-to="codex">図鑑へ</button>' },
     { icon:'🏅', name:'CPU対戦ランク', cond:'ランクP 6,500で神階到達', reward:'各ランク到達でコイン最大30,000', status:`${e(r.name)} / RP ${fmt(s.rankPoints)}`, btn:'<button class="btn btn-glass" data-action="nav" data-to="facility" data-facility="guild" data-tab="0">対戦へ</button>' },
