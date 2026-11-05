@@ -8,7 +8,8 @@ import {
   SLOT_NAME, AWAKENING_NAMES, MAX_LEVEL_BASE, collectedSkills, EFFECTS,
   LEARNABLE_SKILL_COUNT, SPECIAL_NAME_LABEL, specialNameKey, GOD_JOB_ID,
   ULTIMATE_GAUGE_MAX, JOB_ULTIMATE, GOD_ULTIMATE_ID, SPECIAL_ULTIMATE,
-  ULTIMATE_IDS, SKILL_COUNT,
+  ULTIMATE_IDS, SKILL_COUNT, toCoreStats,
+  TUTORIAL_STEPS, TUTORIAL_HELP_TOPICS, TUTORIAL_STEP_COUNT,
   CHAR_RARITIES, CHAR_RARITY, CHAR_RARITY_ORDER, charRankIndex, EVOLUTION_RULES, RATE_TOTAL,
 } from './data.js?v=2';
 import {
@@ -21,7 +22,8 @@ import {
   buildEnemyCombatant, hasSaveFlag, AURAS, gachaRates, defaultPixelSettings,
   defaultImageSettings, evolutionPreview, equipmentEvolvePreview, instanceRank,
   PITY_LEGENDARY, PITY_MYTHIC, charRank, upgradeMaterial,
-  jobChangeCandidates,
+  jobChangeCandidates, tutorialStepChecks, tutorialCanAdvance,
+  tutorialRewardCoins, equipmentGachaCost, TUTORIAL_REWARD_PULLS, defaultTutorial,
 } from './state.js?v=2';
 import {
   materialIcon, MATERIAL_ITEMS, MATERIAL_BY_ID, MAT_RANKS, MAT_RANK_INFO,
@@ -130,14 +132,14 @@ function editorSettings(target, st, opts = {}) {
   </div>`;
 }
 
-const EXTRA_STAT_ROWS = [
-  ['mdef','🜛','魔法防御力'], ['crit','✦','クリティカル率'],
-  ['critDamage','✧','クリティカルダメージ'], ['ultimatePower','✵','奥義威力'],
-];
+const EXTRA_STAT_ROWS = [];   // 会心・回避・魔力等は基本ステータスとして表示しない
+function coreLine(stats = {}) {
+  const c = toCoreStats(stats);
+  return STAT_KEYS.filter(k => c[k]).map(k => `${STAT_NAMES[k]}+${Math.round(c[k])}`).join(' / ') || '特殊効果のみ';
+}
 function statTable(st, extra = '') {
-  return `<div class="stat-grid">${STAT_KEYS.map(k => `
-    <div class="stat-cell"><span>${STAT_ICONS[k]} ${STAT_NAMES[k]}</span><b>${fmt(st[k]||0)}</b></div>`).join('')}
-    ${EXTRA_STAT_ROWS.map(([k,icon,name])=>`<div class="stat-cell extra"><span>${icon} ${name}</span><b>${fmt(st[k]||0)}${k==='crit'||k==='ultimatePower'?'%':k==='critDamage'?'%':''}</b></div>`).join('')}</div>`;
+  return `<div class="stat-grid stat-grid-4">${STAT_KEYS.map(k => `
+    <div class="stat-cell"><span>${STAT_ICONS[k]} ${STAT_NAMES[k]}</span><b>${fmt(st[k]||0)}</b></div>`).join('')}</div>`;
 }
 
 /* ============================ タイトル ============================ */
@@ -322,11 +324,20 @@ function gatherScreen(app, s) {
     <div class="panel soft mt"><h4>📗 素材図鑑を確認</h4><p class="muted">素材をクリックすると必要個数・入手方法・合成先を確認できます。</p><button class="btn btn-glass" data-action="nav" data-to="codex" data-codex-tab="6">素材図鑑を開く</button></div></main>${toastArea(app)}`;
 }
 function helpScreen(app, s) {
-  return `${navBar(app,s)}<main class="page"><div class="page-head"><div><h2>❓ ヘルプ</h2><p>あそび方と今回の変更点</p></div><button class="btn btn-ghost" data-action="nav" data-to="town">🏰 街へ戻る</button></div>
-    <div class="two-col"><section class="panel soft"><h3>🎮 あそび方</h3><ol class="flow">
+  const t = s.tutorial || defaultTutorial();
+  const resumeLabel = t.status === 'skipped' ? 'チュートリアルを再開する'
+    : t.status === 'active' ? `チュートリアル STEP ${t.step} に戻る`
+    : t.completed ? 'チュートリアルをもう一度プレイする' : 'チュートリアルを始める';
+  return `${navBar(app,s)}<main class="page"><div class="page-head"><div><h2>❓ ヘルプ / 遊び方</h2><p>各施設の使い方と育成の仕組み。閲覧してもゲームの進行状況は変わりません。</p></div><button class="btn btn-ghost" data-action="nav" data-to="town">🏰 街へ戻る</button></div>
+    <div class="callout gold">📘 <b>${e(resumeLabel)}</b> ／ チュートリアルは任意で開始・スキップでき、途中から再開できます。
+      <div class="row-btns mt"><button class="btn btn-primary btn-mini" data-action="tutorialResume">${e(resumeLabel)}</button></div></div>
+    <h3 class="section-title">📚 システム解説 <small>全 ${TUTORIAL_HELP_TOPICS.length} 項目</small></h3>
+    <div class="help-topics">${TUTORIAL_HELP_TOPICS.map(x=>`<section class="help-topic"><span>${x.icon}</span><div><b>${e(x.name)}</b><p>${e(x.text)}</p></div></section>`).join('')}</div>
+    <div class="two-col mt"><section class="panel soft"><h3>🎮 あそび方</h3><ol class="flow">
       <li>タイトルで<b>ゲームスタート</b> → <b>街のホーム画面</b></li>
       <li>キャラクター未作成なら街の「キャラクターを作成する」から作成（完了後は街へ戻る）</li>
       <li>街の<b>5 つの施設カード</b>から育成の間・修行場・工房・道具屋・CPU対戦へ（工房内の「ガチャ」タブから武器ガチャ）</li>
+      <li>基本ステータスは <b>HP / 攻撃力 / 防御力 / MP</b> の 4 種類。会心・回避・属性などは技や装備の特殊効果です</li>
       <li>施設の「🏰 街へ戻る」でいつでもホームに戻れます</li>
       <li>勝利でコイン・EXP・BP・素材を獲得。ランク進化で全ステータスが大幅上昇</li>
     </ol></section><section class="panel soft"><h3>⚒ 装備とランク</h3><ul class="flow">
@@ -370,6 +381,88 @@ function jobChangeModal(app, s) {
   </div></div>`;
 }
 
+/* ---------------- チュートリアル（任意開始・実操作で進む） ---------------- */
+function tutorialActionButtons(app, s, t) {
+  const nav = (label, to, facility, tab) => `<button class="btn btn-mini" data-action="nav" data-to="${to}" ${facility?`data-facility="${facility}"`:''} ${tab!==undefined?`data-tab="${tab}"`:''}>${label}</button>`;
+  const act = (label, action, extra='') => `<button class="btn btn-mini btn-glass" data-action="${action}" ${extra}>${label}</button>`;
+  switch (t.step) {
+    case 1: return nav('🎨 キャラクター作成画面を開く','create') + nav('🏰 街へ戻る','town');
+    case 2: return nav('✦ 育成の間へ','facility','nurture',0) + act('📈 練習で経験値を獲得','tutorialExp');
+    case 3: return nav('⚒ 工房へ','facility','forge',0) + nav('✧ ガチャタブを見る','facility','forge',1)
+      + act('🎁 無料の練習用ガチャを引く','tutorialGacha') + act('⚔ 獲得武器を装備する','tutorialEquip');
+    case 4: return nav('🏛 CPU対戦の画面へ','facility','guild',0) + act('⚔ 練習用の敵と戦う','tutorialBattle')
+      + (app.screen === 'battle' ? act('AUTO を切り替える','battleAuto')
+        + (app.battle?.autoMode
+          ? `<button class="btn btn-mini btn-glass" data-action="battleSpeed" data-speed="2">2倍速にする</button>`
+            + `<button class="btn btn-mini btn-glass" data-action="battleSpeed" data-speed="3">3倍速にする</button>`
+          : '<small class="tp-hint">速度変更は AUTO を ON にしてから</small>')
+        + act('🗡 手動で技を使う','tutorialManualSkill') : '');
+    case 5: return nav('💠 素材集めへ','gather') + act('📦 進化素材を獲得する','tutorialGather')
+      + nav('✦ 育成の間・進化へ','facility','nurture',4);
+    default: return '';
+  }
+}
+function tutorialPanel(app, s) {
+  const t = s.tutorial || defaultTutorial();
+  if (!t || t.status === 'notOffered') return '';
+  // ヘルプ閲覧中はパネルを出さない（進行状況も一切変化させない）
+  if (app.screen === 'help' && !app.tutorialHidden) return '';
+  if (app.tutorialHidden) {
+    return `<button class="tutorial-reopen" data-action="tutorialShow">📘 チュートリアル${t.status==='active'?` STEP ${t.step}`:''}</button>`;
+  }
+  const wrap = (cls, body) => `<aside class="tutorial-panel ${cls}">${body}</aside>`;
+  const closeBtn = `<button class="tp-close" data-action="tutorialHide" title="一時的に隠す">×</button>`;
+
+  if (t.status === 'offered') {
+    return wrap('tp-offer', `${closeBtn}
+      <div class="tp-eyebrow">🎓 TUTORIAL</div>
+      <h3>チュートリアルを始めますか？</h3>
+      <p>街のホーム画面からキャラクター作成、育成、装備・ガチャ、CPU対戦、素材集め、ランク進化まで<b>実際に操作しながら</b>覚えられます。強制ではありません。</p>
+      <p class="muted small">Clear で装備ガチャ ${TUTORIAL_REWARD_PULLS} 連分のコイン（${fmt(tutorialRewardCoins())}コイン）をプレゼント。</p>
+      <div class="tp-btns"><button class="btn btn-primary" data-action="tutorialStart">チュートリアルを始める</button>
+      <button class="btn btn-glass" data-action="tutorialSkip">チュートリアルをスキップする</button></div>`);
+  }
+  if (t.status === 'skipped') {
+    return wrap('tp-skipped', `${closeBtn}<div class="tp-eyebrow">🎓 TUTORIAL</div>
+      <p>チュートリアルはスキップしました。後からいつでも再開できます。<b>スキップだけでは報酬は付きません。</b></p>
+      <div class="tp-btns"><button class="btn btn-primary btn-mini" data-action="tutorialResume">途中から再開する</button></div>`);
+  }
+  if (t.status === 'complete') {
+    const coins = tutorialRewardCoins(), claimed = t.rewardClaimed;
+    return wrap('tp-complete', `${closeBtn}
+      <div class="tp-eyebrow">🎓 TUTORIAL CLEAR</div>
+      <h3>チュートリアルクリア！</h3>
+      <p>全 ${TUTORIAL_STEP_COUNT-1} STEP をクリアしました。お疲れさまでした！</p>
+      <div class="tp-reward">
+        <div class="tpr-label">🎁 完了報酬</div>
+        <div class="tpr-main">🪙 ${fmt(claimed ? t.rewardCoins : coins)} コイン</div>
+        <div class="tpr-sub">「装備ガチャ ${TUTORIAL_REWARD_PULLS} 連分」<small>（1回 ${fmt(equipmentGachaCost())} コイン × ${TUTORIAL_REWARD_PULLS}、現在の消費コインから自動計算）</small></div>
+      </div>
+      ${claimed
+        ? `<p class="muted small">✅ 報酬は受け取り済みです（再プレイでも再付与されません）。</p>
+           <div class="tp-btns"><button class="btn btn-primary btn-mini" data-action="nav" data-to="facility" data-facility="forge" data-tab="1">✧ 装備ガチャを引く</button>
+           <button class="btn btn-glass btn-mini" data-action="nav" data-to="town">🏰 街のホーム画面に戻る</button></div>
+           <div class="tp-btns"><button class="btn btn-ghost btn-mini" data-action="tutorialReplay">🔁 チュートリアルを再プレイ</button></div>`
+        : `<div class="tp-btns"><button class="btn btn-primary" data-action="tutorialClaim">🪙 コインを受け取る</button></div>`}
+      `);
+  }
+  // active
+  const def = TUTORIAL_STEPS.find(x => x.id === t.step) || TUTORIAL_STEPS[0];
+  const checks = tutorialStepChecks(s, t.step);
+  const ready = tutorialCanAdvance(s);
+  return wrap('tp-active', `${closeBtn}
+    <div class="tp-eyebrow">🎓 TUTORIAL　STEP ${t.step} / ${TUTORIAL_STEP_COUNT-1}</div>
+    <h3>${e(def.title)}</h3>
+    <p>${e(def.desc)}</p>
+    ${def.tips?.length ? `<ul class="tp-tips">${def.tips.map(x=>`<li>${e(x)}</li>`).join('')}</ul>` : ''}
+    ${def.note ? `<p class="tp-note">${e(def.note)}</p>` : ''}
+    ${checks.length ? `<div class="tp-checks">${checks.map(ch=>`<div class="tp-check ${ch.done?'done':''}"><span>${ch.done?'✔':'○'}</span>${e(ch.label)}</div>`).join('')}</div>` : ''}
+    <div class="tp-btns">${tutorialActionButtons(app, s, t)}</div>
+    <div class="tp-btns"><button class="btn btn-primary btn-mini" data-action="tutorialNext" ${ready?'':'disabled'}>${ready?'次の STEP へ →':'上の操作をすべて体験すると進めます'}</button>
+    <button class="btn btn-ghost btn-mini" data-action="tutorialHide">あとで</button></div>
+    <div class="tp-progress">${TUTORIAL_STEPS.slice(0,TUTORIAL_STEP_COUNT-1).map(x=>`<span class="${t.done.includes(x.id)?'done':x.id===t.step?'now':''}">${x.id}</span>`).join('')}</div>`);
+}
+
 /* ============================ 街 ============================ */
 function townScreen(app, s) {
   const c = activeChar(s);
@@ -390,6 +483,8 @@ function townScreen(app, s) {
         <button class="btn btn-primary" data-action="nav" data-to="facility" data-facility="guild" data-tab="0">⚔ CPU対戦へ</button>
         <button class="btn btn-glass" data-action="nav" data-to="character">🧙 キャラクター</button>
         <button class="btn btn-glass" data-action="nav" data-to="codex">📖 図鑑</button>
+        <button class="btn btn-glass" data-action="nav" data-to="help">📖 遊び方 / チュートリアル</button>
+        ${s.tutorial?.status === 'active' ? `<button class="btn btn-glass" data-action="tutorialShow">📘 チュートリアル再表示</button>` : ''}
         <button class="btn btn-glass" data-action="nav" data-to="endgame">🏆 やり込み</button>
         ${c ? `<button class="btn btn-glass" data-action="newChar">🎨 新規作成</button>` : ''}
         <button class="btn btn-ghost" data-action="saveNow">💾 今すぐセーブ</button>
@@ -643,7 +738,7 @@ function weaponSpec(defId, compact = false) {
     ? w.effects.map(x => `<span class="w-effect">✧ ${e(x.label)} +${x.value}${x.id==='crit'||x.id==='lifesteal'||x.id==='counter'||x.id==='ignoreDef'||x.id==='damageCut'||x.id==='extraStrike'||x.id==='statusGuard'||x.id==='expBonus'||x.id==='coinBonus'||x.id==='bpBonus'?'%':''}${e(x.desc?'（'+x.desc+'）':'')}</span>`).join('')
     : '<span class="w-effect muted">特殊効果なし</span>';
   return `<div class="w-spec ${compact?'compact':''}">
-    <div class="w-stat-row"><span>⚔ 攻撃力 <b>${w.atk}</b></span><span>◎ 命中 <b>+${w.acc}</b></span></div>
+    <div class="w-stat-row">${STAT_KEYS.filter(k=>w[k]).map(k=>`<span>${STAT_ICONS[k]} ${STAT_NAMES[k]} <b>+${w[k]}</b></span>`).join('') || '<span>基本ステータス上昇なし</span>'}</div>
     <div class="w-effect-row">${eff}</div>
     ${compact?'':`<p class="w-usage">${e(w.usage)}</p><p class="w-desc">${e(w.desc)}</p>`}
   </div>`;
@@ -683,7 +778,7 @@ function gachaScreen(app, s) {
       <div class="panel soft"><h4>🎯 ピックアップ対象武器 <small class="muted">シークレット以外は全て事前公開</small></h4>
         <div class="pickup-list">${featured.map(d=>`<div class="pickup-item" style="--wc:${d.color}">
           ${weaponIllustration(d,d.rarity,86,false)}
-          <div><b>${e(d.name)}</b>${rarityTag(d.rarity)}<small>${e(d.type)} / 攻撃 ${d.stats.atk||0} / 命中 +${d.stats.acc||0}</small>
+          <div><b>${e(d.name)}</b>${rarityTag(d.rarity)}<small>${e(d.type)} / ${coreLine(d.stats)}</small>
             <small class="muted">${e((d.stats.effects||[]).map(x=>EFFECTS[x.id]?.name||EFFECT_LABELS[x.id]||x.id).join('・')||'特殊効果なし')}</small></div>
           <button class="btn btn-mini ghost" data-action="gachaItemDetail" data-id="${d.id}" data-pickup="1">🔎 詳細</button>
         </div>`).join('')}</div>
@@ -856,7 +951,7 @@ function gachaResultScreen(app, s, g) {
       <h4 class="mt">📦 ${g.kind==='weapon'?'獲得武器':'獲得装備'}一覧 <span class="pill">${details.length} 件</span></h4>
       <div class="g-result-grid">${details.map((d,i)=>`<button type="button" class="g-result-item g-r-${d.rarity}" style="--wc:${RARITY[d.rarity]?.color||'#889'}" data-action="gachaItemDetail" data-id="${d.defId}" data-uid="${d.uid}" data-pickup="${d.pickup?1:0}" data-new="${d.isNew?1:0}">
         ${weaponIllustration(d.defId,d.rarity,74,false)}
-        <div><b>${e(d.name)}</b>${rarityTag(d.rarity)}<small>${e(d.type)} / 攻撃 ${weaponSummary(d.defId)?.atk||0} / 命中 +${weaponSummary(d.defId)?.acc||0}</small>
+        <div><b>${e(d.name)}</b>${rarityTag(d.rarity)}<small>${e(d.type)} / ${coreLine((EQUIP_BY_ID[d.defId]||{}).stats)}</small>
           <small>${(weaponSummary(d.defId)?.effects||[]).map(x=>e(x.label)+'+'+x.value).join('・')||'特殊効果なし'}</small>
           <span class="g-item-flags">${d.pickup?'<span class="pk-tag">PU</span>':''}${d.isNew?'<span class="new-tag">NEW</span>':''}${d.forced?`<span class="forced-tag">${e(d.forced)}</span>`:''}</span></div>
         <span class="g-item-no">#${i+1}</span>
@@ -896,7 +991,7 @@ function nurtureTab(tab, app, s) {
       <div class="panel soft">
         <h4>能力値と自由振り分け <span class="pill">残り ${c.statPoints} P</span></h4>
         <div class="alloc-grid">${STAT_KEYS.map(k=>`<div class="alloc-cell"><span>${STAT_ICONS[k]} ${STAT_NAMES[k]}</span><b>${fmt(st[k])}</b><small>基礎+${fmt(c.alloc[k]||0)}</small><div class="row-btns tiny"><button class="btn btn-mini" data-action="alloc" data-stat="${k}" data-n="1" ${c.statPoints<1?'disabled':''}>+1</button><button class="btn btn-mini" data-action="alloc" data-stat="${k}" data-n="5" ${c.statPoints<5?'disabled':''}>+5</button></div></div>`).join('')}</div>
-        <div class="hint-box">HP+12 / MP+6 / 攻防速魔+3 / 命中回避+1 ずつ上昇。修行場でもポイントを得られます。</div>
+        <div class="hint-box">1 ポイントで <b>HP+12 / 攻撃力+3 / 防御力+3 / MP+6</b>。4 種類の基本ステータスを自由に伸ばせます。修行場でもポイントを得られます。</div>
       </div></div>`;
   }
   if (tab === 1) {
@@ -909,7 +1004,7 @@ function nurtureTab(tab, app, s) {
       return `<div class="job-card ${cur?'current':''} ${ok?'':'locked'}" style="--jc:${j.color}">
         <div class="job-top"><span class="job-icon">${j.icon}</span><div><b>${e(j.name)}</b><small>${j.req?.god?'特殊役職・神':['','基本職','上級職','特殊職'][j.tier]||'特殊職'} / Lv.${c.jobLevels[j.id]||0}</small></div></div>
         <p>${e(j.desc)}</p>
-        <div class="job-growth">${STAT_KEYS.slice(2,6).map(k=>`<span>${STAT_NAMES[k].slice(0,2)} <b>${j.growth[k]}</b></span>`).join('')}</div>
+        <div class="job-growth">${STAT_KEYS.map(k=>`<span>${STAT_NAMES[k].slice(0,2)} <b>${Math.round(toCoreStats(j.growth)[k]*10)/10}</b></span>`).join('')}</div>
         <small class="muted">武器：${j.weapons.join('・')}<br>解放：${e(jobReqText(j))}</small>
         ${cur?`<span class="pill on">現在の役職（変更不可）</span>`:ok?`<span class="pill off">ランクアップ／転生時に変更可</span>`:`<span class="pill off">未解放</span>`}
       </div>`;}).join('')}</div>
@@ -1048,7 +1143,7 @@ function enemyCard(app, s, en, mode='cpu', floor=0) {
   return `<div class="enemy-card ${unlocked?'':'locked'}" style="--accent:${en.palette?.accent||'#ffd77a'}">
     <div class="enemy-sprite">${app.enemySprites[en.id]?`<img src="${app.enemySprites[en.id]}" alt="${e(en.name)}">`:''}</div>
     <div class="enemy-info"><b>${e(en.name)}</b><small>${e(JOB[en.job]?.name||'')} / Lv.${en.level} / ${e(en.difficulty||'CPU')}</small>
-      <div class="enemy-metrics"><span>❤ ${fmt(st.hp)}</span><span>⚔ ${fmt(st.atk)}</span><span>🛡 ${fmt(st.def)}</span></div>
+      <div class="enemy-metrics">${STAT_KEYS.map(k=>`<span>${STAT_ICONS[k]} ${STAT_NAMES[k]} ${fmt(st[k]||0)}</span>`).join('')}</div>
       <div class="enemy-skills">${en.skills.slice(0,3).map(id=>`<span>${e(SKILL[id]?.name||'')}</span>`).join('')}</div>
     </div>
     ${unlocked?`<button class="btn btn-primary" data-action="battleStart" data-enemy="${e(en.id)}" data-mode="${mode}" data-floor="${floor}">⚔ 対戦</button>`:`<button class="btn btn-ghost" disabled>🔒 ${e(lockedText)}</button>`}
@@ -1279,7 +1374,7 @@ function combatPanel(b, side, label, char) {
       <div class="combat-meta"><span class="pill">${e(rarity)}</span><span>Lv.${side.level}</span><span>${e(jobName)}</span></div>
       ${bar(side.hp,side.maxHp,'linear-gradient(90deg,#ff5f6d,#ffb37b)',`HP ${fmt(side.hp)} / ${fmt(side.maxHp)}`)}
       ${bar(side.mp,side.maxMp,'linear-gradient(90deg,#4f8cff,#8ce6ff)',`MP ${fmt(side.mp)} / ${fmt(side.maxMp)}`)}
-      <div class="combat-status">${side.shield?`<span class="st shield">🛡 ${fmt(side.shield)}</span>`:''}${side.guard?'<span class="st">防御</span>':''}${statuses?`<span class="st bad">${e(statuses)}</span>`:''}${side.buffs.filter(x=>x.amount>0).map(x=>`<span class="st good">${e(({atk:'攻↑',def:'防↑',spd:'速↑',mag:'魔↑',acc:'命中↑',eva:'回避↑'})[x.stat]||x.stat)}</span>`).join('')}</div>
+      <div class="combat-status">${side.shield?`<span class="st shield">🛡 ${fmt(side.shield)}</span>`:''}${side.guard?'<span class="st">防御</span>':''}${statuses?`<span class="st bad">${e(statuses)}</span>`:''}${side.buffs.filter(x=>x.amount>0).map(x=>`<span class="st good">${e(({hp:'HP↑',atk:'攻↑',def:'防↑',mp:'MP↑',hit:'命中↑',dodge:'回避↑',crit:'会心↑'})[x.stat]||x.stat)}</span>`).join('')}</div>
     </div></div>`;
 }
 function battleScreen(app, s) {
@@ -1365,7 +1460,7 @@ function resultScreen(app, s) {
       <div class="result-crest">${r.won?'🏆':'⚔'}</div>
       <h1>${r.won?'VICTORY':'DEFEAT'}</h1><h2>${r.won?'勝利！':'敗北…'}</h2>
       <p>${e(r.enemy.trueName||r.enemy.name)} との対戦を ${r.turns} ターンで終えた。</p>
-      ${r.rewards?.levels ? `<div class="callout gold">📈 レベルアップ！ Lv.${r.rewards.levels} 上昇。HP・攻撃・防御・速度・魔力などが上がり、ステータスポイントを獲得。HP/MP全回復。</div>` : ''}
+      ${r.rewards?.levels ? `<div class="callout gold">📈 レベルアップ！ Lv.${r.rewards.levels} 上昇。<b>HP・攻撃力・防御力・MP</b> の 4 種類が上がり、ステータスポイントを獲得。HP/MP全回復。</div>` : ''}
       ${r.rewards?.materials?.length ? `<div class="reward-mats"><h4>🎁 入手素材</h4><div class="mat-chip-row">${r.rewards.materials.map(id=>matChip(id,1)).join('')}</div></div>` : ''}
       ${r.won&&r.enemy.boss?'<div class="callout gold">強敵の証を獲得！覚醒・特殊職の条件が進みました。</div>':''}
       ${r.won&&r.enemy.hidden?'<div class="callout violet">虚無の王を撃破！転生の証と専用称号を獲得。</div>':''}
@@ -1400,5 +1495,6 @@ export function renderScreen(app, s) {
     default: return titleScreen(app,s);
   } })();
   return html + materialModal(app, s) + gachaRatesModal(app, s)
-    + weaponDetailModal(app, s) + gachaPresentation(app, s) + jobChangeModal(app, s);
+    + weaponDetailModal(app, s) + gachaPresentation(app, s) + jobChangeModal(app, s)
+    + tutorialPanel(app, s);
 }

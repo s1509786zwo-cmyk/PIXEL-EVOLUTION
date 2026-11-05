@@ -15,7 +15,7 @@ const app = {
   confirmReset: false, charName: '', started: false,
   materialDetail: null, evolveEquip: null, lastBonus: [],
   gacha: null, gachaRatesDetail: false, gachaItemDetail: null,
-  jobChangeOffer: null,
+  jobChangeOffer: null, tutorialHidden: false,
 };
 let state = S.newState();
 let toastTimer = null, regenTimer = null;
@@ -253,7 +253,7 @@ function showLevelUpFx(info) {
   const el = document.createElement('div');
   el.className = 'fx-levelup';
   el.innerHTML = `<div class="lv-title">LEVEL UP!</div><div class="lv-nums">Lv.${info.from} → <b>Lv.${info.to}</b></div>
-    <div class="lv-stats">${info.gains.slice(0,8).map(g=>`<span>${e(D.STAT_NAMES[g.key]||g.key)} +${g.value}</span>`).join('')}</div>
+    <div class="lv-stats">${info.gains.slice(0,4).map(g=>`<span>${e(D.STAT_NAMES[g.key]||g.key)} +${g.value}</span>`).join('')}</div>
     <div class="lv-sub">ステータスポイント +${4*(info.to-info.from)} ／ HP・MP 全回復</div>`;
   layer.appendChild(el);
   setTimeout(() => el.remove(), 2600);
@@ -475,6 +475,12 @@ async function startBattle(enemyDef, mode = 'cpu', floor = 0) {
     onChange: () => { if (ready && app.screen === 'battle') render(); },
     onFx: showFx,
     onEnd: r => {
+      if (r.mode === 'tutorial') {
+        S.tutorialMarkFlag(state, 'visitedBattle', true);
+        if (r.won) S.tutorialMarkFlag(state, 'battleWon', true);
+        S.tutorialAddEarnedCoins(state, r.rewards?.coins || 0);
+        S.tutorialCaptureProgress(state);
+      }
       app.result = r; app.battle = null; app.screen = 'result';
       save(true);
       render();
@@ -530,16 +536,19 @@ async function handleAction(action, ds, el) {
   switch (action) {
     /* --- ナビ --- */
     case 'nav': {
+      S.tutorialTrack(state, 'nav', { to:ds.to, facility:ds.facility, tab:ds.tab });
       if (ds.to === 'facility') return navigate('facility', { facility: ds.facility, tab: ds.tab });
       return navigate(ds.to, ds.codexTab !== undefined ? { codexTab:ds.codexTab } : {});
     }
     case 'titleStart': {
       state.home = { ...(state.home||{}), started:true, lastVisit:new Date().toISOString() };
+      if (state.characters.length) S.tutorialOffer(state);
       initDraft(); save(true); sfx('ok'); return navigate('town');
     }
     case 'titleContinue': {
       initDraft();
       state.home = { ...(state.home||{}), started:true, lastVisit:new Date().toISOString() };
+      if (state.characters.length) S.tutorialOffer(state);
       save(true); sfx('ok');
       if (state.characters.length) toast('セーブデータを読み込みました。街から再開します');
       else if (state.draftSave?.original) toast('保存済みの下書きがあります。街からキャラクター作成を開けます');
@@ -653,6 +662,8 @@ async function handleAction(action, ds, el) {
         width:d.width, height:d.height,
       };
       state.home = { ...(state.home||{}), started:true, lastVisit:new Date().toISOString() };
+      S.tutorialOffer(state);            // 作成後に「始める / スキップ」を提示（強制ではない）
+      S.tutorialTrack(state, 'createFinish');
       save(true);
       sfx('win');
       app.draft = null; app.compare = false;
@@ -705,6 +716,8 @@ async function handleAction(action, ds, el) {
     case 'evolveChar': {
       const r = S.evolveCharacter(state, c);
       if (r.ok) {
+        S.tutorialCaptureProgress(state);
+        S.tutorialMarkFlag(state, 'evolved', true);
         app.evoResult = { type:'char', r:{ ...r, skill:D.SKILL[r.rule.skill] } };
         if (r.jobChangeOffer) app.jobChangeOffer = r.jobChangeOffer;
         save(true); showEvolutionFx(r.rule.to, `${r.rule.from} → ${r.rule.to} 進化！`);
@@ -742,6 +755,70 @@ async function handleAction(action, ds, el) {
       if (!app.jobChangeOffer) return render();
       return recordJobChange(app.jobChangeOffer, c.jobId, true);
     }
+    /* --- チュートリアル（任意開始・途中再開・完了報酬） --- */
+    case 'tutorialStart': {
+      app.tutorialHidden = false;
+      const r = S.tutorialStart(state); save(true); sfx('ok'); return commit(r.msg, r.ok);
+    }
+    case 'tutorialSkip': {
+      app.tutorialHidden = false;
+      const r = S.tutorialSkip(state); save(true); return commit(r.msg, r.ok);
+    }
+    case 'tutorialResume': {
+      app.tutorialHidden = false;
+      const t = state.tutorial || S.defaultTutorial();
+      const r = (t.status === 'skipped' || t.status === 'active') ? S.tutorialResume(state) : S.tutorialStart(state);
+      save(true); sfx('ok');
+      if (app.screen === 'help') { toast(r.msg, r.ok ? 'ok' : 'error'); return navigate('town'); }
+      return commit(r.msg, r.ok);
+    }
+    case 'tutorialReplay': {
+      app.tutorialHidden = false;
+      const r = S.tutorialStart(state); save(true); return commit(r.msg, r.ok);
+    }
+    case 'tutorialHide': app.tutorialHidden = true; return render();
+    case 'tutorialShow': app.tutorialHidden = false; return render();
+    case 'tutorialNext': {
+      const r = S.tutorialNext(state);
+      if (r.ok) sfx('win');
+      save(true); return commit(r.msg, r.ok);
+    }
+    case 'tutorialClaim': {
+      const r = S.tutorialClaimReward(state);
+      if (r.ok) { sfx('win'); showFx({ type:'victory', side:'player' }); }
+      save(true); return commit(r.msg, r.ok);
+    }
+    case 'tutorialExp': {
+      const r = S.tutorialGrantExp(state, c);
+      save(true); return commit(r.msg, r.ok);
+    }
+    case 'tutorialGacha': {
+      const r = S.tutorialPracticePull(state, c);
+      if (r.ok) sfx('ok'); save(true); return commit(r.msg, r.ok);
+    }
+    case 'tutorialEquip': {
+      const r = S.tutorialEquipPractice(state, c);
+      save(true); return commit(r.msg, r.ok);
+    }
+    case 'tutorialGather': {
+      const r = S.tutorialGather(state, c);
+      if (r.ok) sfx('ok'); save(true); return commit(r.msg, r.ok);
+    }
+    case 'tutorialBattle': {
+      S.tutorialMarkFlag(state, 'visitedBattle', true);
+      return startBattle(D.TUTORIAL_ENEMY, 'tutorial');
+    }
+    case 'tutorialManualSkill': {
+      const b = app.battle;
+      if (!b) return toast('まずチュートリアル用の敵と戦ってください', 'error');
+      const sk = b.actionList(b.player).find(x => x.id !== '__attack' && !x.ultimate
+        && x.usable && b.player.mp >= (x.mp || 0));
+      if (!sk) return toast('今使える技がありません（MP を確認してください）', 'error');
+      if (b.autoMode) { b.toggleAuto(); S.tutorialMarkFlag(state, 'autoToggled', true); }
+      S.tutorialMarkFlag(state, 'manualSkill', true);
+      save(); render();
+      return b.act(sk.id).catch(err => console.error(err));
+    }
     case 'storyRead': {
       const id = Number(ds.id);
       const st = state.story || (state.story = { chapter:1, seen:[], cleared:[] });
@@ -757,7 +834,7 @@ async function handleAction(action, ds, el) {
     case 'doAwaken': { const r = S.doAwaken(state, c); if (r.ok) sfx('win'); return commit(r.msg, r.ok); }
 
     /* --- 工房 --- */
-    case 'equip': { const ok = S.equipItem(state, c, ds.uid, ds.slot); return commit(ok ? '装備しました' : 'この職業では装備できません', ok); }
+    case 'equip': { const ok = S.equipItem(state, c, ds.uid, ds.slot); if (ok) S.tutorialMarkFlag(state, 'equipped', true); return commit(ok ? '装備しました' : 'この職業では装備できません', ok); }
     case 'unequip': S.unequip(state, c, ds.slot); return commit('装備を外しました');
     case 'sellEquip': { const r = S.sellEquipment(state, ds.uid); return commit(r.msg, r.ok); }
     case 'gacha': {
@@ -861,11 +938,19 @@ async function handleAction(action, ds, el) {
     }
 
     /* --- 戦闘 --- */
-    case 'battleAction': if (app.battle) app.battle.act(ds.id).catch(err=>console.error(err)); return;
-    case 'battleAuto': if (app.battle) { app.battle.toggleAuto(); save(); render(); } return;
+    case 'battleAction': {
+      if (app.battle) {
+        if (ds.id !== '__attack' && ds.id !== '__guard' && !ds.id.startsWith('__item:'))
+          S.tutorialMarkFlag(state, 'manualSkill', true);
+        app.battle.act(ds.id).catch(err=>console.error(err));
+      }
+      return;
+    }
+    case 'battleAuto': if (app.battle) { S.tutorialMarkFlag(state, 'autoToggled', true); app.battle.toggleAuto(); save(); render(); } return;
     case 'battleSpeed': {
       if (!app.battle) return;
       if (!app.battle.autoMode) return toast('戦闘速度の変更は AUTO が ON のときだけ可能です', 'error');
+      S.tutorialMarkFlag(state, 'speedChanged', true);
       app.battle.setAutoSpeed(Number(ds.speed) || 1); save(); render(); return;
     }
     case 'battleSurrender': if (app.battle) app.battle.surrender(); return;
@@ -891,7 +976,7 @@ async function handleAction(action, ds, el) {
       Object.assign(app, { screen:'title', params:{}, tabs:{}, draft:null, look:null, battle:null, result:null,
         lastPull:[], lastBonus:[], selectedSynth:[], selectedEquip:null, confirmReset:false,
         enemyGroup:'normal', compare:false, materialDetail:null, evolveEquip:null,
-        gacha:null, gachaRatesDetail:false, gachaItemDetail:null, jobChangeOffer:null });
+        gacha:null, gachaRatesDetail:false, gachaItemDetail:null, jobChangeOffer:null, tutorialHidden:false });
       render(); window.scrollTo({top:0});
       return toast('データを初期化しました');
     }

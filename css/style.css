@@ -1138,3 +1138,53 @@ button.job-card:disabled.locked{cursor:not-allowed}
 .battle-vitals .bar{width:80px;flex:0 0 80px;height:6px}
 .battle-vitals .bar span{font-size:9px}
 @media (max-width:640px){.battle-vitals .bar{flex-basis:56px;width:56px}}
+
+/* ===========================================================
+   チュートリアル / ヘルプ（4 ステータス簡略化に伴う表示）
+   =========================================================== */
+.stat-grid-4{grid-template-columns:repeat(4,1fr)}
+.help-topics{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px;margin-bottom:18px}
+.help-topic{display:flex;gap:10px;padding:12px;border-radius:12px;border:1px solid var(--line);background:rgba(12,20,42,.7)}
+.help-topic>span{flex:0 0 30px;height:30px;display:flex;align-items:center;justify-content:center;border-radius:9px;background:rgba(255,215,122,.14);color:var(--gold2);font-weight:800;font-size:12px}
+.help-topic b{font-family:var(--serif);font-size:13px}
+.help-topic p{margin:4px 0 0;font-size:11px;line-height:1.7;color:#c9d6ee}
+
+/* チュートリアルパネル（右下・折りたたみ可・全画面共通） */
+.tutorial-panel{position:fixed;right:16px;bottom:16px;z-index:190;width:min(370px,calc(100vw - 32px));max-height:min(74vh,640px);overflow:auto;padding:16px 18px 14px;border-radius:16px;border:1px solid rgba(255,215,122,.5);background:linear-gradient(165deg,rgba(18,26,52,.97),rgba(9,13,28,.98));box-shadow:0 18px 60px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.04) inset;color:var(--text);font-size:12px;line-height:1.65;animation:tpIn .22s ease-out}
+@keyframes tpIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+.tutorial-panel.tp-complete{border-color:var(--gold);box-shadow:0 18px 60px rgba(0,0,0,.6),0 0 34px rgba(255,215,122,.24)}
+.tutorial-panel .tp-close{position:absolute;right:8px;top:6px;border:0;background:transparent;color:var(--muted);font-size:20px;line-height:1;cursor:pointer;padding:2px 6px}
+.tutorial-panel .tp-close:hover{color:#fff}
+.tp-eyebrow{font-size:10px;letter-spacing:.18em;color:var(--gold2);font-weight:800;margin-bottom:4px}
+.tutorial-panel h3{font-family:var(--serif);font-size:17px;margin:2px 22px 6px 0;color:#ffe6a1}
+.tutorial-panel p{margin:5px 0;color:#d0dbef}
+.tutorial-panel .muted{color:var(--muted)}
+.tutorial-panel .small{font-size:10.5px}
+.tp-tips{margin:6px 0;padding-left:18px;font-size:11px;color:#c9d6ee}
+.tp-tips li{margin:2px 0}
+.tp-note{font-size:10.5px;padding:7px 9px;border-radius:9px;background:rgba(90,140,255,.10);border:1px solid rgba(90,140,255,.22);color:#bcd0f5}
+.tp-checks{margin:8px 0;display:flex;flex-direction:column;gap:3px}
+.tp-check{display:flex;gap:7px;align-items:center;padding:4px 8px;border-radius:8px;background:rgba(255,255,255,.035);font-size:11px;color:#9fb0cc}
+.tp-check span{width:14px;text-align:center;font-weight:800}
+.tp-check.done{background:rgba(140,230,168,.12);color:#b6f3c9}
+.tp-check.done span{color:#8ce6a8}
+.tp-btns{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
+.tp-btns .btn-mini{font-size:10.5px;padding:5px 9px}
+.tp-hint{display:block;width:100%;color:var(--muted);font-size:10px}
+.tp-progress{display:flex;gap:5px;margin-top:10px}
+.tp-progress span{flex:1;text-align:center;padding:2px 0;border-radius:6px;font-size:10px;background:rgba(255,255,255,.06);color:var(--muted)}
+.tp-progress span.done{background:rgba(140,230,168,.24);color:#b6f3c9}
+.tp-progress span.now{background:rgba(255,215,122,.25);color:#ffe6a1;font-weight:800}
+.tp-reward{margin:10px 0;padding:12px;border-radius:12px;border:1px solid rgba(255,215,122,.45);background:linear-gradient(135deg,rgba(255,215,122,.14),rgba(90,140,255,.10));text-align:center}
+.tpr-label{font-size:10px;letter-spacing:.14em;color:var(--gold2)}
+.tpr-main{font-family:var(--serif);font-size:26px;color:#ffe6a1;margin:2px 0;text-shadow:0 0 20px rgba(255,215,122,.4)}
+.tpr-sub{font-size:11px;color:#d0dbef}
+.tpr-sub small{display:block;font-size:9.5px;color:var(--muted);margin-top:2px}
+.tutorial-reopen{position:fixed;right:16px;bottom:16px;z-index:190;padding:9px 14px;border-radius:20px;border:1px solid rgba(255,215,122,.5);background:rgba(18,26,52,.95);color:#ffe6a1;font:inherit;font-size:11px;font-weight:700;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+.tutorial-reopen:hover{border-color:var(--gold)}
+@media (max-width:640px){
+  .tutorial-panel{right:8px;bottom:8px;width:calc(100vw - 16px);max-height:62vh;padding:13px}
+  .tutorial-panel h3{font-size:15px}
+  .help-topics{grid-template-columns:1fr}
+  .tutorial-reopen{right:8px;bottom:8px}
+}

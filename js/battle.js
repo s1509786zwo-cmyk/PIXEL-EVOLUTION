@@ -3,7 +3,7 @@
    =========================================================== */
 import { SKILL, ELEMENTS, JOB, ITEM, charRankIndex, EFFECTS,
   ULTIMATE_GAUGE_MAX, ULTIMATE_GAUGE_GAIN, ULTIMATE_GAUGE_HIT_GAIN,
-  ULTIMATE_IDS, GOD_JOB_ID } from './data.js?v=2';
+  ULTIMATE_IDS, GOD_JOB_ID, coreStatKey, STAT_NAMES } from './data.js?v=2';
 import {
   computeStats, buildEnemyCombatant, battleRewards, advanceDungeon, removeItem,
   addCatalog, logEvent, restoreFull, rankInfo, clamp,
@@ -70,6 +70,7 @@ export class Battle {
     };
     this.log(`【対戦開始】 ${this.player.name} Lv.${this.player.level} vs ${this.enemy.name} Lv.${this.enemy.level}`, 'system');
     this.log(`相手の戦闘スタイル：${JOB[this.enemy.job]?.name || '戦士'} / ${this.enemyDef.difficulty || 'CPU'}`, 'system');
+    if (this.enemyDef.tutorial) this.log('HP が 0 になると戦闘不能。通常攻撃は MP 不要、技は MP を消費します。', 'system');
   }
 
   /* ---------- 表示用 ---------- */
@@ -106,7 +107,7 @@ export class Battle {
     if (c.rarity === 'LR') m += 0.35;
     if (c.jobId === GOD_JOB_ID) m += 0.45;
     m += this.eff(actor, 'ultimatePower') / 100;
-    m *= 1 + (this.stat(actor, 'atk') + this.stat(actor, 'mag')) / 2600; // 能力値・装備
+    m *= 1 + this.stat(actor, 'atk') / 1300; // 攻撃力・装備・ランクが奥義威力に反映
     if (skill.special) m *= 1 + ri * 0.28 + (c.jobId === GOD_JOB_ID ? 0.4 : 0); // 特殊奥義は進化で強化
     return m;
   }
@@ -118,7 +119,7 @@ export class Battle {
     const base = side.base[key] || 0;
     let mul = 1, flat = 0;
     for (const b of side.buffs) if (b.stat === key) { if (b.pct) mul += b.amount/100; else flat += b.amount; }
-    if (key === 'acc' || key === 'eva') return clamp(base*mul + flat, 0, 260);
+    if (key === 'hit' || key === 'dodge' || key === 'crit') return clamp(base*mul + flat, 0, 260);
     return Math.max(1, base*mul + flat);
   }
   eff(side, id) { return side.effects[id] || 0; }
@@ -189,10 +190,13 @@ export class Battle {
   dealDamage(attacker, defender, part, skill) {
     const sideKey = defender === this.player ? 'player' : 'enemy';
     const aKey = attacker === this.player ? 'player' : 'enemy';
-    const scale = part.scale === 'mag' ? 'mag' : 'atk';
+    // 物理・魔法を問わず攻撃力を基準にする（魔力は基本ステータスから廃止）
+    const scale = 'atk';
+    const magic = part.scale === 'mag';   // 旧データの魔法技は威力倍率で個性を維持
     const mastery = attacker.mastery?.[skill?.id] || 0;
     let power = (part.power || 100) * (1 + mastery*0.03);
     if (skill?.ultimate) power *= this.ultimateMultiplier(attacker, skill);
+    if (magic) power *= 1.04;
     if (skill?.id === '__attack' || skill?.cat === '基本')
       power *= 1 + this.eff(attacker, 'normalAttackPower') / 100;
     if (skill?.element && skill.element !== 'none')
@@ -200,19 +204,20 @@ export class Battle {
     // 「地ならし」は地面を揺るがす全体攻撃。ボスに特に有効。
     if (skill?.special === 'すずそう' && defender === this.enemy && this.enemyDef.boss)
       power *= 1.65;
-    const hitChance = clamp(this.stat(attacker,'acc') - this.stat(defender,'eva')*0.55 + 42, 30, 99);
+    // 命中・回避は基本ステータスではなく内部の特殊効果値で処理する
+    const hitChance = clamp(this.stat(attacker,'hit') - this.stat(defender,'dodge')*0.55 + 10, 40, 99);
     if (!part.trueHit && !pct(hitChance)) {
       this.log(`${attacker.name} の攻撃は外れた！`, 'miss');
       this.fx({ type:'miss', side:sideKey });
       return 0;
     }
-    const critRate = 6 + this.eff(attacker,'crit') + Math.max(0, (this.stat(attacker,'acc')-90)*0.15);
+    const critRate = clamp(this.stat(attacker,'crit'), 0, 95);
     const crit = pct(critRate);
     const eMul = this.elementMult(skill?.element || part.element || 'none', defender.element);
-    const defKey = scale === 'mag' ? 'mdef' : 'def';
+    // 防御力が高いほど被ダメージが減る（物理・魔法共通）
     const pierce = Math.min(0.85, (part.pierce || 0) + this.eff(attacker,'ignoreDef')/100);
-    const def = this.stat(defender, defKey) * (1 - pierce);
-    const mit = 100 / (100 + Math.max(0,def) * 0.62);
+    const def = this.stat(defender, 'def') * (1 - pierce);
+    const mit = 100 / (100 + Math.max(0,def) * 0.85);
     const buffAtk = 1 + (this.eff(attacker,'firstStrike') && this.turn === 1 ? 0.2 : 0);
     let dmg = this.stat(attacker, scale) * (power/100) * rnd(0.92,1.08) * mit * eMul * buffAtk;
     if (crit) dmg *= 1.65 + this.eff(attacker,'critDamage')/100;
@@ -335,7 +340,8 @@ export class Battle {
           break;
         }
         case 'heal': {
-          const v = Math.round(this.stat(actor,'mag') * (part.power||100)/100 * rnd(0.95,1.08) + 18);
+          const v = Math.round((this.stat(actor,'mp') * 0.45 + this.stat(actor,'atk') * 0.35)
+            * (part.power||100)/100 * rnd(0.95,1.08) + 18);
           actor.hp = Math.min(actor.maxHp, actor.hp + v);
           this.log(`${actor.name} のHPが ${v} 回復`, 'heal');
           this.fx({ type:'heal', side:aKey, value:v });
@@ -345,14 +351,16 @@ export class Battle {
         case 'drainMp': target.mp = Math.max(0, target.mp - (part.amount||10)); this.log(`${target.name} のMPを奪った`, 'status'); break;
         case 'buff': {
           const who = part.target === 'self' ? actor : target;
-          who.buffs.push({ stat:part.stat, amount:part.amount, dur:part.dur||3, pct:true });
-          this.log(`${who.name} の${({atk:'攻撃',def:'防御',spd:'速度',mag:'魔力',acc:'命中',eva:'回避'})[part.stat]}が上昇`, 'buff');
+          const key = coreStatKey(part.stat);
+          who.buffs.push({ stat:key, amount:part.amount, dur:part.dur||3, pct:true });
+          this.log(`${who.name} の${effectStatName(key)}が上昇`, 'buff');
           this.fx({ type:'buff', side:who===this.player?'player':'enemy' });
           break;
         }
         case 'debuff': {
-          target.buffs.push({ stat:part.stat, amount:-Math.abs(part.amount), dur:part.dur||3, pct:true });
-          this.log(`${target.name} の${({atk:'攻撃',def:'防御',spd:'速度',mag:'魔力'})[part.stat]}が低下`, 'status');
+          const key = coreStatKey(part.stat);
+          target.buffs.push({ stat:key, amount:-Math.abs(part.amount), dur:part.dur||3, pct:true });
+          this.log(`${target.name} の${effectStatName(key)}が低下`, 'status');
           break;
         }
         case 'status': this.applyStatus(part.target === 'self' ? actor : target, part); break;
@@ -370,7 +378,7 @@ export class Battle {
         case 'summon': {
           this.fx({ type:'summon', side:aKey, fx:'summon' });
           await this.delay(240);
-          this.dealDamage(actor, target, {power:part.power||120, scale:'mag', hits:1}, {...skill, element:'star'});
+          this.dealDamage(actor, target, {power:part.power||120, scale:'atk', hits:1}, {...skill, element:'star'});
           break;
         }
         case 'drainSelf': {
@@ -550,6 +558,10 @@ function sfxUltimate() {
     if (!Ctx || !w.__OCF_ULTIMATE_SFX__) return;
     w.__OCF_ULTIMATE_SFX__();
   } catch (err) { /* 音が出せない環境では無視 */ }
+}
+
+function effectStatName(k) {
+  return STAT_NAMES[k] || ({ hit:'命中', dodge:'回避', crit:'会心' })[k] || k;
 }
 
 function basicAttack() {

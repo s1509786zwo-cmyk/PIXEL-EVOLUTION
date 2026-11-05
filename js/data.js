@@ -6,7 +6,7 @@ import { MATERIAL_ITEMS } from './materials.js?v=2';
    - すべてプログラムで実体を持つデータ（ダミーなし）
    =========================================================== */
 
-export const VERSION = 5;
+export const VERSION = 6;
 export const MAX_LEVEL_BASE = 60;
 export const AWAKENING_NAMES = ['未覚醒', '覚醒I・萌芽', '覚醒II・進化', '覚醒III・超越', '覚醒IV・神化', '覚醒V・極致'];
 
@@ -55,9 +55,29 @@ export const EVOLUTION_RULES = [
 export const EVOLUTION_BY_FROM = Object.fromEntries(EVOLUTION_RULES.map(r => [r.from, r]));
 
 
-export const STAT_KEYS = ['hp', 'mp', 'atk', 'def', 'spd', 'mag', 'acc', 'eva'];
-export const STAT_NAMES = { hp: 'HP', mp: 'MP', atk: '攻撃力', def: '防御力', spd: '速度', mag: '魔力', acc: '命中率', eva: '回避率' };
-export const STAT_ICONS = { hp: '❤', mp: '✦', atk: '⚔', def: '🛡', spd: '➤', mag: '✧', acc: '◎', eva: '✺' };
+/* -----------------------------------------------------------
+   基本ステータスは HP / 攻撃力 / 防御力 / MP の 4 種類のみ。
+   速度・命中・回避・会心・魔力・魔法防御は「基本ステータス」から廃止し、
+   技・装備の特殊効果（effects）として内部で扱う。
+   ----------------------------------------------------------- */
+export const STAT_KEYS = ['hp', 'atk', 'def', 'mp'];
+export const STAT_NAMES = { hp: 'HP', atk: '攻撃力', def: '防御力', mp: 'MP' };
+export const STAT_ICONS = { hp: '❤', atk: '⚔', def: '🛡', mp: '✦' };
+/** 旧セーブ・既存データの互換：削除したステータスを 4 種へ換算して合算する */
+export const LEGACY_STAT_KEYS = ['spd', 'mag', 'acc', 'eva', 'mdef'];
+export const LEGACY_TO_CORE = { mag:'atk', spd:'def', acc:'atk', eva:'def', mdef:'def' };
+export const BUFF_TO_CORE = { mag:'atk', spd:'def', acc:'hit', eva:'dodge', mdef:'def' };
+export function coreStatKey(k) { return BUFF_TO_CORE[k] || k; }
+export function toCoreStats(raw0 = {}) {
+  const raw = raw0 || {};
+  const n = k => Number(raw[k]) || 0;
+  return {
+    hp:  n('hp'),
+    atk: n('atk') + n('mag') * 0.85 + n('acc') * 0.15,
+    def: n('def') + n('eva') * 0.6 + n('spd') * 0.35 + n('mdef') * 0.5,
+    mp:  n('mp') + n('mag') * 0.35,
+  };
+}
 
 export const ELEMENTS = {
   fire:   { name: '火', color: '#ff7a45', beats: 'ice' },
@@ -74,12 +94,12 @@ export const ELEMENTS = {
 export const ELEMENT_IDS = Object.keys(ELEMENTS);
 
 export const STYLES = [
-  { id: 'balanced', name: 'バランス', desc: '攻守のバランスに優れ、どんな相手にも対応できる', bonus: { atk: 3, def: 3, spd: 3, mag: 3 } },
+  { id: 'balanced', name: 'バランス', desc: '攻守のバランスに優れ、どんな相手にも対応できる', bonus: { atk: 5, def: 4, hp: 6, mp: 4 } },
   { id: 'power', name: 'パワー', desc: '一撃の威力を重視する豪快な戦い方', bonus: { atk: 10, hp: 20, def: 4 } },
-  { id: 'speed', name: 'スピード', desc: '先制と連撃で圧倒する俊敏な戦い方', bonus: { spd: 12, acc: 4, eva: 3 } },
-  { id: 'magic', name: 'マジック', desc: '属性魔法とMPを活かした戦い方', bonus: { mag: 11, mp: 18 } },
-  { id: 'guard', name: 'ガード', desc: '耐久と反撃で相手を削り倒す戦い方', bonus: { def: 10, hp: 35, eva: 2 } },
-  { id: 'critical', name: 'クリティカル', desc: '会心と状態異常で一発逆転を狙う戦い方', bonus: { acc: 7, atk: 5, eva: 4 } },
+  { id: 'speed', name: 'スピード', desc: '手数と防御で押し切る俊敏な戦い方', bonus: { def: 8, atk: 4 } },
+  { id: 'magic', name: 'マジック', desc: 'MPを活かした技中心の戦い方', bonus: { atk: 9, mp: 18 } },
+  { id: 'guard', name: 'ガード', desc: '耐久と反撃で相手を削り倒す戦い方', bonus: { def: 10, hp: 35 } },
+  { id: 'critical', name: 'クリティカル', desc: '会心と状態異常で一発逆転を狙う戦い方', bonus: { atk: 8, def: 3 } },
 ];
 
 /* -----------------------------------------------------------
@@ -117,12 +137,12 @@ const SPECIAL_SKILLS = [
   { id:'sk_drain', name:'ドレイン', element:'dark', cat:'魔法', mp:12, cd:2, fx:'dark', power:0, parts:[{op:'damage',power:110,scale:'mag',hits:1,drain:0.5}], desc:'与えたダメージの半分を吸収。' },
   { id:'sk_guardup', name:'アイアンウォール', element:'earth', cat:'防御', mp:9, cd:2, fx:'buff', power:0, parts:[{op:'buff',stat:'def',amount:45,dur:3,target:'self'},{op:'shield',amount:70}], desc:'防御を上げてバリアを張る。' },
   { id:'sk_powerup', name:'バーサーク', element:'fire', cat:'補助', mp:10, cd:2, fx:'buff', power:0, parts:[{op:'buff',stat:'atk',amount:40,dur:3,target:'self'}], desc:'攻撃力を大きく上げる。' },
-  { id:'sk_mindup', name:'魔導書展開', element:'star', cat:'補助', mp:10, cd:2, fx:'buff', power:0, parts:[{op:'buff',stat:'mag',amount:40,dur:3,target:'self'},{op:'restoreMp',amount:10}], desc:'魔力を高めMPを補充。' },
-  { id:'sk_haste', name:'ヘイスト', element:'wind', cat:'補助', mp:11, cd:3, fx:'buff', power:0, parts:[{op:'buff',stat:'spd',amount:45,dur:3,target:'self'}], desc:'速度を上げ先制しやすくなる。' },
+  { id:'sk_mindup', name:'魔導書展開', element:'star', cat:'補助', mp:10, cd:2, fx:'buff', power:0, parts:[{op:'buff',stat:'mag',amount:40,dur:3,target:'self'},{op:'restoreMp',amount:10}], desc:'攻撃力を高めMPを補充。' },
+  { id:'sk_haste', name:'ヘイスト', element:'wind', cat:'補助', mp:11, cd:3, fx:'buff', power:0, parts:[{op:'buff',stat:'spd',amount:45,dur:3,target:'self'}], desc:'防御力を上げて被打撃に備える。' },
   { id:'sk_focus', name:'集中', element:'none', cat:'補助', mp:6, cd:2, fx:'buff', power:0, parts:[{op:'buff',stat:'acc',amount:40,dur:3,target:'self'},{op:'buff',stat:'eva',amount:20,dur:3,target:'self'}], desc:'命中と回避を高める。' },
   { id:'sk_counter', name:'カウンタースタンス', element:'none', cat:'カウンター', mp:10, cd:3, fx:'buff', power:0, parts:[{op:'counter',amount:1.1,dur:2}], desc:'受けた攻撃を1.1倍で跳ね返す。' },
   { id:'sk_poison', name:'ポイズンダート', element:'dark', cat:'状態異常', mp:7, cd:1, fx:'dark', power:0, parts:[{op:'damage',power:60,scale:'atk',hits:1},{op:'status',status:'poison',chance:80,dur:4}], desc:'毒を仕込んだ一撃。' },
-  { id:'sk_curse', name:'呪縛の言葉', element:'dark', cat:'状態異常', mp:13, cd:3, fx:'dark', power:0, parts:[{op:'status',status:'curse',chance:75,dur:3},{op:'debuff',stat:'mag',amount:25,dur:3}], desc:'魔力を奪う呪いをかける。' },
+  { id:'sk_curse', name:'呪縛の言葉', element:'dark', cat:'状態異常', mp:13, cd:3, fx:'dark', power:0, parts:[{op:'status',status:'curse',chance:75,dur:3},{op:'debuff',stat:'mag',amount:25,dur:3}], desc:'攻撃力を奪う呪いをかける。' },
   { id:'sk_sleep', name:'スリープソング', element:'water', cat:'状態異常', mp:10, cd:3, fx:'wave', power:0, parts:[{op:'status',status:'sleep',chance:55,dur:2}], desc:'相手を眠らせる。' },
   { id:'sk_confuse', name:'幻惑の霧', element:'wind', cat:'状態異常', mp:11, cd:3, fx:'wave', power:0, parts:[{op:'status',status:'confuse',chance:55,dur:2}], desc:'混乱させ自傷させる。' },
   { id:'sk_break', name:'アーマーブレイク', element:'none', cat:'補助', mp:9, cd:2, fx:'impact', power:0, parts:[{op:'damage',power:70,scale:'atk',hits:1},{op:'debuff',stat:'def',amount:35,dur:3}], desc:'防御を大きく下げる。' },
@@ -144,7 +164,7 @@ const SPECIAL_SKILLS = [
   { id:'sk_sacrifice', name:'血契約', element:'dark', cat:'必殺技', mp:0, cd:5, fx:'dark', power:0, parts:[{op:'drainSelf',ratio:0.15},{op:'damage',power:290,scale:'atk',hits:1}], desc:'自らの血と引き換えに大ダメージ。' },
   { id:'sk_mirror', name:'鏡の守り', element:'light', cat:'防御', mp:14, cd:4, fx:'holy', power:0, parts:[{op:'counter',amount:1.5,dur:2},{op:'shield',amount:110}], desc:'受けた攻撃を1.5倍で返す。' },
   { id:'sk_purify', name:'浄化の光', element:'light', cat:'回復', mp:9, cd:2, fx:'heal', power:0, parts:[{op:'cleanse'},{op:'heal',power:70,scale:'mag'}], desc:'状態を浄化しながら癒す。' },
-  { id:'sk_silence', name:'沈黙の呪符', element:'dark', cat:'状態異常', mp:12, cd:3, fx:'dark', power:0, parts:[{op:'drainMp',amount:30},{op:'debuff',stat:'mag',amount:30,dur:3}], desc:'相手の魔力とMPを封じる。' },
+  { id:'sk_silence', name:'沈黙の呪符', element:'dark', cat:'状態異常', mp:12, cd:3, fx:'dark', power:0, parts:[{op:'drainMp',amount:30},{op:'debuff',stat:'mag',amount:30,dur:3}], desc:'相手の攻撃力とMPを封じる。' },
   { id:'sk_eclipse', name:'皆既蝕', element:'dark', cat:'覚醒限定技', mp:44, cd:7, fx:'nova', power:0, parts:[{op:'damage',power:300,scale:'mag',hits:1},{op:'status',status:'sleep',chance:50,dur:1}], desc:'光を飲み込む闇の極技。' },
   { id:'sk_genesis', name:'創世の旋律', element:'star', cat:'覚醒限定技', mp:52, cd:8, fx:'prism', power:0, parts:[{op:'damage',power:360,scale:'mag',hits:1},{op:'heal',power:150,scale:'mag'},{op:'shield',amount:140}], desc:'世界を書き換える創世の技。' },
   { id:'sk_phantom', name:'幻影分身', element:'none', cat:'補助', mp:15, cd:4, fx:'buff', power:0, parts:[{op:'buff',stat:'eva',amount:60,dur:3,target:'self'},{op:'buff',stat:'acc',amount:25,dur:3,target:'self'}], desc:'分身で回避と命中を上げる。' },
@@ -387,8 +407,8 @@ export const WEAPON_TYPES = ['剣','銃','杖','斧','槍','弓','拳','短剣',
 const SLOT_INFO = {
   weapon: { name: '武器', icon: '⚔', stat: 'atk' },
   armor: { name: '防具', icon: '🛡', stat: 'def' },
-  accessory: { name: 'アクセサリー', icon: '💍', stat: 'spd' },
-  ornament: { name: '装飾品', icon: '✧', stat: 'mag' },
+  accessory: { name: 'アクセサリー', icon: '💍', stat: 'def' },
+  ornament: { name: '装飾品', icon: '✧', stat: 'mp' },
 };
 export const SLOTS = Object.keys(SLOT_INFO);
 export const SLOT_NAME = Object.fromEntries(Object.entries(SLOT_INFO).map(([k,v]) => [k,v.name]));
@@ -463,10 +483,10 @@ function buildEquipment() {
         const core = SLOT_INFO[slot].stat;
         const baseVal = slot === 'weapon' ? 9 : slot === 'armor' ? 11 : 6;
         const stats = { [core]: Math.round(baseVal * r.mult) };
-        if (slot === 'weapon') stats.acc = Math.round(2 * r.mult);
-        if (slot === 'armor') { stats.hp = Math.round(18 * r.mult); stats.eva = Math.round(1 * r.mult); }
-        if (slot === 'accessory') { stats.acc = Math.round(2 * r.mult); stats.eva = Math.round(2 * r.mult); }
-        if (slot === 'ornament') { stats.mp = Math.round(7 * r.mult); stats.mag = Math.round(3 * r.mult); }
+        if (slot === 'weapon') stats.atk = (stats.atk || 0) + Math.round(1 * r.mult);
+        if (slot === 'armor') { stats.hp = Math.round(18 * r.mult); stats.def = (stats.def || 0) + Math.round(2 * r.mult); }
+        if (slot === 'accessory') { stats.hp = Math.round(5 * r.mult); stats.def = (stats.def || 0) + Math.round(1 * r.mult); }
+        if (slot === 'ornament') { stats.mp = (stats.mp || 0) + Math.round(7 * r.mult); stats.atk = Math.round(1 * r.mult); }
         if (ri >= 2) {
           const eff = EFFECT_POOL[(bases.indexOf(base) * 3 + ri) % EFFECT_POOL.length];
           stats.effects = [{ id: eff.id, value: Math.round(eff.value * (1 + (ri - 2) * 0.35)) }];
@@ -478,7 +498,7 @@ function buildEquipment() {
         }
         defs.push({
           id, slot, type: base.type, name: base.names[ri], rarity: r.id,
-          stats, desc: `${base.type} / ${r.name}。${core === 'atk' ? '攻撃' : core === 'def' ? '防御' : core === 'spd' ? '敏捷' : '魔力'}を高める。`,
+          stats, desc: `${base.type} / ${r.name}。${core === 'atk' ? '攻撃力' : core === 'def' ? '防御力' : core === 'hp' ? 'HP' : 'MP'}を高める。`,
           color: r.color, glow: r.glow,
         });
       });
@@ -490,16 +510,16 @@ export const EQUIPMENT = buildEquipment();
 /** 神専用装備：通常のガチャ・交換・合成の排出プールには入れない */
 export const GOD_EQUIPMENT = [
   { id:'eq_god_weapon', slot:'weapon', type:'特殊', name:'神器・創世の剣', rarity:'S', godOnly:true,
-    stats:{ atk:180, acc:14, mag:60, hp:120, effects:[{id:'ultimatePower',value:60},{id:'critDamage',value:70},{id:'ignoreDef',value:30},{id:'element_star',value:45}] },
+    stats:{ atk:230, hp:120, effects:[{id:'ultimatePower',value:60},{id:'critDamage',value:70},{id:'ignoreDef',value:30},{id:'element_star',value:45}] },
     desc:'神のみが扱える最上位の武器。', color:'#fff6d0', glow:'prism' },
   { id:'eq_god_armor', slot:'armor', type:'法衣', name:'神衣・天穹', rarity:'S', godOnly:true,
-    stats:{ def:120, hp:420, eva:10, mp:80, effects:[{id:'damageCut',value:18},{id:'hpRegen',value:8},{id:'statusGuard',value:60}] },
+    stats:{ def:126, hp:420, mp:80, effects:[{id:'damageCut',value:18},{id:'hpRegen',value:8},{id:'statusGuard',value:60}] },
     desc:'神を包む天穹の衣。', color:'#fff6d0', glow:'prism' },
   { id:'eq_god_accessory', slot:'accessory', type:'指輪', name:'神環・∞', rarity:'S', godOnly:true,
-    stats:{ spd:60, acc:20, eva:12, effects:[{id:'crit',value:25},{id:'critDamage',value:55},{id:'extraStrike',value:30}] },
+    stats:{ def:28, atk:3, effects:[{id:'crit',value:25},{id:'critDamage',value:55},{id:'extraStrike',value:30}] },
     desc:'無限を刻む神の指輪。', color:'#fff6d0', glow:'prism' },
   { id:'eq_god_ornament', slot:'ornament', type:'宝珠', name:'神核・始源', rarity:'S', godOnly:true,
-    stats:{ mag:90, mp:140, effects:[{id:'ultimatePower',value:55},{id:'element_light',value:50},{id:'mpRegen',value:12}] },
+    stats:{ atk:76, mp:170, effects:[{id:'ultimatePower',value:55},{id:'element_light',value:50},{id:'mpRegen',value:12}] },
     desc:'始源の力を宿す宝珠。', color:'#fff6d0', glow:'prism' },
 ];
 export const GOD_EQUIPMENT_IDS = GOD_EQUIPMENT.map(e => e.id);
@@ -590,7 +610,68 @@ function buildEnemies() {
   return list;
 }
 export const ENEMIES = buildEnemies();
-export const ENEMY = Object.fromEntries(ENEMIES.map(e => [e.id, e]));
+/** チュートリアル専用の弱い敵。通常の CPU 一覧・図鑑・排出には出現しない */
+export const TUTORIAL_ENEMY = {
+  id: 'e_tutorial_dummy', name: '練習用・木人形', trueName: null,
+  job: 'warrior', style: 'guard', difficulty: 'チュートリアル',
+  level: 2, mul: 0.34, tier: 0, boss: false, hidden: false, tutorial: true,
+  skills: ['sk_double'],
+  palette: { hair:'#8a6a45', cloth:'#9a8a6a', skin:'#e2bd92', accent:'#c9d3e0' },
+  equipment: [],
+  desc: 'チュートリアル専用 / Lv.2 / とても弱い',
+};
+export const ENEMY = { ...Object.fromEntries(ENEMIES.map(e => [e.id, e])), [TUTORIAL_ENEMY.id]: TUTORIAL_ENEMY };
+
+/* -----------------------------------------------------------
+   チュートリアル定義（静的コンテンツ）
+   checks = 実際の操作で立つフラグ。全て揃うと次へ進める。
+   ----------------------------------------------------------- */
+export const TUTORIAL_STEP_COUNT = 6;
+export const TUTORIAL_STEPS = [
+  { id:1, title:'街のホーム画面とキャラクター作成',
+    desc:'ゲームスタートで街のホーム画面へ。キャラクター作成は街の「キャラクターを作成する」から開きます。',
+    tips:['キャラクター名の設定','添付画像の読み込み','画像の拡大・縮小','色彩の変更','「作成を完了する」で街へ戻る'],
+    note:'キャラクターを作成済みの場合も、既存のキャラクターはそのまま維持されます。',
+    checks:[{key:'visitedCreate',label:'キャラクター作成画面を開く'},{key:'returnedTown',label:'街のホーム画面に戻る'}] },
+  { id:2, title:'基本ステータスとレベルアップ',
+    desc:'育成の間で基本ステータスを確認します。基本ステータスは HP・攻撃力・防御力・MP の 4 種類だけです。',
+    tips:['HP：0 になると戦闘不能','攻撃力：与えるダメージの基準','防御力：受けるダメージを減らす','MP：技や奥義を使うためのポイント'],
+    note:'経験値を獲得して実際にレベルアップし、4 つの能力値が上がることを画面で確認しましょう。',
+    checks:[{key:'visitedNurture',label:'育成の間を開く'},{key:'leveled',label:'経験値を獲得してレベルアップする'}] },
+  { id:3, title:'武器・装備とガチャ',
+    desc:'武器・装備工房で装備を付け替えると、攻撃力や防御力が上昇します。ガチャタブでは装備ガチャを引けます。',
+    tips:['武器は主に攻撃力を上昇','防具は主に防御力と HP を上昇','高レアリティほど上昇幅が大きい'],
+    note:'チュートリアル専用の練習用ガチャは無料です。通常ガチャの排出確率・天井には一切影響しません。獲得した武器は実際の所持品に追加されます。',
+    checks:[{key:'visitedForge',label:'武器・装備工房を開く'},{key:'practiceGacha',label:'無料の練習用ガチャを引く'},{key:'equipped',label:'獲得した武器を装備する'}] },
+  { id:4, title:'初めてのCPU対戦',
+    desc:'チュートリアル用の弱い敵と戦います。HP が 0 になると戦闘不能です。',
+    tips:['HP が 0 になると戦闘不能','攻撃力がダメージ、防御力が被ダメ軽減の基準','MP を消費して技を使う（通常攻撃は MP 不要）','AUTO の ON / OFF は戦闘中いつでも切替','AUTO は 1倍速 / 2倍速 / 3倍速','手動では技を選んで行動','戦闘終了後に経験値・コインなどの報酬'],
+    note:'AUTO の切り替え・速度変更・技の選択は、実際の戦闘画面で操作できます。',
+    checks:[{key:'visitedBattle',label:'CPU対戦の画面を開く'},{key:'autoToggled',label:'AUTO を ON / OFF してみる'},{key:'speedChanged',label:'AUTO の速度を変更してみる'},{key:'manualSkill',label:'手動で技を選んで使う'},{key:'battleWon',label:'チュートリアル用の敵に勝利する'}] },
+  { id:5, title:'素材集めとランク進化',
+    desc:'素材集めで進化素材を獲得し、育成の間の「進化」から R → SR へランクアップします。',
+    tips:['ランク進化で HP・攻撃力・防御力・MP すべてが大幅上昇','通常のランクアップでは役職変更 / 維持を選択可能','チュートリアルでは役職変更を強制しません'],
+    note:'レベル・EXP・名前・元画像・職業・技・装備は維持されます。',
+    checks:[{key:'visitedGather',label:'素材集めの画面を開く'},{key:'gathered',label:'進化素材を獲得する'},{key:'evolved',label:'R → SR へランクアップする'}] },
+  { id:6, title:'チュートリアル完了',
+    desc:'お疲れさまでした！すべてのステップをクリアしました。',
+    tips:[], note:'完了報酬として装備ガチャ 30 連分のコインを受け取れます（1 アカウントにつき 1 回だけ）。',
+    checks:[] },
+];
+export const TUTORIAL_HELP_TOPICS = [
+  { icon:'🎨', name:'キャラクター作成', text:'街のホーム画面の「キャラクターを作成する」から開きます。名前・画像読み込み・拡大縮小・色彩調整を設定して「作成を完了する」で街へ戻ります。既存キャラは削除されません。' },
+  { icon:'📈', name:'レベルアップ', text:'CPU対戦や修行で EXP を獲得するとレベルが上がり、HP・攻撃力・防御力・MP が上昇してステータスポイント +4 と全回復が発生します。' },
+  { icon:'❤', name:'基本ステータス', text:'HP / 攻撃力 / 防御力 / MP の 4 種類のみ。会心・回避・属性などは基本ステータスではなく、技や装備の特殊効果として働きます。' },
+  { icon:'⚒', name:'武器・装備', text:'武器は主に攻撃力、防具は主に防御力と HP を上げます。高レアリティほど上昇幅が大きく、装備を外すと上昇分は消えます。' },
+  { icon:'✧', name:'ガチャ', text:'工房の「ガチャ」タブから引けます。ピックアップ・提供割合・独立天井・履歴があり、結果は演出開始前に確定してセーブされます。' },
+  { icon:'🏛', name:'CPU対戦', text:'ターン制コマンドバトル。通常攻撃は MP 不要、技や奥義は MP を消費します。勝利でコイン・EXP・BP・素材を獲得します。' },
+  { icon:'AUTO', name:'AUTOと戦闘速度', text:'AUTO は攻撃・技・回復・防御・奥義を自動選択します。戦闘中いつでも ON / OFF でき、ON 中は 1倍 / 2倍 / 3倍速を切り替えられます。OFF で通常速度に戻ります。' },
+  { icon:'💠', name:'素材集め', text:'進化素材は CPU対戦・ダンジョン・クエスト・ガチャ10連・道具屋・素材合成で入手できます。8 種類 × 5 ランク = 40 種。' },
+  { icon:'✦', name:'ランク進化', text:'R → SR → SSR → UR → LR。レベル・コイン・素材が必要で、HP・攻撃力・防御力・MP すべてが大幅に上昇します。レベルや画像・職業・装備は維持されます。' },
+  { icon:'🔀', name:'役職変更', text:'ランクアップ時または転生時のみ可能です。「現在の役職を維持する」か「別の役職に変更する」かを選べます。育成画面などから自由には変更できません。' },
+  { icon:'🔄', name:'転生', text:'レベル上限到達後に「転生の証」とコインで実行。レベル上限 +10、永続ボーナス、ステータスポイント +15。このときも役職変更の機会があります。' },
+  { icon:'✵', name:'奥義', text:'LR 進化で各職業の専用奥義、R → SR 進化で指定名の特殊奥義を習得します。専用ゲージが溜まると使用可能で、使用後はゲージが 0 に戻り連続使用できません。' },
+];
 export const RANKS = [
   { name:'ブロンズ', min:0, reward:0 }, { name:'シルバー', min:120, reward:500 },
   { name:'ゴールド', min:350, reward:1200 }, { name:'プラチナ', min:750, reward:2500 },
@@ -644,15 +725,15 @@ export const TITLES = [
   { id:'t_rookie', name:'駆け出しの挑戦者', desc:'攻撃+2', bonus:{atk:2} },
   { id:'t_veteran', name:'熟達の戦士', desc:'攻撃+5 防御+5', bonus:{atk:5,def:5} },
   { id:'t_hero', name:'歴戦の英雄', desc:'全能力+8', bonus:{hp:30,mp:10,atk:8,def:8,spd:8,mag:8} },
-  { id:'t_wind', name:'無敗の疾風', desc:'速度+12 回避+3', bonus:{spd:12,eva:3} },
+  { id:'t_wind', name:'無敗の疾風', desc:'防御力+12 回避+3', bonus:{def:12,dodge:3} },
   { id:'t_king', name:'不敗王', desc:'HP+80 攻撃+12', bonus:{hp:80,atk:12} },
   { id:'t_effort', name:'努力の結晶', desc:'EXP獲得+10%', bonus:{expBonus:10} },
   { id:'t_limit', name:'極みの資格者', desc:'全能力+12', bonus:{hp:50,mp:15,atk:12,def:12,spd:12,mag:12} },
-  { id:'t_awake', name:'覚醒せし者', desc:'魔力+20', bonus:{mag:20,mp:20} },
+  { id:'t_awake', name:'覚醒せし者', desc:'攻撃力+20 MP+20', bonus:{atk:20,mp:20} },
   { id:'t_trans', name:'極致の超越者', desc:'全能力+25', bonus:{hp:120,mp:40,atk:25,def:25,spd:25,mag:25} },
   { id:'t_allround', name:'万能の才', desc:'命中+10 回避+10', bonus:{acc:10,eva:10} },
   { id:'t_master', name:'職業の覇者', desc:'全能力+18', bonus:{hp:80,mp:25,atk:18,def:18,spd:18,mag:18} },
-  { id:'t_skill', name:'技博覧', desc:'MP+30 魔力+10', bonus:{mp:30,mag:10} },
+  { id:'t_skill', name:'技博覧', desc:'MP+30 攻撃力+10', bonus:{mp:30,atk:10} },
   { id:'t_allskill', name:'技の化身', desc:'全能力+30', bonus:{hp:150,mp:60,atk:30,def:30,spd:30,mag:30} },
   { id:'t_rainbow', name:'虹を掴みし者', desc:'会心+12%', bonus:{crit:12} },
   { id:'t_conquer', name:'征伐者', desc:'攻撃+15', bonus:{atk:15} },

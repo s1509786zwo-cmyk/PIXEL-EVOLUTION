@@ -4,7 +4,7 @@
    - ピックアップ率は各レアリティの「内訳」として分離管理する
    - シークレットの正体は UI に渡さない（hiddenSummary 経由）
    =========================================================== */
-import { RARITIES, RARITY, EQUIPMENT, EFFECTS } from './data.js?v=2';
+import { RARITIES, RARITY, EQUIPMENT, EFFECTS, toCoreStats } from './data.js?v=2';
 
 const DAY = 86400000;
 export const PICKUP_PERIOD_DAYS = 7;
@@ -121,8 +121,8 @@ export const USAGE_BY_TYPE = {
   '銃':'距離を保ちながら手数で削る遠距離戦向き。会心と追撃を重ねると一気に火力が伸びる。',
   '杖':'属性魔法で弱点を突く魔力型。MP回復系の効果と組わせて長期戦を制する。',
   '斧':'一撃の重みで敵を薙ぐパワー型。防御の高い相手に貫通効果が刺さる。',
-  '槍':'リーチを活かして先手を取る中距離型。先制・命中補強で初手から主導権を握る。',
-  '弓':'高命中の遠距離狙撃型。回避や状態異常を無視して確実にダメージを通す。',
+  '槍':'リーチを活かした中距離型。攻撃力と会心系の特殊効果で主導権を握る。',
+  '弓':'遠距離狙撃型。追加攻撃や属性攻撃の特殊効果で確実にダメージを通す。',
   '拳':'連撃と会心で畳みかける格闘型。追撃が乗ると手数が倍増する。',
   '短剣':'状態異常と会心で撹乱するトリッキー型。素早さを活かして弱点を突く。',
   '特殊':'錬成・方陣・因果を操る変則型。味方の補助と特殊効果の底上げが得意。',
@@ -131,10 +131,12 @@ export function weaponSummary(defId) {
   const d = byId[defId];
   if (!d) return null;
   const st = d.stats || {};
+  const core = toCoreStats(st);   // 4 基本ステータスへ換算
   return {
     id:d.id, name:d.name, rarity:d.rarity, type:d.type, slot:d.slot,
     color:d.color, desc:d.desc,
-    atk:st.atk || 0, acc:st.acc || 0, hp:st.hp || 0, mp:st.mp || 0,
+    atk:Math.round(core.atk), def:Math.round(core.def),
+    hp:Math.round(core.hp), mp:Math.round(core.mp),
     effects:(st.effects || []).map(x => ({
       id:x.id, label:EFFECTS[x.id]?.name || EFFECT_LABELS[x.id] || x.id,
       desc:EFFECTS[x.id]?.desc || '', value:x.value,

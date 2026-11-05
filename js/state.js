@@ -10,6 +10,8 @@ import {
   SKILL_COUNT, LEARNABLE_SKILLS, ULTIMATE_IDS, JOB_ULTIMATE, GOD_ULTIMATE_ID,
   SPECIAL_ULTIMATE, specialNameKey, SPECIAL_NAME_LABEL, GOD_JOB_ID, GOD_SKILL_IDS,
   GOD_EQUIPMENT_IDS, GOD_EQUIPMENT, ULTIMATE_GAUGE_MAX,
+  toCoreStats, LEGACY_TO_CORE, LEGACY_STAT_KEYS,
+  TUTORIAL_STEPS, TUTORIAL_STEP_COUNT, TUTORIAL_ENEMY,
 } from './data.js?v=2';
 import { MATERIAL_ITEMS, MATERIAL_BY_ID, MAT_RANKS, MAT_RANK_INFO, RANK_REQUIREMENTS, materialUpgradeTarget } from './materials.js?v=2';
 import {
@@ -166,6 +168,7 @@ function migrate(s) {
   merged.version = VERSION;
   merged.home = { ...d.home, ...(s.home || {}) };
   merged.story = { ...d.story, ...(s.story || {}), seen:s.story?.seen || [], cleared:s.story?.cleared || [] };
+  merged.tutorial = normalizeTutorial(s.tutorial, merged);
   merged.settings = { ...d.settings, ...(s.settings || {}) };
   merged.settings.autoSpeed = clamp(Number(merged.settings.autoSpeed) || 1, 1, 3);
   merged.settings.autoUltimate = merged.settings.autoUltimate !== false;
@@ -174,8 +177,24 @@ function migrate(s) {
   if (merged.lastDaily !== nowDate()) resetDailyQuests(merged);
   return merged;
 }
+function foldLegacyStats(obj) {
+  if (!obj || typeof obj !== 'object') return;
+  for (const k of LEGACY_STAT_KEYS) {
+    const v = Number(obj[k]);
+    if (!v) { delete obj[k]; continue; }
+    const to = LEGACY_TO_CORE[k] || 'atk';
+    obj[to] = (Number(obj[to]) || 0) + Math.round(v * 0.5);
+    delete obj[k];
+  }
+}
 /** 旧セーブに新しい進行データを補う（名前ギミックの判定は 1 回だけ） */
 function normalizeCharacter(c, state) {
+  // 旧セーブの 8 ステータスを 4 ステータスへ 1 回だけ換算（二重加算を防ぐ）
+  if (c.statVersion !== 2) {
+    foldLegacyStats(c.alloc);
+    foldLegacyStats(c.evolutionBonus);
+    c.statVersion = 2;
+  }
   const eb = c.evolutionBonus || {};
   c.evolutionBonus = { ...Object.fromEntries(STAT_KEYS.map(k => [k, 0])), ...eb,
     effects: { crit:0, critDamage:0, ultimatePower:0, ...(eb.effects || {}) } };
@@ -268,6 +287,7 @@ export function newState() {
       autoOn: false, autoSpeed: 1, autoUltimate: true },
     home: { started:false, lastVisit:null, lastMenu:null },
     story: { chapter:1, seen:[], cleared:[] },
+    tutorial: defaultTutorial(),
     inventory: { items: { potion_s:3, ether_s:2, antidote:1, mat_ore:2, evo_stone_R:3, weapon_ore_R:2 }, equipment: [] },
     pity: { weapon: normalizePity(), armor: normalizePity() },
     catalog: { equipment: [], skills: [], jobs: [], enemies: [], titles: ['t_none'], materials: ['evo_stone_R','weapon_ore_R'] },
@@ -351,7 +371,7 @@ export function instanceDef(inst) { return EQUIP_BY_ID[inst?.defId] || null; }
    - 装備を外せば消え、同じ uid を複数スロットに入れても重複加算しない
    ----------------------------------------------------------- */
 const RARITY_EQUIP_SCALE = { N:1.0, R:2.0, E:3.4, L:5.4, M:8.0, S:12.0 };
-const STAT_WEIGHT = { atk:1, mag:1, spd:0.7, acc:0.7, def:0.55, hp:0.5, mp:0.5, eva:0.6 };
+const STAT_WEIGHT = { atk:1, def:0.55, hp:0.5, mp:0.5 };
 const HIGH_EFFECT_POOL = [
   'crit','critDamage','ultimatePower','normalAttackPower','extraDamage','ignoreDef',
   'lifesteal','counter','firstStrike','extraStrike','damageCut','hpRegen','mpRegen','statusGuard',
@@ -380,8 +400,9 @@ export function equipmentStats(inst, c = null) {
   const rankScale = c ? 1 + charRankIndex(c.rarity) * 0.22 : 1;
   const scale = rarityScale * levelScale * rankScale;
   const out = { ...emptyStats(), effects: [] };
+  const rawStats = toCoreStats(def.stats);   // 旧装備データの速度・魔力等を 4 種へ換算
   for (const k of STAT_KEYS) {
-    const raw = (def.stats[k] || 0) * m + enhance * (k === 'hp' ? 6 : k === 'mp' ? 2 : 1);
+    const raw = (rawStats[k] || 0) * m + enhance * (k === 'hp' ? 6 : k === 'mp' ? 2 : 1);
     out[k] = Math.round(raw * scale * (STAT_WEIGHT[k] || 1));
   }
   // 元々の定義効果
@@ -457,22 +478,25 @@ export function syncEquipmentSnapshot(state, c) {
   return c.equipmentBonus;
 }
 
-/** 進化・覚醒・転生・称号・レベル・職業・振り分けから成る「素の能力値」 */
+/** 進化・覚醒・転生・称号・レベル・職業・振り分けから成る「素の能力値」（4 種のみ） */
 function coreStats(c, state) {
   const job = JOB[c.jobId] || JOB.warrior;
   const style = STYLES.find(x => x.id === c.styleId) || STYLES[0];
+  const title = TITLE[c.titleId] || TITLE.t_none;
   const lv = c.level - 1;
+  const growth = toCoreStats(job.growth);
+  const styleB = toCoreStats(style.bonus);
+  const titleB = toCoreStats(title.bonus);
+  const alloc = toCoreStats(c.alloc);
+  const evo = toCoreStats(c.evolutionBonus);
+  const base = { hp:130, atk:40, def:40, mp:60 };
   const s = {};
   for (const k of STAT_KEYS) {
-    s[k] = 30 + (k === 'hp' ? 100 : k === 'mp' ? 30 : k === 'acc' ? 80 : k === 'eva' ? 5 : 10)
-      + job.growth[k] * lv + (c.alloc[k] || 0) + (style.bonus[k] || 0)
-      + (c.evolutionBonus?.[k] || 0);
+    s[k] = base[k] + growth[k] * lv + alloc[k] + styleB[k] + titleB[k] + evo[k];
   }
-  const title = TITLE[c.titleId] || TITLE.t_none;
-  for (const k of STAT_KEYS) s[k] += title.bonus[k] || 0;
   const rankMult = CHAR_RARITY[c.rarity || 'R']?.mult || 1;
   const mult = (1 + c.awakening * 0.13 + c.evolution * 0.05 + (c.rebirth || 0) * 0.12) * rankMult;
-  for (const k of STAT_KEYS) s[k] = Math.round(s[k] * (k === 'acc' || k === 'eva' ? 1 + (mult - 1) * 0.25 : mult));
+  for (const k of STAT_KEYS) s[k] = Math.round(s[k] * mult);
   return s;
 }
 
@@ -483,11 +507,14 @@ export function computeStats(c, state) {
   for (const k of STAT_KEYS) s[k] += eq.stats[k] || 0;
   s.hp = Math.max(120, Math.round(s.hp));
   s.mp = Math.max(20, Math.round(s.mp));
-  s.acc = clamp(s.acc, 30, 5000); s.eva = clamp(s.eva, 0, 400);
-  // ゲーム内で使用する追加能力値
-  s.mdef = Math.round(s.def * 0.7 + s.mag * 0.45);
+  s.atk = Math.max(1, Math.round(s.atk));
+  s.def = Math.max(1, Math.round(s.def));
   const eff = aggregateEffects(c, state, eq.effects);
   s.effects = eff;
+  // 以下は「基本ステータス」ではなく技・装備の特殊効果を処理するための内部値。
+  // STAT_KEYS に含まれないため、どの画面にも基本ステータスとしては表示されない。
+  s.hit = 88 + (eff.hit || 0);
+  s.dodge = 5 + (eff.dodge || 0);
   s.crit = 6 + (eff.crit || 0);
   s.critDamage = 165 + (eff.critDamage || 0);
   s.ultimatePower = (eff.ultimatePower || 0) + charRankIndex(c.rarity) * 12 + (c.jobId === GOD_JOB_ID ? 35 : 0);
@@ -502,8 +529,9 @@ function aggregateEffects(c, state, eqEffects = []) {
   const push = (id, v) => { acc[id] = (acc[id] || 0) + v; };
   for (const e of eqEffects) push(e.id, e.value);
   const title = TITLE[c.titleId] || TITLE.t_none;
-  for (const [k, v] of Object.entries(title.bonus)) if (!STAT_KEYS.includes(k)) push(k, v);
-  // ランク進化で得た永続効果（装備を替えても失われない）
+  // 旧称号の速度・魔力などは基本ステータスへ換算済みなので効果としては加算しない
+  for (const [k, v] of Object.entries(title.bonus))
+    if (!STAT_KEYS.includes(k) && !LEGACY_STAT_KEYS.includes(k)) push(k, v);
   const eb = c.evolutionBonus?.effects || {};
   for (const [k, v] of Object.entries(eb)) if (v) push(k, v);
   if (c.awakening >= 2) push('crit', 3 + c.awakening * 2);
@@ -514,9 +542,9 @@ function aggregateEffects(c, state, eqEffects = []) {
 
 export function powerScore(c, state) {
   const s = computeStats(c, state);
-  return Math.round(s.hp / 4 + s.mp / 5 + s.atk * 2 + s.def * 1.8 + s.mdef * 1.2
-    + s.spd * 1.5 + s.mag * 1.8 + (s.acc + s.eva) * 1.2
-    + (s.critDamage - 165) * 0.6 + c.awakening * 120 + charRankIndex(c.rarity) * 220 + c.level * 8);
+  return Math.round(s.hp / 4 + s.mp / 5 + s.atk * 2 + s.def * 1.8
+    + (s.critDamage - 165) * 0.6 + (s.ultimatePower || 0) * 0.4
+    + c.awakening * 120 + charRankIndex(c.rarity) * 220 + c.level * 8);
 }
 
 /* ---------- ログ・通貨 ---------- */
@@ -579,7 +607,7 @@ export function grantExp(state, c, amount, reason = '経験値') {
 export function allocateStat(state, c, key, n = 1) {
   if (!STAT_KEYS.includes(key) || c.statPoints < n) return false;
   c.statPoints -= n;
-  c.alloc[key] = (c.alloc[key] || 0) + n * (key === 'hp' ? 12 : key === 'mp' ? 6 : key === 'acc' || key === 'eva' ? 1 : 3);
+  c.alloc[key] = (c.alloc[key] || 0) + n * (key === 'hp' ? 12 : key === 'mp' ? 6 : 3);
   const st = computeStats(c, state);
   c.hp = Math.min(st.hp, c.hp + (key === 'hp' ? n * 12 : 0));
   c.mp = Math.min(st.mp, c.mp + (key === 'mp' ? n * 6 : 0));
@@ -589,7 +617,7 @@ export function allocateStat(state, c, key, n = 1) {
 
 export function resetAllocs(state, c) {
   if (state.coins < 1000) return { ok:false, msg:'1,000コインが必要です' };
-  const per = k => k === 'hp' ? 12 : k === 'mp' ? 6 : (k === 'acc' || k === 'eva') ? 1 : 3;
+  const per = k => k === 'hp' ? 12 : k === 'mp' ? 6 : 3;
   const refund = STAT_KEYS.reduce((a,k) => a + Math.round((c.alloc[k] || 0) / per(k)), 0);
   if (!refund) return { ok:false, msg:'振り分けたポイントがありません' };
   addCoins(state, -1000, false);
@@ -817,11 +845,8 @@ export function evolutionPreview(state, c) {
   const bonus = rankUpBonus(state, c, rule.to);
   const afterStats = computeStats({ ...c, rarity: rule.to,
     evolutionBonus: mergeEvolutionBonus(c.evolutionBonus, bonus) }, state);
-  const extra = ['mdef','crit','critDamage','ultimatePower'];
   const gains = STAT_KEYS.filter(k => afterStats[k] > beforeStats[k])
     .map(k => ({ key:k, value:afterStats[k]-beforeStats[k] }));
-  for (const k of extra) if ((afterStats[k]||0) > (beforeStats[k]||0))
-    gains.push({ key:k, value:afterStats[k]-beforeStats[k] });
   return { max:false, rule, mats, reasons, ok:reasons.length === 0, beforeStats, afterStats,
     bonus, gains, nextRank: CHAR_RARITY[rule.to], skill: SKILL[rule.skill],
     jobUltimate: rule.to === 'LR' ? SKILL[c.jobId === GOD_JOB_ID ? GOD_ULTIMATE_ID : JOB_ULTIMATE[c.jobId]] : null,
@@ -1171,12 +1196,8 @@ export function exchangeItem(state, c, exId) {
 export const TRAINING = [
   { id:'hp', name:'体力錬成', icon:'❤', desc:'HP +12 / EXP・熟練度', stat:'hp' },
   { id:'mp', name:'精神統一', icon:'✦', desc:'MP +6 / EXP・熟練度', stat:'mp' },
-  { id:'atk', name:'筋力トレーニング', icon:'⚔', desc:'攻撃 +3 / EXP・熟練度', stat:'atk' },
-  { id:'def', name:'防御鍛錬', icon:'🛡', desc:'防御 +3 / EXP・熟練度', stat:'def' },
-  { id:'spd', name:'敏捷走練', icon:'➤', desc:'速度 +3 / EXP・熟練度', stat:'spd' },
-  { id:'mag', name:'魔力冥想', icon:'✧', desc:'魔力 +3 / EXP・熟練度', stat:'mag' },
-  { id:'acc', name:'命中訓練', icon:'◎', desc:'命中 +1 / EXP・熟練度', stat:'acc' },
-  { id:'eva', name:'回避訓練', icon:'✺', desc:'回避 +1 / EXP・熟練度', stat:'eva' },
+  { id:'atk', name:'筋力トレーニング', icon:'⚔', desc:'攻撃力 +3 / EXP・熟練度', stat:'atk' },
+  { id:'def', name:'防御鍛錬', icon:'🛡', desc:'防御力 +3 / EXP・熟練度', stat:'def' },
 ];
 export function trainingCost(state, id) { return 140 + (state.stats.trainings || 0) * 18; }
 export function doTraining(state, c, id, sets = 1) {
@@ -1322,7 +1343,8 @@ export function rankInfo(state) {
 export function battleRewards(state, c, enemy, won, meta = {}) {
   const eff = { ...computeStats(c, state).effects, ...(TITLE[c.titleId]?.bonus || {}) };
   const effBonus = (id) => 1 + (eff[id] || 0) / 100;
-  const base = enemy.level * 14 + (enemy.tier || 0) * 90 + (enemy.boss ? 260 : 0) + (meta.floor ? meta.floor * 22 : 0);
+  const base = enemy.tutorial ? 110
+    : enemy.level * 14 + (enemy.tier || 0) * 90 + (enemy.boss ? 260 : 0) + (meta.floor ? meta.floor * 22 : 0);
   const mult = won ? 1 : 0.22;
   const streakBonus = won ? 1 + Math.min(0.6, state.winStreak * 0.04) : 1;
   const coins = Math.max(12, Math.round(base * mult * streakBonus * effBonus('coinBonus') * (meta.dungeon ? 1.3 : 1)));
@@ -1449,16 +1471,14 @@ export function buildEnemyCombatant(enemy, scale = 1) {
   const job = JOB[enemy.job] || JOB.warrior;
   const mul = (enemy.mul || 1) * scale;
   const lv = enemy.level || 5;
+  const g = toCoreStats(job.growth);
   const stats = {
-    hp: Math.round((170 + lv * 17 + job.growth.hp * lv * 1.4) * mul),
-    mp: Math.round((55 + lv * 3 + job.growth.mp * lv * 0.5) * mul),
-    atk: Math.round((18 + lv * 1.5 + job.growth.atk * lv * 0.9) * mul),
-    def: Math.round((12 + lv * 1.1 + job.growth.def * lv * 0.8) * mul),
-    spd: Math.round((14 + lv * 0.5 + job.growth.spd * lv * 0.45) * mul),
-    mag: Math.round((14 + lv * 1.1 + job.growth.mag * lv * 0.8) * mul),
-    acc: Math.round(86 + lv * 0.4 + job.growth.acc * lv),
-    eva: Math.round(5 + lv * 0.22 + job.growth.eva * lv),
-    mdef: 0,
+    hp: Math.round((170 + lv * 17 + g.hp * lv * 1.4) * mul),
+    mp: Math.round((55 + lv * 3 + g.mp * lv * 0.5) * mul),
+    atk: Math.round((18 + lv * 1.5 + g.atk * lv * 0.9) * mul),
+    def: Math.round((12 + lv * 1.1 + g.def * lv * 0.8) * mul),
+    // 特殊効果用の内部値（基本ステータスとしては表示しない）
+    hit: 84, dodge: 4, crit: 4, critDamage: 165, ultimatePower: 0,
     effects: enemy.boss ? { crit:12, damageCut:8, statusGuard:25 } : { crit:4 },
   };
   const rarIdx = Math.min(5, Math.max(0, Math.floor((mul - 0.8) * 2.2)));
@@ -1469,13 +1489,283 @@ export function buildEnemyCombatant(enemy, scale = 1) {
     for (const k of STAT_KEYS) stats[k] += Math.round((es[k] || 0) * 0.75);
     for (const e of es.effects) stats.effects[e.id] = (stats.effects[e.id] || 0) + e.value;
   }
-  stats.mdef = Math.round(stats.def * 0.7 + stats.mag * 0.45);
   return stats;
 }
 
 export function enemyUnlocked(state, enemy) {
+  if (enemy.tutorial) return true;
   if (enemy.hidden) return hiddenBossUnlocked(state, activeChar(state) || blankCharacter());
   if (enemy.boss) return state.stats.wins >= 6 && rankInfo(state).idx >= 1;
   if (enemy.tier >= 1) return state.stats.wins >= 3;
   return true;
+}
+
+/* ===========================================================
+   チュートリアル（任意開始・途中再開・完了報酬は 1 アカウント 1 回）
+   =========================================================== */
+export const TUTORIAL_REWARD_PULLS = 30;
+
+/** 装備ガチャ 1 回分のコイン。将来 GACHA_COST が変わっても追従する */
+export function equipmentGachaCost() { return GACHA_COST; }
+/** 「装備ガチャ 30 連分」を固定値ではなく現在の消費コインから計算 */
+export function tutorialRewardCoins() { return equipmentGachaCost() * TUTORIAL_REWARD_PULLS; }
+
+export function defaultTutorial() {
+  return {
+    version: 1,
+    status: 'notOffered',      // notOffered / offered / active / skipped / complete
+    step: 1,
+    done: [],
+    skipped: false,
+    completed: false,
+    rewardClaimed: false,
+    rewardCoins: 0,
+    rewardAt: null,
+    practicePulls: 0,
+    practiceEquip: [],          // 練習ガチャで獲得した装備 uid（消失防止）
+    earnedCoins: 0,             // チュートリアル中に獲得したコイン総額
+    charLevel: 0,               // チュートリアル時点のキャラ Lv / ランク
+    charRank: 'R',
+    startSkills: [],            // 開始時点の技・奥義（差分だけ記録）
+    startUltimates: [],
+    learnedSkills: [],          // チュートリアル中に習得した技
+    learnedUltimates: [],       // チュートリアル中に習得した奥義
+    flags: {},                  // 各ステップの操作完了フラグ
+    startedAt: null,
+    updatedAt: null,
+    replays: 0,
+  };
+}
+/** 旧セーブ／破損データの補完。報酬受取済みフラグは絶対に消さない */
+export function normalizeTutorial(src, state) {
+  // 既存オブジェクトの参照を保ったまま補完する。
+  // 呼ぶたびに別オブジェクトへ差し替えると、呼び出し元が保持した t への
+  // step++ / rewardClaimed などの書き込みが state.tutorial へ反映されない。
+  let t = src;
+  if (!t || typeof t !== 'object') t = defaultTutorial();
+  const d = defaultTutorial();
+  for (const k of Object.keys(d)) if (t[k] === undefined) t[k] = d[k];
+  if (!t.flags || typeof t.flags !== 'object' || Array.isArray(t.flags)) t.flags = {};
+  t.done = Array.isArray(t.done)
+    ? t.done.filter(n => Number.isInteger(n) && n >= 1 && n <= TUTORIAL_STEP_COUNT - 1) : [];
+  t.practiceEquip = Array.isArray(t.practiceEquip) ? t.practiceEquip.filter(Boolean) : [];
+  for (const k of ['startSkills','startUltimates','learnedSkills','learnedUltimates'])
+    t[k] = Array.isArray(t[k]) ? t[k].filter(Boolean) : [];
+  t.earnedCoins = Number(t.earnedCoins) || 0;
+  t.charLevel = Number(t.charLevel) || 0;
+  t.charRank = t.charRank || 'R';
+  t.practicePulls = Number(t.practicePulls) || 0;
+  t.rewardClaimed = !!t.rewardClaimed;
+  t.rewardCoins = Number(t.rewardCoins) || 0;
+  t.rewardAt = t.rewardAt || null;
+  t.completed = !!t.completed || (t.status === 'complete');
+  t.skipped = !!t.skipped;
+  t.replays = Number(t.replays) || 0;
+  const statuses = ['notOffered','offered','active','skipped','complete'];
+  if (!statuses.includes(t.status)) t.status = 'notOffered';
+  // 既存キャラがいる旧セーブ／未提示セーブには「任意で始められる」選択肢を出す
+  if (state?.characters?.length && t.status === 'notOffered'
+      && (!src || src.status === 'notOffered')) t.status = 'offered';
+  t.step = clamp(Number(t.step) || 1, 1, TUTORIAL_STEP_COUNT);
+  if (t.status === 'complete') t.step = TUTORIAL_STEP_COUNT;
+  t.version = 1;
+  return t;
+}
+/** チュートリアル中に獲得したコインを記録（報酬とは別に累計） */
+export function tutorialAddEarnedCoins(state, amount) {
+  const t = state.tutorial = normalizeTutorial(state.tutorial, state);
+  if (!t || t.status === 'notOffered' || t.status === 'offered') return;
+  const n = Math.max(0, Math.round(Number(amount) || 0));
+  if (!n) return;
+  t.earnedCoins += n;
+  t.updatedAt = new Date().toISOString();
+}
+/** キャラの Lv / ランクと、開始時点から増えた技・奥義を保存（二重記録しない） */
+export function tutorialCaptureProgress(state) {
+  const t = state.tutorial = normalizeTutorial(state.tutorial, state);
+  const c = activeChar(state);
+  if (!c) return t;
+  t.charLevel = c.level;
+  t.charRank = c.rarity || 'R';
+  for (const sk of (c.skills || [])) {
+    const id = sk.id || sk;
+    if (!t.startSkills.includes(id) && !t.learnedSkills.includes(id)) t.learnedSkills.push(id);
+  }
+  for (const id of (c.ultimateSkills || []))
+    if (!t.startUltimates.includes(id) && !t.learnedUltimates.includes(id)) t.learnedUltimates.push(id);
+  t.updatedAt = new Date().toISOString();
+  return t;
+}
+export function tutorialOffer(state) {
+  const t = state.tutorial = normalizeTutorial(state.tutorial, state);
+  if (t.status === 'notOffered') { t.status = 'offered'; t.updatedAt = new Date().toISOString(); }
+  return t;
+}
+export function tutorialStart(state) {
+  const t = state.tutorial = normalizeTutorial(state.tutorial, state);
+  // 完了後の再プレイでは進行だけリセット。報酬受取済み・獲得装備は保持。
+  if (t.completed || t.status === 'complete') {
+    t.done = []; t.flags = {}; t.step = 1; t.replays++;
+  }
+  t.status = 'active'; t.skipped = false;
+  const c0 = activeChar(state);
+  if (!t.startSkills.length && c0) {
+    t.startSkills = (c0.skills || []).map(k => k.id || k);
+    t.startUltimates = [...(c0.ultimateSkills || [])];
+  }
+  t.startedAt = t.startedAt || new Date().toISOString();
+  t.updatedAt = new Date().toISOString();
+  tutorialCaptureProgress(state);
+  return { ok:true, msg:'チュートリアルを開始しました' };
+}
+export function tutorialSkip(state) {
+  const t = state.tutorial = normalizeTutorial(state.tutorial, state);
+  t.status = 'skipped'; t.skipped = true; t.updatedAt = new Date().toISOString();
+  return { ok:true, msg:'チュートリアルをスキップしました（後から再開できます）' };
+}
+/** 進行状況はそのままに再開（スキップ／一時中断から） */
+export function tutorialResume(state) {
+  const t = state.tutorial = normalizeTutorial(state.tutorial, state);
+  if (t.completed) return tutorialStart(state);
+  t.status = 'active'; t.skipped = false; t.updatedAt = new Date().toISOString();
+  return { ok:true, msg:`チュートリアル STEP ${t.step} から再開しました` };
+}
+export function tutorialMarkFlag(state, key, value = true) {
+  const t = state.tutorial = normalizeTutorial(state.tutorial, state);
+  if (!t || !key) return false;
+  const changed = t.flags[key] !== value;
+  t.flags[key] = value;
+  t.updatedAt = new Date().toISOString();
+  return changed;
+}
+/** 実際の操作イベントを進行フラグへ反映する（画面遷移・戦闘など） */
+export function tutorialTrack(state, event, p = {}) {
+  const t = state.tutorial = normalizeTutorial(state.tutorial, state);
+  if (t.status !== 'active') return false;
+  let hit = false;
+  const set = k => { if (!t.flags[k]) { t.flags[k] = true; hit = true; } };
+  switch (event) {
+    case 'nav':
+      if (p.to === 'create') set('visitedCreate');
+      if (p.to === 'town') set('returnedTown');
+      if (p.to === 'gather') set('visitedGather');
+      if (p.to === 'facility') {
+        if (p.facility === 'nurture') set('visitedNurture');
+        if (p.facility === 'forge') set('visitedForge');
+        if (p.facility === 'guild' || p.facility === 'training') set('visitedBattle');
+      }
+      break;
+    case 'createFinish': set('visitedCreate'); set('returnedTown'); break;
+    case 'levelUp': if (p.levels > 0) set('leveled'); break;
+    case 'equip': set('equipped'); break;
+    case 'evolve': set('evolved'); break;
+    case 'battleAuto': set('autoToggled'); break;
+    case 'battleSpeed': set('speedChanged'); break;
+    case 'manualSkill': set('manualSkill'); break;
+    case 'battleEnd': if (p.won) set('battleWon'); break;
+  }
+  if (hit) t.updatedAt = new Date().toISOString();
+  return hit;
+}
+export function tutorialStepChecks(state, step = null) {
+  const t = state.tutorial = normalizeTutorial(state.tutorial, state);
+  const n = clamp(step || t.step, 1, TUTORIAL_STEP_COUNT);
+  const def = TUTORIAL_STEPS.find(x => x.id === n);
+  return (def?.checks || []).map(ch => ({ ...ch, done: !!t.flags[ch.key] }));
+}
+export function tutorialCanAdvance(state) {
+  const t = state.tutorial = normalizeTutorial(state.tutorial, state);
+  if (t.status !== 'active' || t.step >= TUTORIAL_STEP_COUNT) return false;
+  return tutorialStepChecks(state, t.step).every(ch => ch.done);
+}
+/** 全チェックが揃ったときだけ進む。STEP 5 完了で完了画面へ */
+export function tutorialNext(state) {
+  const t = state.tutorial = normalizeTutorial(state.tutorial, state);
+  if (t.status !== 'active') return { ok:false, msg:'チュートリアルが開始されていません' };
+  if (t.step >= TUTORIAL_STEP_COUNT) return { ok:false, msg:'最終ステップです' };
+  if (!tutorialCanAdvance(state)) return { ok:false, msg:'このステップの操作をすべて体験してください' };
+  if (!t.done.includes(t.step)) t.done.push(t.step);
+  t.step++;
+  t.updatedAt = new Date().toISOString();
+  tutorialCaptureProgress(state);
+  if (t.step >= TUTORIAL_STEP_COUNT) {
+    t.status = 'complete'; t.completed = true;
+    logEvent(state, 'チュートリアルを全ステップクリアした！', 'tutorial');
+    return { ok:true, completed:true, msg:'チュートリアルクリア！' };
+  }
+  return { ok:true, completed:false, msg:`STEP ${t.step} へ進みました` };
+}
+/** 完了報酬。1 アカウント 1 回のみ、全ステップ完了が条件 */
+export function tutorialClaimReward(state) {
+  const t = state.tutorial = normalizeTutorial(state.tutorial, state);
+  if (t.rewardClaimed) return { ok:false, msg:'報酬はすでに受け取り済みです' };
+  if (!t.completed || t.status !== 'complete') return { ok:false, msg:'チュートリアルを最後までクリアしてください' };
+  if (t.done.length < TUTORIAL_STEP_COUNT - 1) return { ok:false, msg:'未クリアのステップがあります' };
+  const coins = tutorialRewardCoins();       // 固定値ではなく現在のガチャ消費から算出
+  addCoins(state, coins);
+  tutorialAddEarnedCoins(state, coins);
+  tutorialCaptureProgress(state);
+  t.rewardClaimed = true; t.rewardCoins = coins;
+  t.rewardAt = new Date().toISOString(); t.updatedAt = t.rewardAt;
+  logEvent(state, `チュートリアル完了報酬：装備ガチャ ${TUTORIAL_REWARD_PULLS} 連分（${fmt(coins)}コイン）を受け取った。`, 'tutorial');
+  return { ok:true, coins, pulls:TUTORIAL_REWARD_PULLS,
+    msg:`装備ガチャ ${TUTORIAL_REWARD_PULLS} 連分（${fmt(coins)}コイン）を獲得！` };
+}
+
+/* ---------- チュートリアル専用の練習機能（通常ガチャ・天井に影響しない） ---------- */
+export function tutorialPracticePull(state, c = null) {
+  const t = state.tutorial = normalizeTutorial(state.tutorial, state);
+  if (t.status !== 'active') return { ok:false, msg:'チュートリアル実行中のみ利用できます' };
+  const ch = c || activeChar(state);
+  const types = ch ? (JOB[ch.jobId]?.weapons || []) : [];
+  const pool = EQUIPMENT.filter(e => e.slot === 'weapon' && !e.godOnly
+    && ['N','R','E'].includes(e.rarity) && (!types.length || types.includes(e.type)));
+  const def = rand(pool.length ? pool : EQUIPMENT.filter(e => e.slot === 'weapon'));
+  const inst = addEquipment(state, def.id);   // コイン消費なし / pity 変更なし / 通常排出率変更なし
+  t.practicePulls++;
+  t.practiceEquip.push(inst.uid);
+  tutorialMarkFlag(state, 'practiceGacha');
+  logEvent(state, `練習用ガチャ（無料）で ${def.name} を獲得。所持品に追加した。`, 'tutorial');
+  return { ok:true, uid:inst.uid, defId:def.id, name:def.name, rarity:def.rarity,
+    msg:`練習用ガチャ：${def.name} を獲得！（無料・所持品に追加）` };
+}
+export function tutorialEquipPractice(state, c = null) {
+  const t = state.tutorial = normalizeTutorial(state.tutorial, state);
+  const ch = c || activeChar(state);
+  if (!ch) return { ok:false, msg:'キャラクターがいません' };
+  const uidv = (t.practiceEquip || []).find(u => findInstance(state, u));
+  if (!uidv) return { ok:false, msg:'まず練習用ガチャを引いてください' };
+  const inst = findInstance(state, uidv);
+  if (!equipItem(state, ch, uidv, inst && instanceDef(inst).slot)) return { ok:false, msg:'この武器は装備できません' };
+  tutorialMarkFlag(state, 'equipped');
+  return { ok:true, msg:`${instanceDef(inst).name} を装備しました。攻撃力が上がりました` };
+}
+export function tutorialGrantExp(state, c = null) {
+  const ch = c || activeChar(state);
+  if (!ch) return { ok:false, msg:'キャラクターがいません' };
+  const need = Math.max(80, xpForLevel(ch.level) - ch.exp + 5);
+  const r = grantExp(state, ch, need);
+  tutorialCaptureProgress(state);
+  tutorialMarkFlag(state, 'leveled', true);
+  return { ok:true, levels:r.levels, gain:r.gain,
+    msg:`練習で ${fmt(r.gain)} EXP を獲得${r.levels ? ` / Lv.${r.levels}アップ！` : ''}。ステータス画面で 4 つの能力値を確認しよう` };
+}
+export function tutorialGather(state, c = null) {
+  const ch = c || activeChar(state);
+  const mats = {};
+  for (const m of (RANK_REQUIREMENTS.SR || [])) mats[m.id] = (mats[m.id] || 0) + m.n;
+  grantMaterials(state, mats);
+  // 進化条件（Lv.20 / コイン）もチュートリアル用の練習ステージで満たす
+  if (ch) {
+    let guard = 0;
+    while (ch.level < 20 && ch.level < levelCap(ch) && guard++ < 30) {
+      grantExp(state, ch, Math.max(20, xpForLevel(ch.level) - ch.exp + 2));
+    }
+  }
+  if (state.coins < 3000) { const add = 3000 - state.coins; addCoins(state, add); tutorialAddEarnedCoins(state, add); }
+  tutorialCaptureProgress(state);
+  tutorialMarkFlag(state, 'gathered', true);
+  tutorialMarkFlag(state, 'visitedGather', true);
+  logEvent(state, 'チュートリアル：素材集めステージで進化素材・EXP・コインを獲得した。', 'tutorial');
+  return { ok:true, mats, msg:'進化素材を獲得！育成の間 →「進化」から R → SR へランクアップできます' };
 }
