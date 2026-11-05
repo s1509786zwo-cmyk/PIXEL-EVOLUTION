@@ -291,23 +291,6 @@ function appearanceScreen(app, s) {
     </div></main>${toastArea(app)}`;
 }
 
-/* ---------------- 街のホームメニュー ---------------- */
-function homeMenu(s) {
-  return [
-    { icon:'🎨', name:'キャラクター作成', desc:'元画像をそのまま使って新規作成', action:'newChar', color:'#ffd77a' },
-    { icon:'✦',  name:'育成の間',       desc:'ステータス・職業・技・覚醒・進化', action:'nav', to:'facility', facility:'nurture', tab:0, color:'#5ec8ff' },
-    { icon:'⚔',  name:'修行場',         desc:'トレーニング・技の練習・クエスト', action:'nav', to:'facility', facility:'training', tab:0, color:'#8ce6a8' },
-    { icon:'⚒',  name:'武器・装備工房', desc:'装備・強化・合成・ランク進化', action:'nav', to:'facility', facility:'forge', tab:0, color:'#ffb45e' },
-    { icon:'🛒',  name:'道具屋',         desc:'回復・素材・売却', action:'nav', to:'facility', facility:'shop', tab:0, color:'#e7a8ff' },
-    { icon:'✧',  name:'ガチャ',         desc:'ピックアップ武器ガチャ・履歴', action:'nav', to:'facility', facility:'forge', tab:1, color:'#68f7d4' },
-    { icon:'📖',  name:'ストーリー',     desc:'章の進行・解放状況', action:'nav', to:'story', color:'#c58cff' },
-    { icon:'💠',  name:'素材集め',       desc:'進化素材の入手先へ', action:'nav', to:'gather', color:'#9be9ff' },
-    { icon:'🏛',  name:'CPU対戦',       desc:'対戦・ダンジョン・報酬', action:'nav', to:'facility', facility:'guild', tab:0, color:'#ff9e7a' },
-    { icon:'📚',  name:'図鑑',           desc:'職業・技・装備・CPU・実績', action:'nav', to:'codex', color:'#ffe6a1' },
-    { icon:'❓',  name:'ヘルプ',         desc:'あそび方・変更点・セーブ', action:'nav', to:'help', color:'#a9b4c4' },
-  ];
-}
-
 /* ---------------- ストーリー / 素材集め / ヘルプ ---------------- */
 const STORY_CHAPTERS = [
   { id:1, name:'第1章・旅立ち', text:'クリスタルタウンに一人の冒険者が現れた。まずは自分の姿を確かめ、街の施設を巡ろう。', cond:()=>true },
@@ -343,7 +326,7 @@ function helpScreen(app, s) {
     <div class="two-col"><section class="panel soft"><h3>🎮 あそび方</h3><ol class="flow">
       <li>タイトルで<b>ゲームスタート</b> → <b>街のホーム画面</b></li>
       <li>キャラクター未作成なら街の「キャラクターを作成する」から作成（完了後は街へ戻る）</li>
-      <li>街のホームメニューから育成の間・修行場・工房・道具屋・ガチャ・CPU対戦へ</li>
+      <li>街の<b>5 つの施設カード</b>から育成の間・修行場・工房・道具屋・CPU対戦へ（工房内の「ガチャ」タブから武器ガチャ）</li>
       <li>施設の「🏰 街へ戻る」でいつでもホームに戻れます</li>
       <li>勝利でコイン・EXP・BP・素材を獲得。ランク進化で全ステータスが大幅上昇</li>
     </ol></section><section class="panel soft"><h3>⚒ 装備とランク</h3><ul class="flow">
@@ -414,9 +397,6 @@ function townScreen(app, s) {
       ${c && c.specialKey ? `<div class="callout gold">✵ 特殊ギミック発動：<b>${e(SPECIAL_NAME_LABEL[c.specialKey])}</b> の名を宿す者。特殊役職「神」と専用奥義が解放されています。${c.godUnlocked && c.jobId===GOD_JOB_ID ? '現在「神」に就いています。' : '役職変更はランクアップ時・転生時のみ可能です。'}</div>` : ''}
     </div>
     ${!c ? `<div class="home-create-banner"><div><h3>🎨 まずはキャラクターを作成しよう</h3><p>元画像をそのまま使って、街の施設で育成・装備・ガチャ・対戦ができます。</p></div><button class="btn btn-primary btn-lg" data-action="newChar">キャラクターを作成する →</button></div>` : ''}
-    <h3 class="section-title">🏛 街のホームメニュー <small>ゲーム全体の中心となる拠点</small></h3>
-    <div class="home-menu">${homeMenu(s).map(m=>`<button class="home-menu-card" data-action="${m.action}" ${m.to?`data-to="${m.to}"`:''} ${m.facility?`data-facility="${m.facility}"`:''} ${m.tab!==undefined?`data-tab="${m.tab}"`:''} style="--hc:${m.color}">
-      <span class="hm-icon">${m.icon}</span><b>${e(m.name)}</b><small>${e(m.desc)}</small></button>`).join('')}</div>
     <h3 class="section-title">🏛 5つの施設 <small>それぞれの背景はあなたが添付した画像をそのまま使用しています</small></h3>
     <div class="facility-cards">${FACILITIES.map(f => `
       <button class="facility-card" data-action="nav" data-to="facility" data-facility="${f.id}" style="--accent:${f.color}">
