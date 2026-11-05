@@ -1,11 +1,11 @@
 /* ===========================================================
    ターン制 CPU 対戦エンジン
    =========================================================== */
-import { SKILL, ELEMENTS, JOB, ITEM } from './data.js';
+import { SKILL, ELEMENTS, JOB, ITEM } from './data.js?v=2';
 import {
   computeStats, buildEnemyCombatant, battleRewards, advanceDungeon, removeItem,
   addCatalog, logEvent, restoreFull, rankInfo, clamp,
-} from './state.js';
+} from './state.js?v=2';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const rnd = (a,b) => a + Math.random()*(b-a);

@@ -7,8 +7,8 @@ import {
   RANKS, QUESTS, ACHIEVEMENTS, TITLES, TITLE, EXCHANGE, STYLES, SLOTS,
   AWAKENING_NAMES, collectedSkills, CHAR_RARITIES, CHAR_RARITY, CHAR_RARITY_ORDER,
   charRankIndex, EVOLUTION_RULES, EVOLUTION_BY_FROM, RATE_TOTAL,
-} from './data.js';
-import { MATERIAL_ITEMS, MATERIAL_BY_ID, MAT_RANKS, MAT_RANK_INFO, RANK_REQUIREMENTS, materialUpgradeTarget } from './materials.js';
+} from './data.js?v=2';
+import { MATERIAL_ITEMS, MATERIAL_BY_ID, MAT_RANKS, MAT_RANK_INFO, RANK_REQUIREMENTS, materialUpgradeTarget } from './materials.js?v=2';
 
 /* ---------- ユーティリティ ---------- */
 export const uid = () => `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 9)}`;

@@ -7,7 +7,7 @@ import {
   RANKS, QUESTS, ACHIEVEMENTS, TITLES, TITLE, EXCHANGE, STYLES, FACILITIES, SLOTS,
   SLOT_NAME, AWAKENING_NAMES, MAX_LEVEL_BASE, collectedSkills,
   CHAR_RARITIES, CHAR_RARITY, CHAR_RARITY_ORDER, charRankIndex, EVOLUTION_RULES, RATE_TOTAL,
-} from './data.js';
+} from './data.js?v=2';
 import {
   fmt, clamp, activeChar, computeStats, powerScore, xpForLevel, jobXpForLevel, levelCap,
   instanceDef, instanceRarity, equipmentStats, findInstance, itemCount,
@@ -18,11 +18,11 @@ import {
   buildEnemyCombatant, hasSaveFlag, AURAS, gachaRates, defaultPixelSettings,
   defaultImageSettings, evolutionPreview, equipmentEvolvePreview, instanceRank,
   PITY_LEGENDARY, PITY_MYTHIC, charRank, upgradeMaterial,
-} from './state.js';
+} from './state.js?v=2';
 import {
   materialIcon, MATERIAL_ITEMS, MATERIAL_BY_ID, MAT_RANKS, MAT_RANK_INFO,
   RANK_REQUIREMENTS, isMaterial, materialUpgradeTarget,
-} from './materials.js';
+} from './materials.js?v=2';
 
 export const e = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const pct = (a,b) => b ? Math.max(0, Math.min(100, a/b*100)) : 0;
@@ -130,6 +130,10 @@ function statTable(st, extra = '') {
 /* ============================ タイトル ============================ */
 function titleScreen(app, s) {
   const has = hasSaveFlag() || s.characters.length > 0;
+  const build = (typeof window !== 'undefined' && window.__OCF_BUILD__) || 'dev';
+  const cacheWarn = (build === 'dev' || build === '__BUILD__')
+    ? `<div class="cache-warn">⚠ キャッシュ無効化サーバー（<b>serve.py</b>）経由で開けていません。古い画面が残る場合は <b>python3 serve.py</b> で起動し直してください。</div>`
+    : '';
   return `
   <div class="title-screen" style="background-image:url('assets/title_bg.jpg')">
     <div class="title-veil"></div>
@@ -144,7 +148,8 @@ function titleScreen(app, s) {
         <button class="btn btn-glass btn-lg" data-action="titleCodex">📖　図鑑</button>
         <button class="btn btn-glass btn-lg" data-action="titleSettings">⚙　設定</button>
       </div>
-      <div class="title-foot">ver 1.0 ・ PC / スマートフォン対応 ・ セーブは自動で端末に保存されます</div>
+      ${cacheWarn}
+      <div class="title-foot">ver 1.0 ・ build <b>${e(build)}</b> ・ PC / スマートフォン対応 ・ セーブは自動で端末に保存されます</div>
     </div>
   </div>`;
 }

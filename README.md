@@ -9,17 +9,40 @@ PC / スマートフォン両対応、インストール不要のブラウザゲ
 
 ## 遊び方（起動）
 
-静的ファイルだけで動きます。リポジトリのルートで HTTP サーバーを起動してください。
+静的ファイルだけで動きます。**必ず同梱の `serve.py` で起動してください**（`python3 -m http.server` は使わないでください）。
 
 ```bash
 cd PIXEL-EVOLUTION
-python3 -m http.server 4173 --bind 0.0.0.0
+python3 serve.py            # デフォルト 4174 / 0.0.0.0
+# ポート指定: python3 serve.py 8080
 ```
 
-ブラウザで `http://localhost:4173/` を開きます。  
+ブラウザで `http://localhost:4174/` を開きます。  
 Arena のライブプレビューを使う場合は、プレビュー用のポートが自動で表示されます。
 
 `file://` で直接開くと ES モジュールが読み込めないため、必ず HTTP 経由で開いてください。
+
+### なぜ `serve.py` が必要か（重要）
+
+`python3 -m http.server` は **`Cache-Control` を一切送らず、`If-Modified-Since` に対して 304 を返します**。そのためコードを更新しても、ブラウザやプレビュー用プロキシが古い `index.html` / ES モジュールを再利用し、**強制再読み込みをしても画面が変わらない**ことがあります（2026-11-05 に実際に発生。ログ上は `GET / -> 304` だけで `js/*.js` が 1 本も再取得されていませんでした）。
+
+`serve.py` は次の4つで再発を構造的に防ぎます。
+
+| 対策 | 内容 |
+| --- | --- |
+| no-store | 全レスポンスに `Cache-Control: no-store, no-cache, must-revalidate, max-age=0` / `Pragma: no-cache` / `Expires: 0` |
+| 304 禁止 | 条件付きリクエストヘッダを破棄し、常に 200 + 最新ボディを返す |
+| 内容ハッシュ URL | HTML の CSS/JS 参照、JS の `import` 指定子、CSS/HTML の画像参照に全ソースの内容ハッシュ `?h=xxxx` を付与。コードが 1 文字でも変われば全 URL が変わり、どんなキャッシュ層も古いファイルを返せない（サーバー再起動不要・リクエストごとに再計算） |
+| ビルド表示 | `/__build.json` とタイトル画面の `build xxxx` で、いま配信中のビルドを確認可能。プレーンな静的サーバーで開いた場合はタイトルに警告が出ます |
+
+確認・回帰テスト：
+
+```bash
+python3 tests/check_cache.py     # no-store / 304禁止 / URL一意化 / ビルド変化 / 旧UI不在 を検証
+curl http://localhost:4174/__build.json
+```
+
+> もし古い画面が出たら：タイトル画面の `build` が `/__build.json` と一致するか確認してください。一致しない場合はブラウザ側に古い HTML が残っているので、プレビューの URL（ポート）を新しいものに切り替えるか、`?_=<適当な文字列>` を付けて開き直してください。
 
 ### 最初の流れ
 
@@ -146,14 +169,18 @@ CPU キャラクターのみ `makeEnemySprite()` が 40×52 ドットの髪型�
 - `Battle` クラスはプレイヤー / CPU を同じ `combatant` 構造で扱うため、将来の友達とのオンライン対戦では CPU 思考部分を差し替えるだけで拡張できます（オンライン対戦自体は未実装）。
 - ゲームデータは `js/data.js`、素材定義と SVG アイコンは `js/materials.js` に集約。
 - 進行ロジックは `js/state.js`、描画は `js/ui.js`、入力・演出は `js/main.js`、画像処理は `js/pixel.js`、戦闘は `js/battle.js` に分離しています。
-- 依存パッケージなし（素の HTML / CSS / ES Modules）。効果音・環境音は WebAudio で合成しているため音声ファイル不要です。
+- 依存パッケージなし（素の HTML / CSS / ES Modules / 標準ライブラリのみの Python サーバー）。効果音・環境音は WebAudio で合成しているため音声ファイル不要です。
+- `serve.py` は配信時に HTML / JS / CSS のローカル参照へ内容ハッシュを挿入します。ディスク上のソースは `?v=2` のままなので、Node の ESM としてもそのまま import できます。
 
 ---
 
 ## ファイル構成
 
 ```
-index.html
+index.html          画面の殻 / no-cache meta / ビルドID
+serve.py            no-store + 内容ハッシュ配信サーバー（起動はこれを使う）
+tests/
+  check_cache.py   キャッシュ事故の回帰テスト
 css/style.css
 js/
   data.js       ゲームデータ定義（129技 / 126装備 / 21職 / 31 CPU / クエスト / 実績 / レアリティ）

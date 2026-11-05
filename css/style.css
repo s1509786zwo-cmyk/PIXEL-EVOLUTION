@@ -820,3 +820,5 @@ small{font-size:11px}
 .evo-result{display:flex;flex-direction:column;gap:4px;font-size:12px;line-height:1.6}
 .evo-result>b{font-size:14px}.evo-result .btn{align-self:flex-start;margin-top:4px}
 @media (max-width:640px){.eq-mini-evo{flex-wrap:wrap}.eq-mini-evo .btn{width:100%}}
+.cache-warn{margin:12px 0 0;padding:9px 12px;border-radius:10px;border:1px solid rgba(255,122,122,.6);background:rgba(255,122,122,.12);color:#ffd7d7;font-size:11px;line-height:1.6;text-align:left}
+.title-foot b{color:var(--gold2);font-variant-numeric:tabular-nums}

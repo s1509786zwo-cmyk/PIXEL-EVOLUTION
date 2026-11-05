@@ -1,11 +1,11 @@
 /* ===========================================================
    オリキャラファイターズ / アプリ本体・入力・演出
    =========================================================== */
-import * as D from './data.js';
-import * as S from './state.js';
-import * as P from './pixel.js';
-import { Battle } from './battle.js';
-import { renderScreen, imageFilter, imageTransform, e } from './ui.js';
+import * as D from './data.js?v=2';
+import * as S from './state.js?v=2';
+import * as P from './pixel.js?v=2';
+import { Battle } from './battle.js?v=2';
+import { renderScreen, imageFilter, imageTransform, e } from './ui.js?v=2';
 
 const app = {
   screen: 'title', params: {}, tabs: {}, draft: null, look: null, compare: false,

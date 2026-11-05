@@ -1,4 +1,4 @@
-import { MATERIAL_ITEMS } from './materials.js';
+import { MATERIAL_ITEMS } from './materials.js?v=2';
 
 /* ===========================================================
    オリキャラファイターズ / ゲームデータ定義

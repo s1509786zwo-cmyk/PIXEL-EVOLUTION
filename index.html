@@ -4,17 +4,23 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0a1024">
+  <!-- 万一プレーンな静的サーバーで配信された場合も、文書自体をキャッシュさせない -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <meta name="description" content="自分の画像をそのまま使ってキャラクターを作り、レベル・ランク進化・装備を育ててCPUと戦う2D育成・対戦RPG『オリキャラファイターズ』">
   <title>オリキャラファイターズ｜あなたの画像がそのまま主役になる育成・対戦RPG</title>
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/style.css?v=2">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230b1228'/%3E%3Cpath d='M32 8l6 18 18 6-18 6-6 18-6-18-18-6 18-6z' fill='%2365d9ff'/%3E%3C/svg%3E">
 </head>
 <body>
+  <!-- serve.py が __BUILD__ を全ソースの内容ハッシュで置換する。タイトル画面に表示される -->
+  <script>window.__OCF_BUILD__ = '__BUILD__';</script>
   <div id="app">
     <div class="boot-screen"><div class="boot-mark">✦</div><h1>オリキャラファイターズ</h1><p>読み込み中…</p></div>
   </div>
   <div id="fx-layer" aria-hidden="true"></div>
-  <script type="module" src="js/main.js"></script>
+  <script type="module" src="js/main.js?v=2"></script>
   <noscript>このゲームを遊ぶには JavaScript を有効にしてください。</noscript>
 </body>
 </html>
