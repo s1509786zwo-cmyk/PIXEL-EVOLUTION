@@ -1,19 +1,19 @@
 // ============ エントリーポイント ============
-import { loadGame } from './save.js';
-import { S, setState, defaultState, regenStamina, persist } from './state.js';
-import { register, go, toast } from './ui.js';
-import { initAudio, setVolumes } from './audio.js';
-import { bus } from './util.js';
-import { renderTitle } from './screens/title.js';
-import { renderCreate } from './screens/create.js';
-import { renderHub } from './screens/hub.js';
-import { renderHall } from './screens/hall.js';
-import { renderForge } from './screens/forge.js';
-import { renderDojo } from './screens/dojo.js';
-import { renderGuild } from './screens/guild.js';
-import { renderShop } from './screens/shop.js';
-import { renderCodex } from './screens/codex.js';
-import { renderSettings } from './screens/settings.js';
+import { loadGame } from './save.js?v=20261105b';
+import { S, setState, defaultState, regenStamina, persist } from './state.js?v=20261105b';
+import { register, go, toast } from './ui.js?v=20261105b';
+import { initAudio, setVolumes } from './audio.js?v=20261105b';
+import { bus } from './util.js?v=20261105b';
+import { renderTitle } from './screens/title.js?v=20261105b';
+import { renderCreate } from './screens/create.js?v=20261105b';
+import { renderHub } from './screens/hub.js?v=20261105b';
+import { renderHall } from './screens/hall.js?v=20261105b';
+import { renderForge } from './screens/forge.js?v=20261105b';
+import { renderDojo } from './screens/dojo.js?v=20261105b';
+import { renderGuild } from './screens/guild.js?v=20261105b';
+import { renderShop } from './screens/shop.js?v=20261105b';
+import { renderCodex } from './screens/codex.js?v=20261105b';
+import { renderSettings } from './screens/settings.js?v=20261105b';
 
 async function boot(){
   // セーブロード

@@ -1,6 +1,6 @@
 // ============ 敵・CPU対戦・ダンジョンデータ ============
-import { JOB_MAP } from './jobs.js';
-import { SKILL_MAP } from './skills.js';
+import { JOB_MAP } from './jobs.js?v=20261105b';
+import { SKILL_MAP } from './skills.js?v=20261105b';
 
 export const DIFFICULTIES = [
   {id:'easy',   name:'やさしい', mult:0.80, lvOff:-3, reward:0.8,  ai:'simple', color:'#7ed491'},

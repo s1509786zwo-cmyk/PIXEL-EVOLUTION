@@ -1,12 +1,12 @@
 // ============ 育成の間 ============
-import { el, fmt, bus, pct } from '../util.js';
-import { go, facilityScreen, charSummary, statGrid, skillRow, modal, toast, confirmModal, empty } from '../ui.js';
+import { el, fmt, bus, pct } from '../util.js?v=20261105b';
+import { go, facilityScreen, charSummary, statGrid, skillRow, modal, toast, confirmModal, empty } from '../ui.js?v=20261105b';
 import { S, activeChar, charStats, availableSkills, learnSkill, unlockedJobs, changeJob, jobLevel, maxJobLevel,
-  awakenReq, doAwaken, doRebirth, maxSkillSlots, useItem, persist, STAT_NAME } from '../state.js';
-import { JOBS, JOB_MAP, TIER_NAME, WEAPON_TYPES } from '../data/jobs.js';
-import { SKILL_MAP, skillDesc, CAT_NAME, ELEMENTS } from '../data/skills.js';
-import { AWAKEN_STAGES, MAX_LEVEL, MAX_JOB_LEVEL, xpNeed, jobXpNeed, ITEM_MAP } from '../data/items.js';
-import { sfx } from '../audio.js';
+  awakenReq, doAwaken, doRebirth, maxSkillSlots, useItem, persist, STAT_NAME } from '../state.js?v=20261105b';
+import { JOBS, JOB_MAP, TIER_NAME, WEAPON_TYPES } from '../data/jobs.js?v=20261105b';
+import { SKILL_MAP, skillDesc, CAT_NAME, ELEMENTS } from '../data/skills.js?v=20261105b';
+import { AWAKEN_STAGES, MAX_LEVEL, MAX_JOB_LEVEL, xpNeed, jobXpNeed, ITEM_MAP } from '../data/items.js?v=20261105b';
+import { sfx } from '../audio.js?v=20261105b';
 
 export function renderHall(){
   const ch = activeChar();

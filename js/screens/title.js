@@ -1,9 +1,9 @@
 // ============ タイトル画面 ============
-import { el } from '../util.js';
-import { go, toast } from '../ui.js';
-import { S } from '../state.js';
-import { sfx, playBGM, initAudio } from '../audio.js';
-import { hasSaveHint } from '../save.js';
+import { el } from '../util.js?v=20261105b';
+import { go, toast } from '../ui.js?v=20261105b';
+import { S } from '../state.js?v=20261105b';
+import { sfx, playBGM, initAudio } from '../audio.js?v=20261105b';
+import { hasSaveHint } from '../save.js?v=20261105b';
 
 export function renderTitle(){
   playBGM('title');

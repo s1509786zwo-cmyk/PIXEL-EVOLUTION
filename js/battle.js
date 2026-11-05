@@ -1,7 +1,7 @@
 // ============ 戦闘エンジン(DOM非依存) ============
-import { SKILL_MAP, ELEM_CHART, ELEMENTS } from './data/skills.js';
-import { DIFF_MAP } from './data/enemies.js';
-import { clamp } from './util.js';
+import { SKILL_MAP, ELEM_CHART, ELEMENTS } from './data/skills.js?v=20261105b';
+import { DIFF_MAP } from './data/enemies.js?v=20261105b';
+import { clamp } from './util.js?v=20261105b';
 
 const JOB_ELEM = {fighter:'none',swordsman:'wind',knight:'light',mage:'fire',priest:'light',thief:'dark',
   archer:'wind',monk:'none',gunner:'bolt',summoner:'dark',alchemist:'none',ninja:'dark',berserker:'fire',

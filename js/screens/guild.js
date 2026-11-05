@@ -1,16 +1,16 @@
 // ============ 冒険者ギルド ============
-import { el, fmt, bus, pct } from '../util.js';
-import { go, facilityScreen, charSummary, modal, toast, confirmModal, empty, skillRow } from '../ui.js';
-import { S, activeChar, charPower, charStats, battleRewards, claimQuest, buyPointShop, claimRankRewards, persist, addItem, grantReward, trackDaily, checkAchievements } from '../state.js';
-import { DIFFICULTIES, DIFF_MAP, makeOpponent, BOSSES, BOSS_MAP, DUNGEONS, DUNGEON_MAP, makeDungeonFloor, makeEnemy } from '../data/enemies.js';
-import { JOB_MAP } from '../data/jobs.js';
-import { SKILL_MAP } from '../data/skills.js';
-import { ITEM_MAP } from '../data/items.js';
-import { SPECIAL_EQUIPS, RARITY, SLOTS } from '../data/equipment.js';
-import { DAILY_QUESTS, POINT_SHOP, RANKS, rankOf, nextRank, TITLE_MAP } from '../data/meta.js';
-import { spriteDataURL } from '../sprites.js';
-import { startBattle } from '../battle-ui.js';
-import { sfx } from '../audio.js';
+import { el, fmt, bus, pct } from '../util.js?v=20261105b';
+import { go, facilityScreen, charSummary, modal, toast, confirmModal, empty, skillRow } from '../ui.js?v=20261105b';
+import { S, activeChar, charPower, charStats, battleRewards, claimQuest, buyPointShop, claimRankRewards, persist, addItem, grantReward, trackDaily, checkAchievements } from '../state.js?v=20261105b';
+import { DIFFICULTIES, DIFF_MAP, makeOpponent, BOSSES, BOSS_MAP, DUNGEONS, DUNGEON_MAP, makeDungeonFloor, makeEnemy } from '../data/enemies.js?v=20261105b';
+import { JOB_MAP } from '../data/jobs.js?v=20261105b';
+import { SKILL_MAP } from '../data/skills.js?v=20261105b';
+import { ITEM_MAP } from '../data/items.js?v=20261105b';
+import { SPECIAL_EQUIPS, RARITY, SLOTS } from '../data/equipment.js?v=20261105b';
+import { DAILY_QUESTS, POINT_SHOP, RANKS, rankOf, nextRank, TITLE_MAP } from '../data/meta.js?v=20261105b';
+import { spriteDataURL } from '../sprites.js?v=20261105b';
+import { startBattle } from '../battle-ui.js?v=20261105b';
+import { sfx } from '../audio.js?v=20261105b';
 
 export function renderGuild(){
   const ch=activeChar();

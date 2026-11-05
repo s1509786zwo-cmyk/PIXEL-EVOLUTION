@@ -1,10 +1,10 @@
 // ============ 拠点画面 ============
-import { el, fmt, bus } from '../util.js';
-import { go, topbar, bottomNav, charSummary, modal, toast } from '../ui.js';
-import { S, activeChar, persist, persistNow, charPower } from '../state.js';
-import { JOB_MAP } from '../data/jobs.js';
-import { rankOf, nextRank } from '../data/meta.js';
-import { sfx, playBGM } from '../audio.js';
+import { el, fmt, bus } from '../util.js?v=20261105b';
+import { go, topbar, bottomNav, charSummary, modal, toast } from '../ui.js?v=20261105b';
+import { S, activeChar, persist, persistNow, charPower } from '../state.js?v=20261105b';
+import { JOB_MAP } from '../data/jobs.js?v=20261105b';
+import { rankOf, nextRank } from '../data/meta.js?v=20261105b';
+import { sfx, playBGM } from '../audio.js?v=20261105b';
 
 const FACILITIES = [
   {id:'hall', bg:'hall', name:'育成の間', desc:'レベル・職業・技・覚醒・転生', ico:'🔮'},

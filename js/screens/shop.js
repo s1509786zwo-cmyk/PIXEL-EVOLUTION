@@ -1,10 +1,10 @@
 // ============ 道具屋 ============
-import { el, fmt, bus } from '../util.js';
-import { facilityScreen, charSummary, equipRow, toast, confirmModal, empty } from '../ui.js';
-import { S, activeChar, buyItem, sellItem, sellEquip } from '../state.js';
-import { ITEMS, ITEM_MAP } from '../data/items.js';
-import { RARITY } from '../data/equipment.js';
-import { sfx } from '../audio.js';
+import { el, fmt, bus } from '../util.js?v=20261105b';
+import { facilityScreen, charSummary, equipRow, toast, confirmModal, empty } from '../ui.js?v=20261105b';
+import { S, activeChar, buyItem, sellItem, sellEquip } from '../state.js?v=20261105b';
+import { ITEMS, ITEM_MAP } from '../data/items.js?v=20261105b';
+import { RARITY } from '../data/equipment.js?v=20261105b';
+import { sfx } from '../audio.js?v=20261105b';
 
 export function renderShop(){
   const ch=activeChar();

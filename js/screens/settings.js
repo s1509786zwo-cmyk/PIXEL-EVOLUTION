@@ -1,9 +1,9 @@
 // ============ 設定 ============
-import { el, bus } from '../util.js';
-import { go, topbar, bottomNav, modal, toast, confirmModal } from '../ui.js';
-import { S, persist, persistNow, setState, defaultState } from '../state.js';
-import { setVolumes, sfx, stopBGM } from '../audio.js';
-import { exportSave, deleteSave, loadGame } from '../save.js';
+import { el, bus } from '../util.js?v=20261105b';
+import { go, topbar, bottomNav, modal, toast, confirmModal } from '../ui.js?v=20261105b';
+import { S, persist, persistNow, setState, defaultState } from '../state.js?v=20261105b';
+import { setVolumes, sfx, stopBGM } from '../audio.js?v=20261105b';
+import { exportSave, deleteSave, loadGame } from '../save.js?v=20261105b';
 
 export function renderSettings(){
   const body=el('div',{style:{maxWidth:'720px',margin:'0 auto'}});

@@ -4,7 +4,7 @@
   "description": "オリキャラファイターズ - 2D character raising & battle RPG",
   "type": "module",
   "scripts": {
-    "start": "python3 -m http.server 8000 --bind 0.0.0.0",
+    "start": "node server.mjs",
     "test": "node test/logic.test.mjs"
   }
 }

@@ -1,16 +1,16 @@
 // ============ 戦闘画面(Canvas演出) ============
-import { el, $, fmt, clamp, loadImage, sleep } from './util.js';
-import { go, toast, modal } from './ui.js';
-import { S, activeChar, buildPlayerUnit, syncCharVitals, battleRewards, persist } from './state.js';
-import { Battle } from './battle.js';
-import { SKILL_MAP, ELEMENTS } from './data/skills.js';
-import { JOB_MAP } from './data/jobs.js';
-import { ITEM_MAP } from './data/items.js';
-import { enemySprite } from './sprites.js';
-import { makeOpponent } from './data/enemies.js';
-import { sfx, playBGM } from './audio.js';
-import { AWAKEN_STAGES } from './data/items.js';
-import { SIZE_MULT } from './image-edit.js';
+import { el, $, fmt, clamp, loadImage, sleep } from './util.js?v=20261105b';
+import { go, toast, modal } from './ui.js?v=20261105b';
+import { S, activeChar, buildPlayerUnit, syncCharVitals, battleRewards, persist } from './state.js?v=20261105b';
+import { Battle } from './battle.js?v=20261105b';
+import { SKILL_MAP, ELEMENTS } from './data/skills.js?v=20261105b';
+import { JOB_MAP } from './data/jobs.js?v=20261105b';
+import { ITEM_MAP } from './data/items.js?v=20261105b';
+import { enemySprite } from './sprites.js?v=20261105b';
+import { makeOpponent } from './data/enemies.js?v=20261105b';
+import { sfx, playBGM } from './audio.js?v=20261105b';
+import { AWAKEN_STAGES } from './data/items.js?v=20261105b';
+import { SIZE_MULT } from './image-edit.js?v=20261105b';
 
 const ELEM_FX = {none:'#cfd8ec',fire:'#ff8a50',ice:'#7fd4ff',bolt:'#ffe066',wind:'#9fe8b0',light:'#fff3b0',dark:'#b48cf2'};
 const CONSUMABLES = ['potion','hi_potion','ether','hi_ether','elixir','antidote'];

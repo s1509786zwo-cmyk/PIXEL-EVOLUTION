@@ -1,12 +1,12 @@
 // ============ ゲーム状態・育成・装備・報酬ロジック ============
-import { JOBS, JOB_MAP } from './data/jobs.js';
-import { SKILLS, SKILL_MAP } from './data/skills.js';
-import { ITEMS, ITEM_MAP, AWAKEN_STAGES, MAX_LEVEL, MAX_JOB_LEVEL, xpNeed, jobXpNeed } from './data/items.js';
-import { RARITIES, RARITY, makeEquip, enhanceCost, MAX_ENHANCE, GACHA_COST, GACHA_COST10, PITY_L, PITY_M, SPECIAL_EQUIPS, equipStat } from './data/equipment.js';
-import { DIFF_MAP, BOSS_MAP } from './data/enemies.js';
-import { ACHIEVEMENTS, ACH_MAP, TITLES, TITLE_MAP, DAILY_QUESTS, POINT_SHOP, CODEX_MILESTONES, RANKS, rankOf } from './data/meta.js';
-import { uid, bus, todayStr, nowStr, clamp } from './util.js';
-import { saveGame } from './save.js';
+import { JOBS, JOB_MAP } from './data/jobs.js?v=20261105b';
+import { SKILLS, SKILL_MAP } from './data/skills.js?v=20261105b';
+import { ITEMS, ITEM_MAP, AWAKEN_STAGES, MAX_LEVEL, MAX_JOB_LEVEL, xpNeed, jobXpNeed } from './data/items.js?v=20261105b';
+import { RARITIES, RARITY, makeEquip, enhanceCost, MAX_ENHANCE, GACHA_COST, GACHA_COST10, PITY_L, PITY_M, SPECIAL_EQUIPS, equipStat } from './data/equipment.js?v=20261105b';
+import { DIFF_MAP, BOSS_MAP } from './data/enemies.js?v=20261105b';
+import { ACHIEVEMENTS, ACH_MAP, TITLES, TITLE_MAP, DAILY_QUESTS, POINT_SHOP, CODEX_MILESTONES, RANKS, rankOf } from './data/meta.js?v=20261105b';
+import { uid, bus, todayStr, nowStr, clamp } from './util.js?v=20261105b';
+import { saveGame } from './save.js?v=20261105b';
 
 export const STAT_KEYS = ['hp','mp','atk','def','spd','mag','acc','eva'];
 export const STAT_NAME = {hp:'HP', mp:'MP', atk:'攻撃力', def:'防御力', spd:'速度', mag:'魔力', acc:'命中率', eva:'回避率'};

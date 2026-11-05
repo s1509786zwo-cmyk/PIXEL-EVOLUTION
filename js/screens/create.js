@@ -1,10 +1,10 @@
 // ============ オリキャラ作成(元画像をそのまま使用・非破壊編集) ============
-import { el, $, clamp, loadImage, bus } from '../util.js';
-import { go, topbar, bottomNav, modal, toast } from '../ui.js';
-import { S, createCharacter, persist, STAT_NAME, ALLOC_GAIN, STYLES } from '../state.js';
-import { JOBS, JOB_MAP, WEAPON_TYPES } from '../data/jobs.js';
-import { EDIT_DEFAULTS, SIZE_MULT, SIZE_LABEL, normalizeEdit, removeBackgroundCanvas, renderEdited, drawFitted } from '../image-edit.js';
-import { sfx } from '../audio.js';
+import { el, $, clamp, loadImage, bus } from '../util.js?v=20261105b';
+import { go, topbar, bottomNav, modal, toast } from '../ui.js?v=20261105b';
+import { S, createCharacter, persist, STAT_NAME, ALLOC_GAIN, STYLES } from '../state.js?v=20261105b';
+import { JOBS, JOB_MAP, WEAPON_TYPES } from '../data/jobs.js?v=20261105b';
+import { EDIT_DEFAULTS, SIZE_MULT, SIZE_LABEL, normalizeEdit, removeBackgroundCanvas, renderEdited, drawFitted } from '../image-edit.js?v=20261105b';
+import { sfx } from '../audio.js?v=20261105b';
 
 const MAX_SOURCE = 2048;   // 元画像の保存上限(高品質維持)
 const MAX_BAKE = 1600;     // 保存する編集済み画像の上限
