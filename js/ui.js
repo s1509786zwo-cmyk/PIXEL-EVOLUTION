@@ -5,7 +5,7 @@ import {
   RARITIES, RARITY, RARITY_ORDER, STAT_KEYS, STAT_NAMES, STAT_ICONS, ELEMENTS,
   SKILLS, SKILL, JOBS, JOB, EQUIPMENT, EQUIP_BY_ID, ITEM, ITEMS, ENEMIES, ENEMY,
   RANKS, QUESTS, ACHIEVEMENTS, TITLES, TITLE, EXCHANGE, STYLES, FACILITIES, SLOTS,
-  SLOT_NAME, AWAKENING_NAMES, MAX_LEVEL_BASE, collectedSkills,
+  SLOT_NAME, AWAKENING_NAMES, MAX_LEVEL_BASE, collectedSkills, EFFECTS,
   CHAR_RARITIES, CHAR_RARITY, CHAR_RARITY_ORDER, charRankIndex, EVOLUTION_RULES, RATE_TOTAL,
 } from './data.js?v=2';
 import {
@@ -23,6 +23,10 @@ import {
   materialIcon, MATERIAL_ITEMS, MATERIAL_BY_ID, MAT_RANKS, MAT_RANK_INFO,
   RANK_REQUIREMENTS, isMaterial, materialUpgradeTarget,
 } from './materials.js?v=2';
+import {
+  GACHA_BANNERS, currentBanner, bannerRates, rateTotals, featuredDefs,
+  hiddenSummary, weaponSummary, PICKUP_PERIOD_DAYS, PICKUP_SHARE, EFFECT_LABELS,
+} from './gacha.js?v=2';
 
 export const e = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const pct = (a,b) => b ? Math.max(0, Math.min(100, a/b*100)) : 0;
@@ -198,16 +202,27 @@ function imagePicker(target, label = '画像を選ぶ') {
     ${target === 'create' ? '<button class="btn btn-mini ghost" data-action="loadDraft">下書きを読み込む</button>' : ''}</div>
   </div>`;
 }
+function jobPickGrid(d) {
+  const jobs = JOBS.filter(j => j.tier === 1);
+  return `<div class="job-pick-section">
+    <h4>⚔ 初期職業 <small class="muted">一覧から押して選ぶだけ（全 ${jobs.length} 職・画面を開くとすぐ表示されます）</small></h4>
+    <div class="job-pick-grid">${jobs.map(j=>`<button type="button" class="job-pick-card ${d.jobId===j.id?'selected':''}" data-action="selectJob" data-job="${j.id}" style="--jc:${j.color}">
+      <span class="job-pick-top"><span class="job-pick-icon">${j.icon}</span><b>${e(j.name)}</b>${d.jobId===j.id?'<span class="pill on">選択中</span>':''}</span>
+      <span class="job-pick-desc">${e(j.desc)}</span>
+      <span class="job-pick-meta">武器：${j.weapons.map(e).join('・')}</span>
+    </button>`).join('')}</div>
+  </div>`;
+}
 function profileRow(d) {
   const job = JOB[d.jobId] || JOB.warrior;
   return `<div class="profile-row">
     <label class="field"><span>キャラクター名</span><input type="text" maxlength="16" placeholder="名前を入力" value="${e(d.name || '')}" data-draft="name"></label>
-    <label class="field"><span>職業</span><select data-draft="jobId">${JOBS.filter(j=>j.tier===0).map(j=>`<option value="${j.id}" ${d.jobId===j.id?'selected':''}>${j.icon} ${e(j.name)}</option>`).join('')}</select></label>
-    <label class="field"><span>初期武器</span><select data-draft="weaponType">${job.weapons.map(w=>`<option value="${e(w)}" ${d.weaponType===w?'selected':''}>${e(w)}</option>`).join('')}</select></label>
+    <label class="field"><span>初期武器 <small class="muted">（職業を選ぶと自動更新）</small></span><select data-draft="weaponType">${job.weapons.map(w=>`<option value="${e(w)}" ${d.weaponType===w?'selected':''}>${e(w)}</option>`).join('')}</select></label>
     <label class="field"><span>スタイル</span><select data-draft="styleId">${STYLES.map(x=>`<option value="${x.id}" ${d.styleId===x.id?'selected':''}>${e(x.name)}</option>`).join('')}</select></label>
     <div class="row-btns"><button class="btn btn-glass" data-action="createSave">💾 保存</button>
       <button class="btn btn-primary btn-lg" data-action="createFinish">✨ 作成を完了する</button></div>
-  </div>`;
+  </div>
+  ${jobPickGrid(d)}`;
 }
 function createScreen(app, s) {
   const d = app.draft || { settings:defaultImageSettings(), name:'', jobId:'warrior', weaponType:'剣', styleId:'balanced', frame:'gold', original:'', sprite:'' };
@@ -497,6 +512,278 @@ function materialModal(app, s) {
   </div></div>`;
 }
 
+/* ==================== 武器ガチャ：ピックアップ / 演出 / 結果 ==================== */
+const TIER_LABEL = { N:'ノーマル', R:'レア以上', E:'エピック以上', L:'レジェンダリー以上', M:'ミシック以上', S:'シークレット' };
+const TIER_COLOR = { N:'#a9b4c4', R:'#59b6ff', E:'#b98bff', L:'#ffc75a', M:'#ff6fae', S:'#68f7d4' };
+
+/** 武器イラスト（種類ごとの形状 × レアリティごとの装飾・発光） */
+function weaponIllustration(defOrId, rarity, size = 220, hidden = false) {
+  const def = typeof defOrId === 'string' ? (EQUIP_BY_ID[defOrId] || null) : defOrId;
+  if (!def) return `<span class="weapon-art empty" style="width:${size}px;height:${size}px">？</span>`;
+  const r = RARITY[rarity || def.rarity] || RARITY.N;
+  const key = `wa_${String(def.id).replace(/[^A-Za-z0-9]/g,'')}_${r.id}_${hidden?'x':'o'}`;
+  const deco = {
+    N:`<circle cx="100" cy="100" r="86" fill="none" stroke="${r.color}" stroke-width="1" opacity=".35"/>`,
+    R:`<circle cx="100" cy="100" r="88" fill="none" stroke="${r.color}" stroke-width="2" opacity=".65"/><circle cx="100" cy="100" r="72" fill="none" stroke="#e6f9ff" stroke-width="1" opacity=".35"/><g fill="#e6f9ff" opacity=".7"><circle cx="100" cy="12" r="2.5"/><circle cx="188" cy="100" r="2.5"/></g>`,
+    E:`<circle cx="100" cy="100" r="90" fill="none" stroke="${r.color}" stroke-width="2.5" opacity=".8"/><circle cx="100" cy="100" r="76" fill="none" stroke="#d9b6ff" stroke-width="1" stroke-dasharray="6 6" opacity=".65"/><g fill="${r.color}" opacity=".7"><circle cx="100" cy="9" r="3"/><circle cx="100" cy="191" r="3"/><circle cx="9" cy="100" r="3"/><circle cx="191" cy="100" r="3"/><circle cx="38" cy="38" r="2"/><circle cx="162" cy="162" r="2"/></g>`,
+    L:`<circle cx="100" cy="100" r="92" fill="none" stroke="${r.color}" stroke-width="3" opacity=".9"/><circle cx="100" cy="100" r="78" fill="none" stroke="#fff4c4" stroke-width="1.5"/><g stroke="${r.color}" stroke-width="2" opacity=".75"><path d="M100 2v18M100 180v18M2 100h18M180 100h18M30 30l13 13M157 157l13 13M170 30l-13 13M43 157l-13 13"/></g><path class="wa-pillar" d="M76 0h48L112 200H88z" fill="url(#${key}_pillar)" opacity=".55"/>`,
+    M:`<circle cx="100" cy="100" r="94" fill="none" stroke="#ff8fa8" stroke-width="3" opacity=".95"/><circle cx="100" cy="100" r="82" fill="none" stroke="#ffd77a" stroke-width="2"/><circle cx="100" cy="100" r="68" fill="none" stroke="#fff" stroke-width="1" stroke-dasharray="4 5"/><g stroke="#ffd77a" stroke-width="2.5" opacity=".8"><path d="M100 0v22M100 178v22M0 100h22M178 100h22M26 26l16 16M158 158l16 16M174 26l-16 16M42 158l-16 16"/></g><g fill="#fff" opacity=".85"><circle cx="28" cy="60" r="2.5"/><circle cx="172" cy="52" r="2.5"/><circle cx="34" cy="150" r="2.5"/><circle cx="166" cy="156" r="2.5"/></g>`,
+    S:`<circle cx="100" cy="100" r="94" fill="none" stroke="#68f7d4" stroke-width="3" opacity=".95"/><circle cx="100" cy="100" r="84" fill="none" stroke="#ff8fa8" stroke-width="2"/><circle cx="100" cy="100" r="74" fill="none" stroke="#ffd77a" stroke-width="2"/><circle cx="100" cy="100" r="64" fill="none" stroke="#fff" stroke-width="1.5" stroke-dasharray="3 6"/><g fill="#fff" opacity=".9"><circle cx="20" cy="40" r="2"/><circle cx="180" cy="36" r="2.5"/><circle cx="24" cy="164" r="2"/><circle cx="176" cy="168" r="2.5"/><circle cx="100" cy="8" r="2"/></g>`,
+  }[r.id] || '';
+  const shape = hidden
+    ? `<path d="M100 22 L162 60 L152 150 L100 186 L48 150 L38 60 Z" fill="#0d1428" stroke="${r.color}" stroke-width="2" opacity=".9"/><text x="100" y="126" text-anchor="middle" font-size="76" fill="#fff" opacity=".9">？</text>`
+    : `<g transform="translate(30 30) scale(2.2)" fill="url(#${key}_metal)" stroke="#0c1228" stroke-width="1.1" stroke-linejoin="round">${equipGlyph(def.type)}</g>`;
+  return `<span class="weapon-art wa-${r.id} ${hidden?'wa-hidden':''}" style="--wc:${r.color};width:${size}px;height:${size}px">
+    <svg viewBox="0 0 200 200" width="${size}" height="${size}" role="img" aria-label="${hidden?'正体不明':e(def.name)}">
+      <defs>
+        <radialGradient id="${key}_bg"><stop offset="0%" stop-color="${r.color}" stop-opacity=".30"/><stop offset="70%" stop-color="#101830" stop-opacity=".92"/><stop offset="100%" stop-color="#070c1c"/></radialGradient>
+        <linearGradient id="${key}_metal" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#fff"/><stop offset="35%" stop-color="${r.color}"/><stop offset="100%" stop-color="#2a3550"/></linearGradient>
+        <linearGradient id="${key}_pillar" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#fff" stop-opacity="0"/><stop offset="50%" stop-color="${r.color}" stop-opacity=".7"/><stop offset="100%" stop-color="#fff" stop-opacity="0"/></linearGradient>
+      </defs>
+      <circle cx="100" cy="100" r="98" fill="url(#${key}_bg)"/>
+      <g class="wa-deco">${deco}</g>
+      ${shape}
+    </svg></span>`;
+}
+
+function weaponSpec(defId, compact = false) {
+  const w = weaponSummary(defId);
+  if (!w) return '';
+  const eff = w.effects.length
+    ? w.effects.map(x => `<span class="w-effect">✧ ${e(x.label)} +${x.value}${x.id==='crit'||x.id==='lifesteal'||x.id==='counter'||x.id==='ignoreDef'||x.id==='damageCut'||x.id==='extraStrike'||x.id==='statusGuard'||x.id==='expBonus'||x.id==='coinBonus'||x.id==='bpBonus'?'%':''}${e(x.desc?'（'+x.desc+'）':'')}</span>`).join('')
+    : '<span class="w-effect muted">特殊効果なし</span>';
+  return `<div class="w-spec ${compact?'compact':''}">
+    <div class="w-stat-row"><span>⚔ 攻撃力 <b>${w.atk}</b></span><span>◎ 命中 <b>+${w.acc}</b></span></div>
+    <div class="w-effect-row">${eff}</div>
+    ${compact?'':`<p class="w-usage">${e(w.usage)}</p><p class="w-desc">${e(w.desc)}</p>`}
+  </div>`;
+}
+
+/* ---------- 引く前の専用画面（ピックアップ） ---------- */
+function gachaScreen(app, s) {
+  const info = currentBanner(), banner = info.banner;
+  const p = s.pity.weapon, pa = s.pity.armor;
+  const rows = bannerRates(banner), totals = rateTotals(banner);
+  const featured = featuredDefs(banner).sort((a,b)=>RARITY_ORDER.indexOf(b.rarity)-RARITY_ORDER.indexOf(a.rarity));
+  const main = featured[0] || EQUIP_BY_ID['eq_weapon_剣_L'];
+  const secret = hiddenSummary(banner);
+  const last = app.lastPull || [], bonus = app.lastBonus || [];
+  const rateS = rows.find(r=>r.id==='S');
+  const hist = [...s.pity.weapon.history, ...s.pity.armor.history].sort((a,b)=>b.at.localeCompare(a.at)).slice(0,24);
+  return `<div class="pickup-screen" style="--pa:${banner.accent};--pb:${banner.accent2}">
+    <section class="pickup-hero panel">
+      <div class="pickup-eyebrow">✦ PICK UP 武器ガチャ ✦</div>
+      <h2>${e(banner.name)}</h2>
+      <p class="pickup-sub">${e(banner.subtitle)}</p>
+      <div class="pickup-period">📅 ピックアップ期間 <b>${e(info.startLabel)} 〜 ${e(info.endLabel)}</b><span class="pill">残り ${info.remainingDays} 日 / ${PICKUP_PERIOD_DAYS}日ごとに次のピックアップへ自動切替</span></div>
+      <div class="pickup-hero-body">
+        <div class="pickup-art">${weaponIllustration(main, main.rarity, 280, false)}<span class="pickup-art-tag">PICK UP</span></div>
+        <div class="pickup-info">
+          ${rarityTag(main.rarity)}<span class="pill on">ピックアップ対象</span>
+          <h3>${e(main.name)}</h3>
+          <p class="pickup-tagline">${e(banner.tagline)}</p>
+          ${weaponSpec(main.id)}
+          <button class="btn btn-mini ghost mt" data-action="gachaItemDetail" data-id="${main.id}" data-pickup="1">🔎 この武器の詳細を見る</button>
+        </div>
+      </div>
+      <div class="pickup-notice">⚠ ピックアップ武器は通常より出現しやすくなりますが、<b>必ず排出されるわけではありません</b>。天井・レアリティ排出確率は従来どおりです。</div>
+    </section>
+
+    <div class="two-col mt">
+      <div class="panel soft"><h4>🎯 ピックアップ対象武器 <small class="muted">シークレット以外は全て事前公開</small></h4>
+        <div class="pickup-list">${featured.map(d=>`<div class="pickup-item" style="--wc:${d.color}">
+          ${weaponIllustration(d,d.rarity,86,false)}
+          <div><b>${e(d.name)}</b>${rarityTag(d.rarity)}<small>${e(d.type)} / 攻撃 ${d.stats.atk||0} / 命中 +${d.stats.acc||0}</small>
+            <small class="muted">${e((d.stats.effects||[]).map(x=>EFFECTS[x.id]?.name||EFFECT_LABELS[x.id]||x.id).join('・')||'特殊効果なし')}</small></div>
+          <button class="btn btn-mini ghost" data-action="gachaItemDetail" data-id="${d.id}" data-pickup="1">🔎 詳細</button>
+        </div>`).join('')}</div>
+        <div class="secret-card">
+          ${weaponIllustration({id:'secret_hidden',type:'特殊'},'S',92,true)}
+          <div><span class="pill secret-pill">？？？ シークレット</span>
+            <b>正体は入手まで非公開</b>
+            <small>名前・画像・性能は事前に公開されません。存在と排出確率は公開しています。</small>
+            <small>シークレット合計 <b>${rateS.total.toFixed(1)}%</b>（うちピックアップ枠 <b>${rateS.pickup.toFixed(2)}%</b> / 通常枠 <b>${rateS.normal.toFixed(2)}%</b>）</small></div>
+        </div>
+      </div>
+      <div class="panel soft"><h4>📊 提供割合 <small class="muted">合計 ${totals.total.toFixed(2)}%</small></h4>
+        <div class="rate-table">
+          <div class="rate-thead"><span>レアリティ</span><span>合計</span><span>ピックアップ</span><span>通常</span></div>
+          ${rows.map(r=>`<div class="rate-trow" style="--rc:${r.color}"><span>${e(r.name)}</span><b>${r.total.toFixed(1)}%</b><b class="pk">${r.hasPickup?r.pickup.toFixed(2)+'%':'—'}</b><b class="nm">${r.normal.toFixed(2)}%</b></div>`).join('')}
+          <div class="rate-tfoot"><span>合計</span><b>${totals.total.toFixed(2)}%</b><b class="pk">${totals.pickup.toFixed(2)}%</b><b class="nm">${totals.normal.toFixed(2)}%</b></div>
+        </div>
+        <div class="hint-box small">「ピックアップ」は各レアリティの排出率の内訳です。レアリティ自体の確率（44.5 / 30.0 / 16.0 / 7.0 / 2.0 / 0.5%）は変更していません。ピックアップ枠の合計 ${totals.pickup.toFixed(2)}% + 通常枠 ${totals.normal.toFixed(2)}% = <b>${totals.total.toFixed(2)}%</b>。</div>
+        <button class="btn btn-glass full" data-action="gachaRatesDetail">🔎 ガチャの詳細・提供割合を確認</button>
+        <h4 class="mt">🏅 独立天井カウンタ</h4>
+        <div class="list-line"><span>レジェンダリー天井</span><b>${p.legendary} / ${PITY_LEGENDARY}（あと <b class="ok">${PITY_LEGENDARY-p.legendary}</b> 連で L 以上確定）</b></div>
+        ${bar(p.legendary,PITY_LEGENDARY,'linear-gradient(90deg,#ffd77a,#ff9e7a)',`L天井 ${p.legendary} / ${PITY_LEGENDARY}`)}
+        <div class="list-line"><span>ミシック天井</span><b>${p.mythic} / ${PITY_MYTHIC}（あと <b class="ok">${PITY_MYTHIC-p.mythic}</b> 連で M 以上確定）</b></div>
+        ${bar(p.mythic,PITY_MYTHIC,'linear-gradient(90deg,#ff8fa8,#c58cff)',`M天井 ${p.mythic} / ${PITY_MYTHIC}`)}
+        <div class="hint-box small">L 以上で 60連カウンタ、M 以上で 120連カウンタをリセット。2つは独立管理され、履歴と一緒にセーブされます。天井による確定演出は実際の排出結果と必ず一致します。</div>
+      </div>
+    </div>
+
+    <section class="panel pickup-actions"><h3>🪙 ガチャを引く <small class="muted">課金要素なし・ゲーム内コインのみ / 所持 ${fmt(s.coins)} コイン</small></h3>
+      <div class="pull-buttons">
+        <button class="btn btn-glass btn-lg" data-action="gacha" data-kind="weapon" data-n="1" ${s.coins<GACHA_COST?'disabled':''}>⚔ 1回ガチャ <small>🪙 ${fmt(GACHA_COST)}</small></button>
+        <button class="btn btn-primary btn-lg" data-action="gacha" data-kind="weapon" data-n="10" ${s.coins<GACHA_COST_10?'disabled':''}>✦ 10回ガチャ <small>🪙 ${fmt(GACHA_COST_10)} / 専用演出＋素材ボーナス</small></button>
+      </div>
+      <div class="armor-mini"><b>🛡 装備ガチャ（従来どおり・演出対象外）</b><small>防具・アクセサリー・装飾品 / L天井 ${pa.legendary}/${PITY_LEGENDARY} / M天井 ${pa.mythic}/${PITY_MYTHIC}</small>
+        <div class="row-btns"><button class="btn btn-mini" data-action="gacha" data-kind="armor" data-n="1" ${s.coins<GACHA_COST?'disabled':''}>1連</button><button class="btn btn-mini ghost" data-action="gacha" data-kind="armor" data-n="10" ${s.coins<GACHA_COST_10?'disabled':''}>10連</button></div></div>
+      <div class="hint-box small">排出結果は演出開始前に確定します。スキップしても結果・報酬は一切変わりません。</div>
+    </section>
+
+    <div class="two-col mt">
+      <div class="panel soft"><h4>🖼 直前のガチャ結果</h4>
+        ${last.length?`<div class="pull-results">${last.map(inst=>{const d=instanceDef(inst);const r=RARITY[instanceRarity(inst)];return `<div class="pull-item" style="--rc:${r.color}">${weaponIllustration(d,d.rarity,52,false)}<span>${e(d.name)}</span>${rarityTag(d.rarity)}</div>`;}).join('')}</div>`:'<p class="muted">まだ引いていません。上のボタンからガチャを引けます。</p>'}
+        ${bonus.length?`<h4 class="mt">🎁 10連ボーナス素材</h4><div class="mat-chip-row">${bonus.map(b=>matChip(b.id,b.n)).join('')}</div>`:''}
+      </div>
+      <div class="panel soft"><h4>📜 ガチャ履歴 <small class="muted">セーブされます / 最新24件</small></h4>
+        <div class="gacha-history">${hist.length?hist.map(x=>`<div class="gacha-hist-line">
+          <span class="gacha-hist-r" style="--rc:${RARITY[x.rarity]?.color||'#889'}">${e(RARITY[x.rarity]?.name||x.rarity)}</span>
+          <b>${e(x.name)}</b>
+          <small>${x.pickup?'<span class="pk-tag">PU</span>':''}${x.isNew?'<span class="new-tag">NEW</span>':''}${x.forced?`✨${e(x.forced)}`:''}${e(x.bannerName||'')} L${x.legendaryBefore} M${x.mythicBefore}</small>
+          <time>${new Date(x.at).toLocaleString('ja-JP',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})}</time>
+        </div>`).join(''):'<p class="muted">履歴はまだありません</p>'}</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ---------- ガチャ詳細モーダル ---------- */
+function gachaRatesModal(app, s) {
+  if (!app.gachaRatesDetail) return '';
+  const info = currentBanner(), banner = info.banner;
+  const rows = bannerRates(banner), totals = rateTotals(banner);
+  return `<div class="modal-backdrop" data-action="gachaRatesDetailClose" data-backdrop="1"><div class="modal-card wide">
+    <button class="modal-close" data-action="gachaRatesDetailClose">✕</button>
+    <h3>🔎 ガチャの詳細・提供割合</h3>
+    <p class="muted small">${e(banner.name)} / ${e(info.startLabel)} 〜 ${e(info.endLabel)}</p>
+    <div class="rate-table"><div class="rate-thead"><span>レアリティ</span><span>合計</span><span>ピックアップ</span><span>通常</span></div>
+      ${rows.map(r=>`<div class="rate-trow" style="--rc:${r.color}"><span>${e(r.name)}</span><b>${r.total.toFixed(1)}%</b><b class="pk">${r.hasPickup?r.pickup.toFixed(2)+'%':'—'}</b><b class="nm">${r.normal.toFixed(2)}%</b></div>`).join('')}
+      <div class="rate-tfoot"><span>合計</span><b>${totals.total.toFixed(2)}%</b><b class="pk">${totals.pickup.toFixed(2)}%</b><b class="nm">${totals.normal.toFixed(2)}%</b></div></div>
+    <h4 class="mt">仕組み</h4>
+    <ul class="flow"><li>レアリティを先に抽選（ノーマル44.5 / レア30.0 / エピック16.0 / レジェンダリー7.0 / ミシック2.0 / シークレット0.5%）。</li>
+      <li>そのレアリティ内で「ピックアップ枠 ${(PICKUP_SHARE*100).toFixed(0)}%」と「通常枠」に分けて武器を抽選。ピックアップ対象は同じレアリティの他武器より出やすくなります。</li>
+      <li>ピックアップは<b>確定ではありません</b>。シークレットの名前・画像・性能は獲得まで非公開です。</li>
+      <li>60連でレジェンダリー以上、120連でミシック以上が確定。カウンタは独立で、対応レアリティ出現時にリセットされます。</li>
+      <li>排出結果は演出開始前に確定し、スキップや演出で変化しません。獲得武器は所持品に追加され装備・強化・進化できます。</li></ul>
+    <div class="hint-box">ピックアップは ${PICKUP_PERIOD_DAYS} 日ごとに次のラインナップへ自動で切り替わります。期間終了後も天井カウンタ・履歴は引き継がれます。</div>
+  </div></div>`;
+}
+
+/* ---------- 武器詳細モーダル ---------- */
+function weaponDetailModal(app, s) {
+  const id = app.gachaItemDetail;
+  if (!id) return '';
+  const defId = id.defId || id;
+  const d = EQUIP_BY_ID[defId];
+  if (!d) return '';
+  const inst = id.uid ? findInstance(s, id.uid) : null;
+  return `<div class="modal-backdrop" data-action="gachaDetailClose" data-backdrop="1"><div class="modal-card">
+    <button class="modal-close" data-action="gachaDetailClose">✕</button>
+    <div class="w-detail-top">${weaponIllustration(d,d.rarity,150,false)}<div>${rarityTag(d.rarity)}<h3>${e(d.name)}</h3><p>${e(d.desc)}</p></div></div>
+    ${weaponSpec(d.id)}
+    <div class="list-line"><span>スロット / 系統</span><b>${e(SLOT_NAME[d.slot])} / ${e(d.type)}</b></div>
+    ${inst?`<div class="list-line"><span>強化 / ランク</span><b>+${inst.enhance||0} / ${e(instanceRank(inst))}</b></div>`:''}
+    ${id.pickup?'<div class="callout gold">🎯 ピックアップ対象武器</div>':''}
+    ${id.isNew?'<div class="callout green">✨ 新規入手（図鑑に登録されました）</div>':''}
+    ${inst?`<button class="btn btn-primary full mt" data-action="gachaEquip" data-uid="${inst.uid}">⚔ この武器を装備する</button>`:''}
+  </div></div>`;
+}
+
+/* ---------- ガチャ演出オーバーレイ ---------- */
+function gachaIntro(g) {
+  const t = g.guarantee, tier = t.on ? t.tier : 'N';
+  return `<div class="gacha-overlay g-intro g-tier-${tier}" style="--gc:${TIER_COLOR[tier]}">
+    <div class="g-bg-shift"></div>
+    <div class="g-summon">
+      <div class="g-circle c1"></div><div class="g-circle c2"></div><div class="g-circle c3"></div>
+      <div class="g-silhouette"></div><div class="g-core">✦</div>
+    </div>
+    ${t.on?`<div class="g-guarantee"><small>✨ 確定演出 ✨</small><b>${e(TIER_LABEL[tier])} が出現確定</b><span>${e(t.reason)} / 実際の排出結果と一致しています</span></div>`
+      :`<div class="g-no-guarantee">確定演出なし … それでも高レアリティが出る可能性はあります</div>`}
+    ${g.count===10?`<div class="g-ten-only"><b>✦ 10 連専用召喚 ✦</b><small>10体を順番に公開し、最後の1体をグランドフィナーレで演出します</small>
+      <div class="g-ten-track">${Array.from({length:10},(_,i)=>`<i>${i+1}</i>`).join('')}</div></div>`:''}
+    <div class="g-intro-text">召喚陣が光り始めた。武器の気配が近づく…</div>
+    <div class="g-progress">${g.count===10?'✦ 10連召喚':'1回召喚'} / ${e(g.bannerInfo?.banner?.short||'')}</div>
+    <button class="btn btn-glass g-skip" data-action="gachaSkip">⏭ スキップ（結果は変わりません）</button>
+  </div>`;
+}
+function gachaReveal(g) {
+  const d = g.details[g.index];
+  if (!d) return '';
+  const r = RARITY[d.rarity] || RARITY.N;
+  const hidden = !!g.preReveal;
+  const art = hidden
+    ? weaponIllustration({id:'pre_'+g.index,type:d.type}, d.rarity, 300, true)
+    : weaponIllustration(d.defId, d.rarity, 300, false);
+  const isLast = g.index === g.details.length - 1;
+  const high = ['L','M','S'].includes(d.rarity);
+  return `<div class="gacha-overlay g-reveal g-r-${d.rarity} ${isLast?'g-finale':''} ${hidden?'g-veiled':''}" style="--gc:${r.color}">
+    <div class="g-reveal-bg"></div>
+    <div class="g-reveal-rays"></div><div class="g-reveal-pillar"></div><div class="g-reveal-circle"></div><div class="g-reveal-particles"></div>
+    ${d.rarity==='S'?'<div class="g-secret-shift"></div>':''}
+    ${isLast&&g.count===10?'<div class="g-finale-burst">✦ 10 連 グ ラ ン ド フ ィ ナ ー レ ✦</div>':''}
+    <div class="g-reveal-head">
+      <span class="g-count">${g.count===10?`${g.index+1} / ${g.details.length}`:'RESULT'}</span>
+      ${g.count===10?`<span class="g-ten-track mini">${Array.from({length:10},(_,i)=>`<i class="${i<g.index?'done':i===g.index?'now':''}">${i+1}</i>`).join('')}</span>`:''}
+      ${isLast&&g.count===10?'<span class="pill on">✦ 最後の1体 ✦</span>':''}
+      ${g.skipped?'':'<button class="btn btn-mini ghost g-skip" data-action="gachaSkip">⏭ スキップ</button>'}
+    </div>
+    <div class="g-reveal-art">${art}</div>
+    <div class="g-reveal-info">
+      ${hidden?'<div class="g-veil-title">？？？</div>':`${rarityTag(d.rarity)}<h2>${e(d.name)}</h2>`}
+      ${hidden?'<p class="muted">正体が明らかになるまで、少しだけお待ちを…</p>':`<div class="g-badges">${d.pickup?'<span class="pk-tag">🎯 PICK UP</span>':''}${d.isNew?'<span class="new-tag">✨ NEW</span>':''}${d.forced?`<span class="forced-tag">${e(d.forced)}</span>`:''}</div>${weaponSpec(d.defId,true)}`}
+      ${d.rarity==='S'&&!hidden?'<div class="g-secret-acclaim">✧ シークレット獲得 ✧</div>':''}
+    </div>
+  </div>`;
+}
+function gachaResultScreen(app, s, g) {
+  const details = g.details || [];
+  const top = details.reduce((a,b)=>RARITY_ORDER.indexOf(b.rarity)>RARITY_ORDER.indexOf(a.rarity)?b:a, details[0]||{});
+  const secret = details.find(d=>d.rarity==='S');
+  const inst = top.uid ? findInstance(s, top.uid) : null;
+  return `<div class="gacha-overlay g-result g-r-${top.rarity||'N'}" style="--gc:${RARITY[top.rarity]?.color||'#a9b4c4'}">
+    <div class="g-result-bg"></div>
+    <div class="g-result-inner">
+      <header class="g-result-head"><div><span class="eyebrow">✦ GACHA RESULT ✦</span><h2>${g.count===10?'10連ガチャ結果':'ガチャ結果'}</h2>
+        <p>${e(g.bannerInfo?.banner?.name||'')} / 消費 🪙 ${fmt(g.count===10?GACHA_COST_10:GACHA_COST*g.count)}</p></div>
+        <div class="g-result-actions"><button class="btn btn-mini ghost" data-action="gachaAgain" data-n="1">もう1回</button><button class="btn btn-mini ghost" data-action="gachaAgain" data-n="10">もう10回</button><button class="btn btn-glass" data-action="gachaClose">✕ ガチャ画面へ戻る</button></div></header>
+      ${g.guarantee?.on?`<div class="g-result-guarantee">✨ ${e(TIER_LABEL[g.guarantee.tier])} 確定演出 — ${e(g.guarantee.reason)} / 結果と一致</div>`:''}
+      ${g.skipped?'<div class="hint-box small">演出をスキップしました。排出結果・報酬は変化していません。</div>':''}
+      ${secret?`<div class="g-secret-acquisition"><div class="g-secret-rainbow"></div><b>✧ シークレット武器 獲得 ✧</b><p>通常とは異なる特別な演出の末に、${e(secret.name)} が姿を現した。</p>${weaponIllustration(secret.defId,'S',120,false)}</div>`:''}
+      <section class="g-hero-card" style="--wc:${RARITY[top.rarity]?.color||'#a9b4c4'}">
+        <div class="g-hero-art">${weaponIllustration(top.defId,top.rarity,300,false)}</div>
+        <div class="g-hero-info">
+          ${rarityTag(top.rarity)}<h2>${e(top.name)}</h2>
+          <div class="g-badges">${top.pickup?'<span class="pk-tag">🎯 ピックアップ対象</span>':'<span class="pill">通常枠</span>'}${top.isNew?'<span class="new-tag">✨ 新規入手</span>':'<span class="pill">再入手</span>'}</div>
+          ${weaponSpec(top.defId)}
+          <div class="g-hero-btns">${inst?`<button class="btn btn-primary" data-action="gachaEquip" data-uid="${inst.uid}">⚔ 装備する</button>`:''}
+            <button class="btn btn-glass" data-action="gachaItemDetail" data-id="${top.defId}" data-uid="${top.uid||''}" data-pickup="${top.pickup?1:0}" data-new="${top.isNew?1:0}">🔎 詳細を確認</button></div>
+          <small class="muted">装備後は工房で強化・ランク進化できます。</small>
+        </div>
+      </section>
+      <h4 class="mt">📦 ${g.kind==='weapon'?'獲得武器':'獲得装備'}一覧 <span class="pill">${details.length} 件</span></h4>
+      <div class="g-result-grid">${details.map((d,i)=>`<button type="button" class="g-result-item g-r-${d.rarity}" style="--wc:${RARITY[d.rarity]?.color||'#889'}" data-action="gachaItemDetail" data-id="${d.defId}" data-uid="${d.uid}" data-pickup="${d.pickup?1:0}" data-new="${d.isNew?1:0}">
+        ${weaponIllustration(d.defId,d.rarity,74,false)}
+        <div><b>${e(d.name)}</b>${rarityTag(d.rarity)}<small>${e(d.type)} / 攻撃 ${weaponSummary(d.defId)?.atk||0} / 命中 +${weaponSummary(d.defId)?.acc||0}</small>
+          <small>${(weaponSummary(d.defId)?.effects||[]).map(x=>e(x.label)+'+'+x.value).join('・')||'特殊効果なし'}</small>
+          <span class="g-item-flags">${d.pickup?'<span class="pk-tag">PU</span>':''}${d.isNew?'<span class="new-tag">NEW</span>':''}${d.forced?`<span class="forced-tag">${e(d.forced)}</span>`:''}</span></div>
+        <span class="g-item-no">#${i+1}</span>
+      </button>`).join('')}</div>
+      ${g.bonus?.length?`<h4 class="mt">🎁 10連ボーナス素材</h4><div class="mat-chip-row">${g.bonus.map(b=>matChip(b.id,b.n)).join('')}</div>`:''}
+      <div class="row-btns"><button class="btn btn-primary btn-lg" data-action="gachaAgain" data-n="10">✦ もう10回引く</button><button class="btn btn-glass btn-lg" data-action="gachaClose">ガチャ画面へ戻る</button></div>
+    </div>
+  </div>`;
+}
+function gachaPresentation(app, s) {
+  const g = app.gacha;
+  if (!g) return '';
+  if (g.phase === 'intro') return gachaIntro(g);
+  if (g.phase === 'reveal') return gachaReveal(g);
+  return gachaResultScreen(app, s, g);
+}
+
 /* ---------- 育成の間 ---------- */
 function nurtureTab(tab, app, s) {
   const c = activeChar(s);
@@ -527,13 +814,13 @@ function nurtureTab(tab, app, s) {
     return `<div class="callout">現在の職業：<b>${job.icon} ${e(job.name)}</b> / 職業Lv.${c.jobLevels[c.jobId]||1} / 全職業熟練度合計 ${jobSum}。職業Lvを上げると技を習得し、上級職が解放されます。</div>
     <div class="job-grid">${JOBS.map(j=>{
       const ok = jobUnlocked(s,c,j), cur = c.jobId===j.id;
-      return `<div class="job-card ${cur?'current':''} ${ok?'':'locked'}" style="--jc:${j.color}">
+      return `<button type="button" class="job-card ${cur?'current':''} ${ok?'':'locked'}" style="--jc:${j.color}" data-action="changeJob" data-job="${j.id}" ${cur||!ok?'disabled':''}>
         <div class="job-top"><span class="job-icon">${j.icon}</span><div><b>${e(j.name)}</b><small>${['','基本職','上級職','特殊職'][j.tier]} / Lv.${c.jobLevels[j.id]||0}</small></div></div>
         <p>${e(j.desc)}</p>
         <div class="job-growth">${STAT_KEYS.slice(2,6).map(k=>`<span>${STAT_NAMES[k].slice(0,2)} <b>${j.growth[k]}</b></span>`).join('')}</div>
         <small class="muted">武器：${j.weapons.join('・')}<br>解放：${e(jobReqText(j))}</small>
-        ${cur?`<span class="pill on">就業中</span>`:ok?`<button class="btn btn-mini" data-action="changeJob" data-job="${j.id}">転職（${fmt(j.tier*500)}コイン）</button>`:`<span class="pill off">未解放</span>`}
-      </div>`;}).join('')}</div>
+        ${cur?`<span class="pill on">就業中（押して選択済み）</span>`:ok?`<span class="pill on">押して転職（${fmt(j.tier*500)}コイン）</span>`:`<span class="pill off">未解放</span>`}
+      </button>`;}).join('')}</div>
     <div class="panel soft"><h4>職業熟練度一覧</h4><div class="mastery-grid">${Object.entries(c.jobLevels).map(([id,lv])=>`<div><span>${e(JOB[id]?.name||id)}</span>${bar(lv,30,`#6cc8ff`,`Lv.${lv} / 30`)}</div>`).join('')}</div></div>`;
   }
   if (tab === 2) {
@@ -611,26 +898,7 @@ function forgeTab(tab, app, s) {
         }).join('') || '<p class="muted">装備がありません。ガチャで入手しましょう。</p>'}</div>
       </div></div>`;
   }
-  if (tab === 1) {
-    const last = app.lastPull || [];
-    const bonus = app.lastBonus || [];
-    return `<div class="two-col">
-      <div class="panel soft"><h4>ガチャ排出確率 <small class="muted">課金要素なし・ゲーム内コインのみ / 合計 ${RATE_TOTAL}%</small></h4>
-        <div class="rates">${RARITIES.map(r=>`<div class="rate-line" style="--rc:${r.color}"><span>${r.name}</span><b>${r.rate.toFixed(1)}%</b></div>`).join('')}</div>
-        <div class="hint-box"><b>独立天井</b>：レジェンダリー以上が出ずに<b>${PITY_LEGENDARY}連</b>で L 以上確定、ミシック以上が出ずに<b>${PITY_MYTHIC}連</b>で M 以上確定。L 以上でレジェンダリー天井、M 以上でミシック天井がリセットされます。キャラクターのレアリティとは別データです。</div>
-        ${['weapon','armor'].map(kind=>{const p=s.pity[kind];return `<div class="gacha-box"><div><b>${kind==='weapon'?'⚔ 武器ガチャ':'🛡 装備ガチャ'}</b>
-          <small>レジェンダリー天井まで ${PITY_LEGENDARY-p.legendary} 連 / ミシック天井まで ${PITY_MYTHIC-p.mythic} 連 / 累計 ${p.total} 回</small>
-          ${bar(p.legendary,PITY_LEGENDARY,'linear-gradient(90deg,#ffd77a,#ff9e7a)',`L天井 ${p.legendary} / ${PITY_LEGENDARY}`)}
-          ${bar(p.mythic,PITY_MYTHIC,'linear-gradient(90deg,#ff8fa8,#c58cff)',`M天井 ${p.mythic} / ${PITY_MYTHIC}`)}</div>
-          <div class="row-btns"><button class="btn btn-primary" data-action="gacha" data-kind="${kind}" data-n="1" ${s.coins<GACHA_COST?'disabled':''}>1連 ${fmt(GACHA_COST)}</button><button class="btn btn-glass" data-action="gacha" data-kind="${kind}" data-n="10" ${s.coins<GACHA_COST_10?'disabled':''}>10連 ${fmt(GACHA_COST_10)}</button></div></div>`;}).join('')}
-        <div class="muted small">現在のコイン：🪙 ${fmt(s.coins)} / 累計ガチャ ${s.stats.pulls} 回 / 10連で進化素材を1個入手</div>
-      </div>
-      <div class="panel soft"><h4>排出結果</h4>${last.length?`<div class="pull-results">${last.map(inst=>{const d=instanceDef(inst);const r=RARITY[instanceRarity(inst)];return `<div class="pull-item ${r.id==='S'?'secret':r.id==='M'?'mythic':''}" style="--rc:${r.color}"><span>${e(d.name)}</span>${rarityTag(d.rarity)}<small>${e(d.type)} / ${e(SLOT_NAME[d.slot])}</small></div>`;}).join('')}</div>`:'<p class="muted">まだ引いていません。左のボタンからガチャを引けます。</p>'}
-        ${bonus.length?`<h4 class="mt">🎁 10連ボーナス素材</h4><div class="mat-chip-row">${bonus.map(b=>matChip(b.id,b.n)).join('')}</div>`:''}
-        <h4 class="mt">📜 ガチャ履歴（最新20件・セーブされます）</h4>
-        <div class="gacha-history">${(()=>{const h=[...s.pity.weapon.history,...s.pity.armor.history].sort((a,b)=>b.at.localeCompare(a.at)).slice(0,20);return h.length?h.map(x=>`<div class="gacha-hist-line"><span class="gacha-hist-r" style="--rc:${RARITY[x.rarity]?.color||'#889'}">${e(RARITY[x.rarity]?.name||x.rarity)}</span><b>${e(x.name)}</b><small>${x.forced?`✨ ${e(x.forced)}`:e(x.kind==='weapon'?'武器':'装備')} / L${x.legendaryBefore} M${x.mythicBefore}</small><time>${new Date(x.at).toLocaleString('ja-JP',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})}</time></div>`).join(''):'<p class="muted">履歴はまだありません</p>';})()}</div>
-      </div></div>`;
-  }
+  if (tab === 1) return gachaScreen(app, s);
   if (tab === 2) {
     const sel = findInstance(s, app.selectedEquip);
     const cost = sel ? Math.round(180*Math.pow(1.55,sel.enhance||0)) : 0;
@@ -995,5 +1263,6 @@ export function renderScreen(app, s) {
     case 'result': return resultScreen(app,s);
     default: return titleScreen(app,s);
   } })();
-  return html + materialModal(app, s);
+  return html + materialModal(app, s) + gachaRatesModal(app, s)
+    + weaponDetailModal(app, s) + gachaPresentation(app, s);
 }

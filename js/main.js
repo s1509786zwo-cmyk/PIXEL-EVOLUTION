@@ -14,6 +14,7 @@ const app = {
   skillFilter: 'all', skillOffset: 0, equipSlot: 'all', codexTab: 0, battleTab: 'skill',
   confirmReset: false, charName: '', started: false,
   materialDetail: null, evolveEquip: null, lastBonus: [],
+  gacha: null, gachaRatesDetail: false, gachaItemDetail: null,
 };
 let state = S.newState();
 let toastTimer = null, regenTimer = null;
@@ -287,6 +288,96 @@ function sfx(kind) {
   if (kind === 'lose') { [330,262,196].forEach((f,i)=>tone(f,0.25,'sine',0.03,i*0.15)); }
   if (kind === 'hit') tone(140, 0.07, 'square', 0.02);
 }
+/* ---------------- ガチャ演出（結果は startGachaPresentation 前に確定済み） ---------------- */
+const GACHA_BASE_MS = { N:520, R:700, E:920, L:1280, M:1650, S:2250 };
+function gachaSfx(rarity) {
+  if (!state.settings.sfx) return;
+  const sets = {
+    N: [[330,.10,'sine',.020,0],[440,.10,'sine',.014,.10]],
+    R: [[392,.12,'triangle',.026,0],[494,.14,'triangle',.022,.11],[587,.20,'sine',.018,.22]],
+    E: [[349,.14,'triangle',.028,0],[440,.16,'triangle',.024,.12],[523,.20,'sine',.022,.24],[698,.26,'sine',.018,.36]],
+    L: [[523,.22,'triangle',.032,0],[659,.24,'triangle',.030,.13],[784,.28,'sine',.028,.26],[1046,.40,'sine',.026,.40],[1318,.48,'triangle',.020,.56]],
+    M: [[261,.32,'sawtooth',.020,0],[392,.32,'triangle',.028,.15],[523,.34,'triangle',.030,.30],[659,.38,'sine',.028,.45],[784,.42,'sine',.026,.60],[1046,.52,'triangle',.024,.76],[1318,.66,'sine',.022,.92]],
+    S: [[220,.55,'sine',.022,0],[277,.55,'sine',.020,.20],[330,.55,'triangle',.022,.40],[415,.60,'sine',.022,.60],[554,.65,'triangle',.024,.80],[659,.72,'sine',.026,1.00],[830,.85,'sine',.024,1.22],[1108,1.05,'triangle',.022,1.45],[1318,1.30,'sine',.022,1.70]],
+  };
+  for (const [f,d,t,v,delay] of (sets[rarity] || sets.N)) tone(f,d,t,v,delay);
+}
+function gachaGuaranteeSfx(tier) {
+  if (!state.settings.sfx || !tier) return;
+  const base = { N:330, R:392, E:440, L:523, M:587, S:659 }[tier] || 392;
+  [0,1,2].forEach(i => tone(base * Math.pow(1.26, i), .18, 'triangle', .026, i * .10));
+}
+function clearGachaTimers(g) {
+  for (const t of (g.timers || [])) clearTimeout(t);
+  g.timers = [];
+}
+function scheduleGacha(g, ms, fn) {
+  const t = setTimeout(() => {
+    g.timers = (g.timers || []).filter(x => x !== t);
+    if (app.gacha !== g) return;   // 古い演出のタイマーは発火させない
+    fn();
+  }, ms);
+  (g.timers || (g.timers = [])).push(t);
+}
+/** 排出結果 details だけから確定演出を決める（必ず実際の結果と一致する） */
+function startGachaPresentation(r, kind, count) {
+  const details = (r.details || []).slice();
+  const order = D.RARITY_ORDER;
+  const maxIdx = details.length ? Math.max(...details.map(d => order.indexOf(d.rarity))) : 0;
+  const forced = details.find(d => d.forced);
+  let guarantee = { on:false, tier:'N', reason:'' };
+  if (forced) {
+    guarantee = { on:true, tier:forced.forced === 'ミシック天井' ? 'M' : 'L', reason:'天井確定（独立カウンタ）' };
+  } else if (maxIdx >= 1 && Math.random() < 0.35) {
+    // 確定演出が出ない回でも高レアリティは普通に出る（35% でのみ発生）
+    guarantee = { on:true, tier:order[maxIdx], reason:'確定演出（結果から判定）' };
+  }
+  const g = {
+    phase:'intro', details, index:0, kind, count, guarantee,
+    skipped:false, preReveal:false, banner:r.banner, bannerInfo:r.bannerInfo,
+    bonus:r.bonusMaterials || [], timers:[],
+  };
+  app.gacha = g;
+  render();
+  if (guarantee.on) gachaGuaranteeSfx(guarantee.tier);
+  const speed = Math.max(0.5, state.settings.animSpeed || 1);   // 「短い間」＋設定でさらに短縮
+  const introMs = Math.round((guarantee.on && ['M','S'].includes(guarantee.tier) ? 1900 : 1400) / speed);
+  scheduleGacha(g, introMs, () => beginReveal(g));
+}
+function beginReveal(g) {
+  if (!g.details.length) { g.phase = 'result'; render(); return; }
+  g.index = 0;
+  startRevealItem(g);
+}
+function revealMs(g, d) {
+  let ms = GACHA_BASE_MS[d.rarity] || 600;
+  if (g.count === 10) ms = Math.max(300, Math.round(ms * 0.62));   // 10連でも長くなりすぎない
+  if (g.index === g.details.length - 1) ms += 450;                  // 最後の1体はより豪華に
+  return Math.max(180, Math.round(ms / Math.max(0.5, state.settings.animSpeed || 1)));
+}
+function startRevealItem(g) {
+  const d = g.details[g.index];
+  if (!d) { g.phase = 'result'; render(); return; }
+  // ミシックはシルエット→正体、シークレットは特別な「間」を設ける
+  const pre = d.rarity === 'M' || d.rarity === 'S';
+  g.preReveal = pre; g.phase = 'reveal';
+  render();
+  gachaSfx(d.rarity);
+  if (pre) {
+    const speed = Math.max(0.5, state.settings.animSpeed || 1);
+    scheduleGacha(g, Math.round((d.rarity === 'S' ? 1500 : 950) / speed), () => {
+      g.preReveal = false; render();
+      scheduleGacha(g, revealMs(g, d), () => advanceReveal(g));
+    });
+  } else {
+    scheduleGacha(g, revealMs(g, d), () => advanceReveal(g));
+  }
+}
+function advanceReveal(g) {
+  if (g.index < g.details.length - 1) { g.index++; startRevealItem(g); }
+  else { g.phase = 'result'; render(); }
+}
+
 function setBgm(on) {
   clearInterval(bgmTimer);
   if (!on) return;
@@ -475,6 +566,16 @@ async function handleAction(action, ds, el) {
       render();
       return toast('下書きを読み込みました');
     }
+    case 'selectJob': {
+      const d = app.draft;
+      if (!d) return toast('作成画面を開いてください', 'error');
+      const job = D.JOB[ds.job];
+      if (!job) return toast('職業が見つかりません', 'error');
+      d.jobId = job.id;
+      d.weaponType = (job.weapons || ['剣'])[0];
+      render();
+      return toast(`${job.name} を選択しました（初期武器：${d.weaponType}）`);
+    }
     case 'createCompare': app.compare = !app.compare; return render();
     case 'centerImage': return centerEdits(ds.target || 'draft', '中央に戻しました');
     case 'fitImage': {
@@ -594,10 +695,54 @@ async function handleAction(action, ds, el) {
     case 'gacha': {
       const r = S.pullGacha(state, ds.kind, Number(ds.n));
       if (!r.ok) return toast(r.msg, 'error');
-      app.lastPull = r.results; app.lastBonus = r.bonusMaterials || []; sfx('win');
-      const top = r.results.reduce((a,i)=> D.RARITY_ORDER.indexOf(S.instanceRarity(i)) > D.RARITY_ORDER.indexOf(S.instanceRarity(a)) ? i : a, r.results[0]);
-      toast(`${r.msg} 最高レアリティ：${D.RARITY[S.instanceRarity(top)].name}「${S.instanceDef(top).name}」`);
-      save(); render(); return;
+      app.lastPull = r.results; app.lastBonus = r.bonusMaterials || [];
+      // 装備ガチャは従来どおり（演出対象外）。武器ガチャだけ専用演出を開始する。
+      if (ds.kind === 'armor') {
+        sfx('win');
+        const top = r.results.reduce((a,i)=> D.RARITY_ORDER.indexOf(S.instanceRarity(i)) > D.RARITY_ORDER.indexOf(S.instanceRarity(a)) ? i : a, r.results[0]);
+        toast(`${r.msg} 最高レアリティ：${D.RARITY[S.instanceRarity(top)].name}「${S.instanceDef(top).name}」`);
+        save(); render(); return;
+      }
+      // 結果はこの時点で確定。save も演出開始前に行う。
+      app.gachaRatesDetail = false; app.gachaItemDetail = null; app.materialDetail = null;
+      save(true);
+      sfx('ok');
+      startGachaPresentation(r, ds.kind, Number(ds.n));
+      return;
+    }
+    case 'gachaSkip': {
+      const g = app.gacha; if (!g) return;
+      clearGachaTimers(g);
+      g.phase = 'result'; g.skipped = true; g.preReveal = false;
+      render(); return toast('演出をスキップしました（結果・報酬は変化しません）');
+    }
+    case 'gachaClose': {
+      if (app.gacha) clearGachaTimers(app.gacha);
+      app.gacha = null; app.gachaItemDetail = null;
+      return render();
+    }
+    case 'gachaAgain': {
+      const g = app.gacha; if (!g) return;
+      const kind = g.kind, n = Number(ds.n) || 1;
+      clearGachaTimers(g); app.gacha = null; app.gachaItemDetail = null;
+      return handleAction('gacha', { kind, n:String(n) }, null);
+    }
+    case 'gachaRatesDetail': app.gachaRatesDetail = true; return render();
+    case 'gachaRatesDetailClose': app.gachaRatesDetail = false; return render();
+    case 'gachaItemDetail': {
+      app.gachaItemDetail = { defId:ds.id, uid:ds.uid || null,
+        pickup:ds.pickup === '1', isNew:ds.new === '1' };
+      return render();
+    }
+    case 'gachaDetailClose': app.gachaItemDetail = null; return render();
+    case 'gachaEquip': {
+      const ch = S.activeChar(state);
+      const ok = ch && S.equipItem(state, ch, ds.uid, 'weapon');
+      app.gachaItemDetail = null;
+      save();
+      render();
+      return toast(ok ? '武器を装備しました（工房で強化・ランク進化できます）'
+        : 'この職業では装備できません。転職してから装備してください', ok ? 'info' : 'error');
     }
     case 'enhanceSelect': app.selectedEquip = ds.uid; return render();
     case 'enhance': { const r = S.enhanceEquipment(state, app.selectedEquip); return commit(r.msg, r.ok); }
@@ -668,7 +813,8 @@ async function handleAction(action, ds, el) {
       state = S.newState();
       Object.assign(app, { screen:'title', params:{}, tabs:{}, draft:null, look:null, battle:null, result:null,
         lastPull:[], lastBonus:[], selectedSynth:[], selectedEquip:null, confirmReset:false,
-        enemyGroup:'normal', compare:false, materialDetail:null, evolveEquip:null });
+        enemyGroup:'normal', compare:false, materialDetail:null, evolveEquip:null,
+        gacha:null, gachaRatesDetail:false, gachaItemDetail:null });
       render(); window.scrollTo({top:0});
       return toast('データを初期化しました');
     }

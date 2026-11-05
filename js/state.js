@@ -9,6 +9,10 @@ import {
   charRankIndex, EVOLUTION_RULES, EVOLUTION_BY_FROM, RATE_TOTAL,
 } from './data.js?v=2';
 import { MATERIAL_ITEMS, MATERIAL_BY_ID, MAT_RANKS, MAT_RANK_INFO, RANK_REQUIREMENTS, materialUpgradeTarget } from './materials.js?v=2';
+import {
+  currentBanner, bannerRates, pickupDefIds, normalDefIds, allDefIds,
+  isPickup, isHidden, PICKUP_SHARE,
+} from './gacha.js?v=2';
 
 /* ---------- ユーティリティ ---------- */
 export const uid = () => `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 9)}`;
@@ -757,8 +761,12 @@ export function pullGacha(state, kind, count = 1) {
   if (state.coins < cost) return { ok:false, msg:`コインが ${fmt(cost)} 必要です` };
   addCoins(state, -cost, false);
   const pity = state.pity[kind] || (state.pity[kind] = normalizePity());
-  const results = [], pityLog = [];
+  const results = [], details = [], pityLog = [];
   const slots = kind === 'weapon' ? ['weapon'] : ['armor','accessory','ornament'];
+  // 演出を始める前に排出結果を完全に確定させる（スキップや演出で結果は変わらない）
+  const bannerInfo = kind === 'weapon' ? currentBanner() : null;
+  const banner = bannerInfo?.banner || null;
+  const rateMap = banner ? Object.fromEntries(bannerRates(banner).map(r => [r.id, r])) : null;
   for (let i = 0; i < count; i++) {
     let rarity, forced = null;
     // 独立天井：ミシック天井を優先、次にレジェンダリー天井
@@ -771,16 +779,44 @@ export function pullGacha(state, kind, count = 1) {
     pity.legendary = ['L','M','S'].includes(rarity) ? 0 : pity.legendary + 1;
     pity.mythic = ['M','S'].includes(rarity) ? 0 : pity.mythic + 1;
     pity.total++;
-    const pool = EQUIPMENT.filter(e => slots.includes(e.slot) && e.rarity === rarity);
-    const def = rand(pool.length ? pool : EQUIPMENT.filter(e => slots.includes(e.slot)));
+
+    let def, pickup = false, hidden = false;
+    if (kind === 'weapon' && banner) {
+      // レアリティ内で「ピックアップ枠」と「通常枠」を分ける。レアリティ率自体は不変。
+      const picks = pickupDefIds(banner, rarity);
+      const cond = rateMap[rarity] && rateMap[rarity].total > 0
+        ? rateMap[rarity].pickup / rateMap[rarity].total : 0;
+      if (picks.length && Math.random() < cond) {
+        const id = rand(picks);
+        def = EQUIP_BY_ID[id]; pickup = true; hidden = isHidden(banner, id);
+      } else {
+        const normal = normalDefIds(rarity, picks);
+        const fallback = allDefIds(rarity);
+        def = EQUIP_BY_ID[rand(normal.length ? normal : fallback)];
+      }
+    }
+    if (!def) {
+      const pool = EQUIPMENT.filter(x => slots.includes(x.slot) && x.rarity === rarity);
+      def = rand(pool.length ? pool : EQUIPMENT.filter(x => slots.includes(x.slot)));
+    }
+    const isNew = !state.catalog.equipment.includes(def.id);
     const inst = addEquipment(state, def.id);
     if (['L','M','S'].includes(rarity)) state.stats.gachaLegendary++;
-    const entry = { at:new Date().toISOString(), kind, rarity, defId:def.id, name:def.name,
-      legendaryBefore:beforeL, mythicBefore:beforeM, forced };
+    const at = new Date().toISOString();
+    const entry = { at, kind, rarity, defId:def.id, name:def.name,
+      legendaryBefore:beforeL, mythicBefore:beforeM, forced,
+      pickup, isNew, hidden, bannerId:banner?.id || null, bannerName:banner?.short || null };
     pity.history.push(entry);
-    if (pity.history.length > 60) pity.history.shift();
+    if (pity.history.length > 90) pity.history.shift();
     pityLog.push(forced ? `${def.name}（${forced}）` : def.name);
     results.push(inst);
+    details.push({
+      index:i, uid:inst.uid, defId:def.id, name:def.name, rarity,
+      type:def.type, slot:def.slot, color:def.color, desc:def.desc,
+      enhance:inst.enhance || 0, rank:inst.rank || 'R',
+      pickup, isNew, hidden, forced, bannerId:banner?.id || null,
+      legendaryBefore:beforeL, mythicBefore:beforeM, at,
+    });
   }
   // 10連ボーナス：進化素材（ガチャ結果画面に素材アイコンを表示する）
   let bonusMaterials = [];
@@ -791,9 +827,10 @@ export function pullGacha(state, kind, count = 1) {
   }
   state.stats.pulls += count;
   bump(state, 'pull', count);
-  logEvent(state, `${kind === 'weapon' ? '武器' : '装備'}ガチャを${count}回引いた。${pityLog.filter((_,i)=>false).join('')}`, 'gacha');
+  logEvent(state, `${kind === 'weapon' ? '武器' : '装備'}ガチャを${count}回引いた。`, 'gacha');
   checkAchievements(state);
-  return { ok:true, results, bonusMaterials, msg:`${count}連ガチャ完了！` };
+  return { ok:true, results, details, bonusMaterials, banner, bannerInfo,
+    msg:`${count}連ガチャ完了！` };
 }
 export function enhanceEquipment(state, instUid) {
   const inst = findInstance(state, instUid);
