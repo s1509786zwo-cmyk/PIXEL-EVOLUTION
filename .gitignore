@@ -1,0 +1,11 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# テスト用一時ファイル
+js/_cache_probe.js
+
+# OS / エディタ
+.DS_Store
+*.swp
