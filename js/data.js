@@ -6,7 +6,7 @@ import { MATERIAL_ITEMS } from './materials.js?v=2';
    - すべてプログラムで実体を持つデータ（ダミーなし）
    =========================================================== */
 
-export const VERSION = 4;
+export const VERSION = 5;
 export const MAX_LEVEL_BASE = 60;
 export const AWAKENING_NAMES = ['未覚醒', '覚醒I・萌芽', '覚醒II・進化', '覚醒III・超越', '覚醒IV・神化', '覚醒V・極致'];
 
@@ -47,10 +47,10 @@ export const charRankIndex = r => Math.max(0, CHAR_RARITY_ORDER.indexOf(r || 'R'
 
 /* 進化ルール：必要レベルはゲームバランスに合わせて調整（20/35/50/65） */
 export const EVOLUTION_RULES = [
-  { from:'R',   to:'SR',  level:20, coins:2500,  skill:'sk_light_impact', gain:'全能力 +18%' },
-  { from:'SR',  to:'SSR', level:35, coins:9000,  skill:'sk_star_nova',    gain:'全能力 +42%' },
-  { from:'SSR', to:'UR',  level:50, coins:26000, skill:'sk_awaken1',      gain:'全能力 +72%' },
-  { from:'UR',  to:'LR',  level:65, coins:64000, skill:'sk_secret',       gain:'全能力 +110%' },
+  { from:'R',   to:'SR',  level:20, coins:2500,  skill:'sk_light_impact', gain:'全ステータス +22% + 会心/奥義強化', rate:0.22 },
+  { from:'SR',  to:'SSR', level:35, coins:9000,  skill:'sk_star_nova',    gain:'全ステータス +34% + 会心/奥義強化', rate:0.34 },
+  { from:'SSR', to:'UR',  level:50, coins:26000, skill:'sk_awaken1',      gain:'全ステータス +48% + 会心/奥義強化', rate:0.48 },
+  { from:'UR',  to:'LR',  level:65, coins:64000, skill:'sk_secret',       gain:'全ステータス +65% + 会心/奥義強化', rate:0.65 },
 ];
 export const EVOLUTION_BY_FROM = Object.fromEntries(EVOLUTION_RULES.map(r => [r.from, r]));
 
@@ -175,9 +175,7 @@ function buildSkills() {
   }
   return list;
 }
-export const SKILLS = buildSkills();
-export const SKILL = Object.fromEntries(SKILLS.map(s => [s.id, s]));
-export const SKILL_COUNT = SKILLS.length; // 120+
+const BASE_SKILLS = buildSkills();
 
 /* -----------------------------------------------------------
    職業データ：基本職 / 上級職 / 特殊職
@@ -239,8 +237,148 @@ export const JOBS = [
   J('starguard','星輝の守護者',3,'✵','#ffe6a1',{hp:22,mp:16,atk:6.2,def:7.0,spd:4.0,mag:7.4,acc:1.4,eva:1.2},['剣','槍','杖','特殊'],'balanced',
     ['sk_star_judge','sk_star_eternal','sk_revive','sk_awaken1','sk_summon_dr','sk_light_nova'],
     { jobs:{knight:5,priest:4}, level:42, awakening:3 },'星の加護で戦場を支える最上位職。'),
+  // 特殊役職「神」：指定名ギミックを持つキャラだけが、ランクアップ／転生時に就ける
+  J('god','神',3,'✵','#fff6d0',{hp:32,mp:22,atk:11.5,def:9.2,spd:8.4,mag:11.8,acc:2.4,eva:2.0},
+    ['剣','銃','杖','斧','槍','弓','拳','短剣','特殊'],'balanced',
+    ['sk_god_flash','sk_god_heal','sk_god_nova','sk_god_barrier','sk_god_judge','sk_god_revive'],
+    { god:true },'指定された名前にのみ解放される最上位の特殊役職。全能力が通常職を大きく上回る。'),
 ];
 export const JOB = Object.fromEntries(JOBS.map(j => [j.id, j]));
+export const GOD_JOB_ID = 'god';
+export const GOD_SKILL_IDS = ['sk_god_flash','sk_god_heal','sk_god_nova','sk_god_barrier','sk_god_judge','sk_god_revive'];
+
+/* -----------------------------------------------------------
+   特殊ギミック：名前に含まれる文字列で「神」と専用奥義が解放される
+   ※ 判定は作成時の 1 回だけ。後から名前を変えても増加しない。
+   ----------------------------------------------------------- */
+export const SPECIAL_NAME_KEYS = [
+  { key:'飯山',   label:'飯山',   ultimateName:'飯山ラッシュ',       element:'none',     color:'#ff8f6b' },
+  { key:'三尾',   label:'三尾',   ultimateName:'三尾イッキ',         element:'thunder',  color:'#ffe066' },
+  { key:'すずそう', label:'すずそう', ultimateName:'地ならし',         element:'earth',    color:'#d8a866' },
+  { key:'河岡',   label:'河岡',   ultimateName:'おにーちゃん///', element:'light',    color:'#ff9ecf' },
+];
+export function specialNameKey(name) {
+  const n = String(name || '');
+  const hit = SPECIAL_NAME_KEYS.find(x => n.includes(x.key));
+  return hit ? hit.key : null;
+}
+export const SPECIAL_NAME_LABEL = Object.fromEntries(SPECIAL_NAME_KEYS.map(x => [x.key, x.label]));
+
+/* -----------------------------------------------------------
+   奥義：通常職 21 種 + 神 + 特殊ギミック 4 種
+   - cat:'奥義' / ultimate:true / gauge:100（専用ゲージが満ちないと使用不可）
+   - 通常技（最大威力 215）を大きく上回る
+   ----------------------------------------------------------- */
+export const ULTIMATE_GAUGE_MAX = 100;
+export const ULTIMATE_GAUGE_GAIN = 22;      // プレイヤーターンごと
+export const ULTIMATE_GAUGE_HIT_GAIN = 8;   // 被ダメージ時
+const JOB_ULT_CONFIG = {
+  warrior:    { name:'奥義・覇王崩天斬',   element:'none',     power:430, hits:1, scale:'atk', extra:[{op:'buff',stat:'atk',amount:55,dur:3,target:'self'}] },
+  fencer:     { name:'奥義・千刃一閃',     element:'wind',     power:150, hits:3, scale:'atk', extra:[{op:'debuff',stat:'def',amount:22,dur:2}] },
+  knight:     { name:'奥義・不落聖壁',     element:'earth',    power:390, hits:1, scale:'atk', extra:[{op:'shield',amount:260},{op:'buff',stat:'def',amount:60,dur:3,target:'self'}] },
+  mage:       { name:'奥義・元素終焉',     element:'fire',     power:470, hits:1, scale:'mag', extra:[{op:'status',status:'burn',chance:85,dur:3}] },
+  priest:     { name:'奥義・天啓の光',     element:'light',    power:410, hits:1, scale:'mag', extra:[{op:'heal',power:260,scale:'mag'},{op:'cleanse'}] },
+  thief:      { name:'奥義・百影殺',       element:'dark',     power:135, hits:4, scale:'atk', extra:[{op:'status',status:'poison',chance:85,dur:3}] },
+  archer:     { name:'奥義・天貫きの矢',   element:'wind',     power:455, hits:1, scale:'atk', extra:[{op:'debuff',stat:'eva',amount:30,dur:2}] },
+  monk:       { name:'奥義・爆覇連拳',     element:'earth',    power:145, hits:4, scale:'atk', extra:[{op:'buff',stat:'spd',amount:45,dur:3,target:'self'}] },
+  gunner:     { name:'奥義・雷弾終止符',   element:'thunder',  power:445, hits:1, scale:'atk', extra:[{op:'status',status:'paralysis',chance:70,dur:1}] },
+  summoner:   { name:'奥義・幻獣降臨',     element:'star',     power:430, hits:1, scale:'mag', extra:[{op:'summon',power:260}] },
+  alchemist:  { name:'奥義・賢者の方程式', element:'water',    power:420, hits:1, scale:'mag', extra:[{op:'restoreMp',amount:60},{op:'cleanse'}] },
+  ninja:      { name:'奥義・影縫い千連',   element:'dark',     power:140, hits:4, scale:'atk', extra:[{op:'status',status:'sleep',chance:65,dur:1}] },
+  swordmaster:{ name:'奥義・剣聖無双',     element:'light',    power:480, hits:1, scale:'atk', extra:[{op:'buff',stat:'acc',amount:40,dur:3,target:'self'}] },
+  archmage:   { name:'奥義・大魔導崩壊',   element:'fire',     power:500, hits:1, scale:'mag', extra:[{op:'drainMp',amount:40}] },
+  assassin:   { name:'奥義・即死の刻',     element:'dark',     power:490, hits:1, scale:'atk', extra:[{op:'status',status:'curse',chance:85,dur:3}] },
+  dragonknight:{ name:'奥義・竜皇焔撃',   element:'fire',     power:475, hits:1, scale:'atk', extra:[{op:'buff',stat:'atk',amount:50,dur:3,target:'self'}] },
+  spellblade: { name:'奥義・魔剣終極', element:'thunder', power:465, hits:1, scale:'mag', extra:[{op:'debuff',stat:'mag',amount:25,dur:2}] },
+  apostle:    { name:'奥義・奇跡の裁き',   element:'light',    power:460, hits:1, scale:'mag', extra:[{op:'heal',power:220,scale:'mag'}] },
+  destroyer:  { name:'奥義・万象壊滅',     element:'fire',     power:540, hits:1, scale:'atk', extra:[{op:'debuff',stat:'def',amount:30,dur:2}] },
+  timeweaver: { name:'奥義・時空終断',     element:'star',     power:520, hits:1, scale:'mag', extra:[{op:'status',status:'confuse',chance:80,dur:2}] },
+  starguard:  { name:'奥義・星輝創世',     element:'star',     power:505, hits:1, scale:'mag', extra:[{op:'shield',amount:240},{op:'heal',power:200,scale:'mag'}] },
+};
+function jobUltimate(job) {
+  const c = JOB_ULT_CONFIG[job.id] || JOB_ULT_CONFIG.warrior;
+  return {
+    id:`ult_${job.id}`, name:c.name, element:c.element, cat:'奥義',
+    mp:42, cd:5, gauge:ULTIMATE_GAUGE_MAX, fx:'ultimate', power:c.power,
+    ultimate:true, jobId:job.id, tier:9, source:'evolution',
+    desc:`${job.name}の最上位技。通常技を大きく上回る威力と固有の追加効果を持つ。`,
+    parts:[{ op:'damage', power:c.power, scale:c.scale, hits:c.hits, trueHit:true, pierce:0.25 }, ...c.extra],
+  };
+}
+export const JOB_ULTIMATES = JOBS.filter(j => j.id !== 'god').map(jobUltimate);
+export const JOB_ULTIMATE = Object.fromEntries(JOB_ULTIMATES.map(u => [u.jobId, u.id]));
+
+export const GOD_ULTIMATE_ID = 'ult_god';
+export const GOD_ULTIMATE = {
+  id:GOD_ULTIMATE_ID, name:'奥義・神創世記', element:'star', cat:'奥義',
+  mp:56, cd:5, gauge:ULTIMATE_GAUGE_MAX, fx:'ultimate', power:620,
+  ultimate:true, godOnly:true, jobId:'god', tier:9, source:'evolution',
+  desc:'「神」のみが使える最上位の奥義。全能力を底上げしつつ敵を薙ぎ払う。',
+  parts:[
+    { op:'damage', power:620, scale:'mag', hits:2, trueHit:true, pierce:0.4 },
+    { op:'buff', stat:'atk', amount:70, dur:4, target:'self' },
+    { op:'buff', stat:'mag', amount:70, dur:4, target:'self' },
+    { op:'heal', power:280, scale:'mag' },
+  ],
+};
+
+const SPECIAL_ULT_PARTS = {
+  '飯山': [
+    { op:'damage', power:95,  scale:'atk', hits:5, trueHit:true },
+    { op:'damage', power:330, scale:'atk', hits:1, trueHit:true, pierce:0.3 },
+    { op:'debuff', stat:'def', amount:24, dur:2 },
+  ],
+  '三尾': [
+    { op:'damage', power:145, scale:'atk', hits:3, trueHit:true },
+    { op:'damage', power:360, scale:'atk', hits:1, trueHit:true, pierce:0.35 },
+    { op:'buff', stat:'atk', amount:50, dur:3, target:'self' },
+  ],
+  'すずそう': [
+    { op:'damage', power:270, scale:'atk', hits:1, trueHit:true, pierce:0.4 },
+    { op:'damage', power:180, scale:'atk', hits:3, trueHit:true },
+    { op:'debuff', stat:'spd', amount:35, dur:2 },
+  ],
+  '河岡': [
+    { op:'buff', stat:'atk', amount:85, dur:4, target:'self' },
+    { op:'buff', stat:'mag', amount:85, dur:4, target:'self' },
+    { op:'buff', stat:'def', amount:65, dur:4, target:'self' },
+    { op:'heal', power:280, scale:'mag' },
+    { op:'damage', power:360, scale:'mag', hits:1, trueHit:true, pierce:0.3 },
+  ],
+};
+export const SPECIAL_ULTIMATES = SPECIAL_NAME_KEYS.map(x => ({
+  id:`ult_special_${SPECIAL_NAME_KEYS.indexOf(x)}`, name:x.ultimateName, element:x.element,
+  cat:'奥義', mp:38, cd:4, gauge:ULTIMATE_GAUGE_MAX, fx:'ultimate',
+  power:340, ultimate:true, special:x.key, tier:9, source:'evolution',
+  desc:`「${x.label}」の名を宿す者だけが使える特別な奥義。ランク進化で威力と効果が強化される。`,
+  parts:SPECIAL_ULT_PARTS[x.key],
+}));
+export const SPECIAL_ULTIMATE = Object.fromEntries(SPECIAL_NAME_KEYS.map((x,i) => [x.key, SPECIAL_ULTIMATES[i].id]));
+export const ULTIMATE_SKILLS = [...JOB_ULTIMATES, GOD_ULTIMATE, ...SPECIAL_ULTIMATES];
+export const ULTIMATE_IDS = new Set(ULTIMATE_SKILLS.map(u => u.id));
+
+/* 神専用技（通常技として習得） */
+const GOD_SKILLS = [
+  { id:'sk_god_flash', name:'神閃', element:'light', cat:'神専用技', mp:16, cd:2, fx:'prism', power:230,
+    parts:[{op:'damage',power:230,scale:'atk',hits:2,trueHit:true}], desc:'神の光が二度走る。' },
+  { id:'sk_god_heal', name:'神癒', element:'light', cat:'神専用技', mp:20, cd:3, fx:'heal', power:0,
+    parts:[{op:'heal',power:300,scale:'mag'},{op:'cleanse'}], desc:'全快に近い回復と状態解除。' },
+  { id:'sk_god_nova', name:'神新星', element:'star', cat:'神専用技', mp:30, cd:4, fx:'nova', power:320,
+    parts:[{op:'damage',power:320,scale:'mag',hits:1,trueHit:true},{op:'status',status:'stun',chance:50,dur:1}], desc:'星を裂く大魔法。' },
+  { id:'sk_god_barrier', name:'神壁', element:'earth', cat:'神専用技', mp:22, cd:3, fx:'buff', power:0,
+    parts:[{op:'shield',amount:420},{op:'buff',stat:'def',amount:70,dur:4,target:'self'}], desc:'絶対の防壁を張る。' },
+  { id:'sk_god_judge', name:'神裁', element:'light', cat:'神専用技', mp:34, cd:4, fx:'holy', power:360,
+    parts:[{op:'damage',power:360,scale:'atk',hits:1,trueHit:true,pierce:0.35}], desc:'裁きの一撃。' },
+  { id:'sk_god_revive', name:'神息吹', element:'star', cat:'神専用技', mp:26, cd:4, fx:'prism', power:0,
+    parts:[{op:'restoreMp',amount:80},{op:'status',status:'regen',chance:100,dur:4,target:'self'}], desc:'MPを満たし再生を付与。' },
+].map(x => ({ ...x, tier:9, source:'god' }));
+
+export const SKILLS = [...BASE_SKILLS, ...GOD_SKILLS, ...ULTIMATE_SKILLS];
+export const SKILL = Object.fromEntries(SKILLS.map(s => [s.id, s]));
+export const SKILL_COUNT = SKILLS.length;
+/** BP・技の書で習得できる技（奥義は進化／ギミック専用） */
+export const LEARNABLE_SKILLS = SKILLS.filter(s => !s.ultimate && s.source !== 'god');
+export const LEARNABLE_SKILL_COUNT = LEARNABLE_SKILLS.length;
 export const WEAPON_TYPES = ['剣','銃','杖','斧','槍','弓','拳','短剣','特殊'];
 
 /* -----------------------------------------------------------
@@ -300,6 +438,19 @@ const EFFECT_POOL = [
   { id:'expBonus', name:'賢者の加護', desc:'獲得EXP+10%', value:10 },
   { id:'coinBonus', name:'福運', desc:'獲得コイン+12%', value:12 },
   { id:'bpBonus', name:'闘志', desc:'獲得BP+10%', value:10 },
+  { id:'critDamage', name:'会心威力', desc:'クリティカルダメージ+35%', value:35 },
+  { id:'ultimatePower', name:'奥義強化', desc:'奥義威力+30%', value:30 },
+  { id:'normalAttackPower', name:'通常攻撃強化', desc:'通常攻撃の威力+25%', value:25 },
+  { id:'extraDamage', name:'追加打撃', desc:'攻撃時に固定追加ダメージ', value:45 },
+  { id:'element_fire', name:'火属性強化', desc:'火属性の攻撃力+30%', value:30 },
+  { id:'element_water', name:'水属性強化', desc:'水属性の攻撃力+30%', value:30 },
+  { id:'element_wind', name:'風属性強化', desc:'風属性の攻撃力+30%', value:30 },
+  { id:'element_earth', name:'土属性強化', desc:'土属性の攻撃力+30%', value:30 },
+  { id:'element_thunder', name:'雷属性強化', desc:'雷属性の攻撃力+30%', value:30 },
+  { id:'element_ice', name:'氷属性強化', desc:'氷属性の攻撃力+30%', value:30 },
+  { id:'element_light', name:'光属性強化', desc:'光属性の攻撃力+30%', value:30 },
+  { id:'element_dark', name:'闇属性強化', desc:'闇属性の攻撃力+30%', value:30 },
+  { id:'element_star', name:'星属性強化', desc:'星属性の攻撃力+30%', value:30 },
 ];
 export const EFFECTS = Object.fromEntries(EFFECT_POOL.map(e => [e.id, e]));
 
@@ -336,7 +487,23 @@ function buildEquipment() {
   return defs;
 }
 export const EQUIPMENT = buildEquipment();
-export const EQUIP_BY_ID = Object.fromEntries(EQUIPMENT.map(e => [e.id, e]));
+/** 神専用装備：通常のガチャ・交換・合成の排出プールには入れない */
+export const GOD_EQUIPMENT = [
+  { id:'eq_god_weapon', slot:'weapon', type:'特殊', name:'神器・創世の剣', rarity:'S', godOnly:true,
+    stats:{ atk:180, acc:14, mag:60, hp:120, effects:[{id:'ultimatePower',value:60},{id:'critDamage',value:70},{id:'ignoreDef',value:30},{id:'element_star',value:45}] },
+    desc:'神のみが扱える最上位の武器。', color:'#fff6d0', glow:'prism' },
+  { id:'eq_god_armor', slot:'armor', type:'法衣', name:'神衣・天穹', rarity:'S', godOnly:true,
+    stats:{ def:120, hp:420, eva:10, mp:80, effects:[{id:'damageCut',value:18},{id:'hpRegen',value:8},{id:'statusGuard',value:60}] },
+    desc:'神を包む天穹の衣。', color:'#fff6d0', glow:'prism' },
+  { id:'eq_god_accessory', slot:'accessory', type:'指輪', name:'神環・∞', rarity:'S', godOnly:true,
+    stats:{ spd:60, acc:20, eva:12, effects:[{id:'crit',value:25},{id:'critDamage',value:55},{id:'extraStrike',value:30}] },
+    desc:'無限を刻む神の指輪。', color:'#fff6d0', glow:'prism' },
+  { id:'eq_god_ornament', slot:'ornament', type:'宝珠', name:'神核・始源', rarity:'S', godOnly:true,
+    stats:{ mag:90, mp:140, effects:[{id:'ultimatePower',value:55},{id:'element_light',value:50},{id:'mpRegen',value:12}] },
+    desc:'始源の力を宿す宝珠。', color:'#fff6d0', glow:'prism' },
+];
+export const GOD_EQUIPMENT_IDS = GOD_EQUIPMENT.map(e => e.id);
+export const EQUIP_BY_ID = Object.fromEntries([...EQUIPMENT, ...GOD_EQUIPMENT].map(e => [e.id, e]));
 
 /* -----------------------------------------------------------
    アイテム / 素材
@@ -461,7 +628,7 @@ export const ACHIEVEMENTS = [
   { id:'a_jobs', name:'万物の適性', desc:'8つの職業を経験する', cond:s=>s.characters.some(c=>Object.keys(c.jobLevels).length>=8), reward:{coins:4000,bp:100}, title:'万能の才' },
   { id:'a_alljobs', name:'全職制覇', desc:'全職業を経験する', cond:s=>s.characters.some(c=>Object.keys(c.jobLevels).length>=JOBS.length), reward:{coins:20000,bp:500}, title:'職業の覇者' },
   { id:'a_skills40', name:'技の収集家', desc:'技を40種集める', cond:s=>collectedSkills(s).length>=40, reward:{bp:150,items:{book_high:1}}, title:'技博覧' },
-  { id:'a_allskills', name:'全技網羅', desc:'全ての技を集める', cond:s=>collectedSkills(s).length>=SKILLS.length, reward:{bp:1200,coins:30000}, title:'技の化身' },
+  { id:'a_allskills', name:'全技網羅', desc:'全ての技を集める', cond:s=>collectedSkills(s).filter(id=>!ULTIMATE_IDS.has(id)&&SKILL[id]?.source!=='god').length>=LEARNABLE_SKILL_COUNT, reward:{bp:1200,coins:30000}, title:'技の化身' },
   { id:'a_equip', name:'武具愛好家', desc:'装備を30種集める', cond:s=>s.catalog.equipment.length>=30, reward:{coins:2500,items:{mat_ore:5}}, title:'鑑定士' },
   { id:'a_secret', name:'虹の閃き', desc:'シークレット装備を入手', cond:s=>s.inventory.equipment.some(e=>e.rarity==='S'), reward:{bp:300,coins:8000}, title:'虹を掴みし者' },
   { id:'a_boss', name:'塔の征服者', desc:'ボスを3体倒す', cond:s=>s.stats.bossKills>=3, reward:{bp:250,items:{mat_proof:2,boss_core_UR:1}}, title:'征伐者' },
@@ -513,6 +680,7 @@ export const EXCHANGE = [
   { id:'ex_mat_ssr', name:'魔力結晶・SSR', kind:'item', item:'mana_crystal_SSR', count:1, cost:220, desc:'SSR進化素材' },
   { id:'ex_mat_ur', name:'ボスの核・UR', kind:'item', item:'boss_core_UR', count:1, cost:520, desc:'UR進化素材' },
   { id:'ex_mat_lr', name:'伝説の素材・LR', kind:'item', item:'legend_mat_LR', count:1, cost:1100, desc:'LR最終進化素材' },
+  { id:'ex_god_eq', name:'神専用装備（ランダム）', kind:'godEquip', cost:1800, desc:'特殊役職「神」のみ装備可能。解放者だけ交換できる' },
 ];
 
 /* -----------------------------------------------------------

@@ -6,6 +6,9 @@ import {
   SKILLS, SKILL, JOBS, JOB, EQUIPMENT, EQUIP_BY_ID, ITEM, ITEMS, ENEMIES, ENEMY,
   RANKS, QUESTS, ACHIEVEMENTS, TITLES, TITLE, EXCHANGE, STYLES, FACILITIES, SLOTS,
   SLOT_NAME, AWAKENING_NAMES, MAX_LEVEL_BASE, collectedSkills, EFFECTS,
+  LEARNABLE_SKILL_COUNT, SPECIAL_NAME_LABEL, specialNameKey, GOD_JOB_ID,
+  ULTIMATE_GAUGE_MAX, JOB_ULTIMATE, GOD_ULTIMATE_ID, SPECIAL_ULTIMATE,
+  ULTIMATE_IDS, SKILL_COUNT,
   CHAR_RARITIES, CHAR_RARITY, CHAR_RARITY_ORDER, charRankIndex, EVOLUTION_RULES, RATE_TOTAL,
 } from './data.js?v=2';
 import {
@@ -18,6 +21,7 @@ import {
   buildEnemyCombatant, hasSaveFlag, AURAS, gachaRates, defaultPixelSettings,
   defaultImageSettings, evolutionPreview, equipmentEvolvePreview, instanceRank,
   PITY_LEGENDARY, PITY_MYTHIC, charRank, upgradeMaterial,
+  jobChangeCandidates,
 } from './state.js?v=2';
 import {
   materialIcon, MATERIAL_ITEMS, MATERIAL_BY_ID, MAT_RANKS, MAT_RANK_INFO,
@@ -126,9 +130,14 @@ function editorSettings(target, st, opts = {}) {
   </div>`;
 }
 
+const EXTRA_STAT_ROWS = [
+  ['mdef','🜛','魔法防御力'], ['crit','✦','クリティカル率'],
+  ['critDamage','✧','クリティカルダメージ'], ['ultimatePower','✵','奥義威力'],
+];
 function statTable(st, extra = '') {
   return `<div class="stat-grid">${STAT_KEYS.map(k => `
-    <div class="stat-cell"><span>${STAT_ICONS[k]} ${STAT_NAMES[k]}</span><b>${fmt(st[k]||0)}</b>${extra ? '' : ''}</div>`).join('')}</div>`;
+    <div class="stat-cell"><span>${STAT_ICONS[k]} ${STAT_NAMES[k]}</span><b>${fmt(st[k]||0)}</b></div>`).join('')}
+    ${EXTRA_STAT_ROWS.map(([k,icon,name])=>`<div class="stat-cell extra"><span>${icon} ${name}</span><b>${fmt(st[k]||0)}${k==='crit'||k==='ultimatePower'?'%':k==='critDamage'?'%':''}</b></div>`).join('')}</div>`;
 }
 
 /* ============================ タイトル ============================ */
@@ -144,11 +153,10 @@ function titleScreen(app, s) {
     <div class="title-inner">
       <div class="title-crest">✦ ORIGINAL CHARACTER FIGHTERS ✦</div>
       <h1 class="game-title">オリキャラ<br><span>ファイターズ</span></h1>
-      <p class="title-lead">あなたの一枚が、最強の戦士になる。<br>画像をそのまま使う育成・対戦RPG</p>
+      <p class="title-lead">あなたの一枚が、最強の戦士になる。<br>ゲームスタートで<b>街のホーム画面</b>へ。キャラクター作成も街から始められます。</p>
       <div class="title-menu">
         <button class="btn btn-primary btn-lg" data-action="titleStart">⚔　ゲームスタート</button>
         <button class="btn btn-glass btn-lg" data-action="titleContinue">📂　つづきから${has ? `<small>セーブデータあり</small>` : `<small>データなし</small>`}</button>
-        <button class="btn btn-glass btn-lg" data-action="titleCreate">🎨　キャラクター作成</button>
         <button class="btn btn-glass btn-lg" data-action="titleCodex">📖　図鑑</button>
         <button class="btn btn-glass btn-lg" data-action="titleSettings">⚙　設定</button>
       </div>
@@ -232,7 +240,7 @@ function createScreen(app, s) {
   return `${navBar(app,s)}<main class="page create-page">
     <div class="page-head"><div><h2>🎨 キャラクター作成</h2>
       <p>あなたの画像を<b>そのまま</b>使います。ドット絵変換・AI描き直し・色や顔の変更は一切ありません。</p></div>
-      <button class="btn btn-ghost" data-action="nav" data-to="${s.characters.length?'town':'title'}">${s.characters.length?'街へ戻る':'タイトルへ'}</button></div>
+      <button class="btn btn-ghost" data-action="nav" data-to="town">🏰 街へ戻る</button></div>
     ${stepIndicator(1)}
     <div class="editor-grid">
       <section class="panel editor-preview">
@@ -283,6 +291,102 @@ function appearanceScreen(app, s) {
     </div></main>${toastArea(app)}`;
 }
 
+/* ---------------- 街のホームメニュー ---------------- */
+function homeMenu(s) {
+  return [
+    { icon:'🎨', name:'キャラクター作成', desc:'元画像をそのまま使って新規作成', action:'newChar', color:'#ffd77a' },
+    { icon:'✦',  name:'育成の間',       desc:'ステータス・職業・技・覚醒・進化', action:'nav', to:'facility', facility:'nurture', tab:0, color:'#5ec8ff' },
+    { icon:'⚔',  name:'修行場',         desc:'トレーニング・技の練習・クエスト', action:'nav', to:'facility', facility:'training', tab:0, color:'#8ce6a8' },
+    { icon:'⚒',  name:'武器・装備工房', desc:'装備・強化・合成・ランク進化', action:'nav', to:'facility', facility:'forge', tab:0, color:'#ffb45e' },
+    { icon:'🛒',  name:'道具屋',         desc:'回復・素材・売却', action:'nav', to:'facility', facility:'shop', tab:0, color:'#e7a8ff' },
+    { icon:'✧',  name:'ガチャ',         desc:'ピックアップ武器ガチャ・履歴', action:'nav', to:'facility', facility:'forge', tab:1, color:'#68f7d4' },
+    { icon:'📖',  name:'ストーリー',     desc:'章の進行・解放状況', action:'nav', to:'story', color:'#c58cff' },
+    { icon:'💠',  name:'素材集め',       desc:'進化素材の入手先へ', action:'nav', to:'gather', color:'#9be9ff' },
+    { icon:'🏛',  name:'CPU対戦',       desc:'対戦・ダンジョン・報酬', action:'nav', to:'facility', facility:'guild', tab:0, color:'#ff9e7a' },
+    { icon:'📚',  name:'図鑑',           desc:'職業・技・装備・CPU・実績', action:'nav', to:'codex', color:'#ffe6a1' },
+    { icon:'❓',  name:'ヘルプ',         desc:'あそび方・変更点・セーブ', action:'nav', to:'help', color:'#a9b4c4' },
+  ];
+}
+
+/* ---------------- ストーリー / 素材集め / ヘルプ ---------------- */
+const STORY_CHAPTERS = [
+  { id:1, name:'第1章・旅立ち', text:'クリスタルタウンに一人の冒険者が現れた。まずは自分の姿を確かめ、街の施設を巡ろう。', cond:()=>true },
+  { id:2, name:'第2章・初陣', text:'冒険者ギルドでCPUと手合わせし、初めての勝利を掴む。', cond:(s)=>s.stats.wins>=1 },
+  { id:3, name:'第3章・鍛冶の火', text:'工房で武器を強化し、ランク進化の素材を集める。装備があなたを大きく変える。', cond:(s)=>s.stats.evolutions>=1||s.stats.equipEvolutions>=1 },
+  { id:4, name:'第4章・進化の光', text:'レベルではなくランクの進化。全ステータスが跳ね上がり、新たな技が芽生える。', cond:(s)=>s.characters.some(c=>charRank(c.rarity)>0) },
+  { id:5, name:'第5章・奥義の継承', text:'LRへの進化で職業の奥義が目覚める。指定の名を宿す者は、さらに特別な奥義を継ぐ。', cond:(s)=>s.characters.some(c=>c.ultimateSkills?.length) },
+  { id:6, name:'第6章・虚無の王', text:'ダンジョンの最深部で待つ隠しボス。全ての育成をぶつけろ。', cond:(s)=>s.stats.hiddenKills>=1 },
+];
+function storyScreen(app, s) {
+  const cur = s.story?.chapter || 1, seen = s.story?.seen || [];
+  return `${navBar(app,s)}<main class="page"><div class="page-head"><div><h2>📖 ストーリー</h2><p>進行状況はセーブされます。街からいつでも読み返せます。</p></div><button class="btn btn-ghost" data-action="nav" data-to="town">🏰 街へ戻る</button></div>
+    <div class="story-list">${STORY_CHAPTERS.map(ch=>`<section class="story-chapter ${ch.id<=cur?'open':''} ${seen.includes(ch.id)?'read':''}">
+      <div class="sc-head"><span class="pill ${ch.id<=cur?'on':'off'}">${ch.id<=cur?'解放済':'未解放'}</span><h3>${e(ch.name)}</h3></div>
+      <p>${e(ch.text)}</p><small>${ch.cond(s)?'条件達成':'未達成'}${seen.includes(ch.id)?' / 読了':''}</small>
+      ${ch.id===cur?`<button class="btn btn-mini" data-action="storyRead" data-id="${ch.id}">📖 読む</button>`:''}</section>`).join('')}</div>
+    <div class="hint-box">章は育成・対戦・進化の進行に合わせて解放されます。現在の章：<b>第${cur}章</b> / 全 ${STORY_CHAPTERS.length} 章。</div></main>${toastArea(app)}`;
+}
+function gatherScreen(app, s) {
+  const links = [
+    ['⚔','CPU対戦','勝利で進化素材・ボス素材を入手','nav','facility','guild',0],
+    ['🕳','ダンジョン','階層を進めて高ランク素材','nav','facility','guild',1],
+    ['📜','修行クエスト','日替わり・修行クエスト報酬','nav','facility','training',2],
+    ['✧','ガチャ10連','10連ボーナスでR素材','nav','facility','forge',1],
+    ['🛒','道具屋・素材','R素材の購入と素材合成','nav','facility','shop',2],
+  ];
+  return `${navBar(app,s)}<main class="page"><div class="page-head"><div><h2>💠 素材集め</h2><p>8種類 × 5ランク = 40種の進化素材。入手先へ直行できます。</p></div><button class="btn btn-ghost" data-action="nav" data-to="town">🏰 街へ戻る</button></div>
+    <div class="home-menu">${links.map(([icon,name,desc,action,to,facility,tab])=>`<button class="home-menu-card" data-action="${action}" data-to="${to}" data-facility="${facility}" data-tab="${tab}" style="--hc:#9be9ff"><span class="hm-icon">${icon}</span><b>${e(name)}</b><small>${e(desc)}</small></button>`).join('')}</div>
+    <div class="panel soft mt"><h4>📗 素材図鑑を確認</h4><p class="muted">素材をクリックすると必要個数・入手方法・合成先を確認できます。</p><button class="btn btn-glass" data-action="nav" data-to="codex" data-codex-tab="6">素材図鑑を開く</button></div></main>${toastArea(app)}`;
+}
+function helpScreen(app, s) {
+  return `${navBar(app,s)}<main class="page"><div class="page-head"><div><h2>❓ ヘルプ</h2><p>あそび方と今回の変更点</p></div><button class="btn btn-ghost" data-action="nav" data-to="town">🏰 街へ戻る</button></div>
+    <div class="two-col"><section class="panel soft"><h3>🎮 あそび方</h3><ol class="flow">
+      <li>タイトルで<b>ゲームスタート</b> → <b>街のホーム画面</b></li>
+      <li>キャラクター未作成なら街の「キャラクターを作成する」から作成（完了後は街へ戻る）</li>
+      <li>街のホームメニューから育成の間・修行場・工房・道具屋・ガチャ・CPU対戦へ</li>
+      <li>施設の「🏰 街へ戻る」でいつでもホームに戻れます</li>
+      <li>勝利でコイン・EXP・BP・素材を獲得。ランク進化で全ステータスが大幅上昇</li>
+    </ol></section><section class="panel soft"><h3>⚒ 装備とランク</h3><ul class="flow">
+      <li>装備はレアリティが高いほど攻撃力などが大幅に上昇。レベル・ランクでも調整されます</li>
+      <li>高レア装備は会心・奥義威力・属性・追加ダメージ・防御貫通などが戦闘に反映されます</li>
+      <li>装備を外すと上昇分は解除。同じ装備の重複加算も発生しません</li>
+      <li>ランク進化 R→SR→SSR→UR→LR のボーナスは装備と別に永続保存されます</li>
+      <li>役職変更は<b>ランクアップ時・転生時のみ</b>。通常画面では現在の役職を確認できます</li>
+    </ul></section></div>
+    <div class="two-col mt"><section class="panel soft"><h3>✦ 奥義</h3><ul class="flow">
+      <li>LR進化で職業専用の奥義を習得。神は神専用奥義を習得します</li>
+      <li>指定名（飯山 / 三尾 / すずそう / 河岡）は<b>R→SR進化時</b>に専用奥義を習得</li>
+      <li>奥義は専用ゲージが 100% で使用可能。使用後は 0 に戻り連続使用できません</li>
+      <li>威力はランク・能力値・装備・職業で強化。専用演出と効果音付き</li>
+    </ul></section><section class="panel soft"><h3>AUTO とセーブ</h3><ul class="flow">
+      <li>戦闘中いつでも AUTO / 手動を切替。ターンは飛びません</li>
+      <li>AUTO 中は 1倍 / 2倍 / 3倍速を切替。OFF なら通常速度に戻ります</li>
+      <li>戦闘中の表示サイズ変更は廃止。開始前の「見た目の変更」で設定し固定です</li>
+      <li>役職・役職変更履歴・AUTO設定・奥義・神の解放・ストーリー進行はすべてセーブされます</li>
+    </ul></section></div></main>${toastArea(app)}`;
+}
+
+/* ---------------- 役職変更の機会（ランクアップ / 転生のみ） ---------------- */
+function jobChangeModal(app, s) {
+  const o = app.jobChangeOffer;
+  if (!o) return '';
+  const c = activeChar(s);
+  if (!c) return '';
+  const candidates = jobChangeCandidates(s, c);
+  const cur = JOB[c.jobId];
+  return `<div class="modal-backdrop job-change-modal"><div class="modal-card wide">
+    <h3>✵ ${o.reason==='rebirth'?'転生':'ランクアップ'}：役職変更の機会</h3>
+    <p class="muted small">${o.reason==='rebirth'?'転生':'ランクが上がった'}タイミングでのみ役職を変更できます。変更しなければ現在の役職を維持します。</p>
+    <div class="callout">現在の役職：<b>${cur.icon} ${e(cur.name)}</b> / ランク ${e(c.rarity)} / ${c.specialKey?`<span class="pill on">特殊ギミック：${e(SPECIAL_NAME_LABEL[c.specialKey])}</span>`:''}</div>
+    <h4 class="mt">変更先を選ぶ（解放済み ${candidates.length} 職）</h4>
+    <div class="job-change-grid">${candidates.map(j=>`<button class="job-pick-card ${j.req?.god?'god':''}" data-action="jobChangePick" data-job="${j.id}" style="--jc:${j.color}">
+      <span class="job-pick-top"><span class="job-pick-icon">${j.icon}</span><b>${e(j.name)}</b>${j.req?.god?'<span class="pill on">神</span>':''}</span>
+      <span class="job-pick-desc">${e(j.desc)}</span><span class="job-pick-meta">${e(jobReqText(j))} / ${fmt(j.tier*500)}コイン</span></button>`).join('') || '<p class="muted">現在変更できる役職はありません。</p>'}</div>
+    <div class="row-btns mt"><button class="btn btn-primary btn-lg" data-action="jobChangeKeep">現在の役職を維持する</button></div>
+    <div class="hint-box small">この選択はセーブされ、ランクアップ時・転生時の役職変更履歴として残ります。</div>
+  </div></div>`;
+}
+
 /* ============================ 街 ============================ */
 function townScreen(app, s) {
   const c = activeChar(s);
@@ -299,14 +403,20 @@ function townScreen(app, s) {
         <div class="town-metrics">${c ? `${rankBadge(c?.rarity || 'R')}<span>⚔ 戦闘力 <b>${fmt(powerScore(c,s))}</b></span><span>🏅 ${e(r.name)}</span><span>🔥 連勝 ${s.winStreak} / 最高 ${s.bestStreak}</span><span>📊 ${s.stats.wins}勝 ${s.stats.losses}敗</span>` : ''}</div>
       </div>
       <div class="town-quick">
+        ${!c ? `<button class="btn btn-primary btn-lg home-create" data-action="newChar">🎨 キャラクターを作成する</button>` : ''}
         <button class="btn btn-primary" data-action="nav" data-to="facility" data-facility="guild" data-tab="0">⚔ CPU対戦へ</button>
         <button class="btn btn-glass" data-action="nav" data-to="character">🧙 キャラクター</button>
         <button class="btn btn-glass" data-action="nav" data-to="codex">📖 図鑑</button>
         <button class="btn btn-glass" data-action="nav" data-to="endgame">🏆 やり込み</button>
-        <button class="btn btn-glass" data-action="newChar">🎨 新規作成</button>
+        ${c ? `<button class="btn btn-glass" data-action="newChar">🎨 新規作成</button>` : ''}
         <button class="btn btn-ghost" data-action="saveNow">💾 今すぐセーブ</button>
       </div>
+      ${c && c.specialKey ? `<div class="callout gold">✵ 特殊ギミック発動：<b>${e(SPECIAL_NAME_LABEL[c.specialKey])}</b> の名を宿す者。特殊役職「神」と専用奥義が解放されています。${c.godUnlocked && c.jobId===GOD_JOB_ID ? '現在「神」に就いています。' : '役職変更はランクアップ時・転生時のみ可能です。'}</div>` : ''}
     </div>
+    ${!c ? `<div class="home-create-banner"><div><h3>🎨 まずはキャラクターを作成しよう</h3><p>元画像をそのまま使って、街の施設で育成・装備・ガチャ・対戦ができます。</p></div><button class="btn btn-primary btn-lg" data-action="newChar">キャラクターを作成する →</button></div>` : ''}
+    <h3 class="section-title">🏛 街のホームメニュー <small>ゲーム全体の中心となる拠点</small></h3>
+    <div class="home-menu">${homeMenu(s).map(m=>`<button class="home-menu-card" data-action="${m.action}" ${m.to?`data-to="${m.to}"`:''} ${m.facility?`data-facility="${m.facility}"`:''} ${m.tab!==undefined?`data-tab="${m.tab}"`:''} style="--hc:${m.color}">
+      <span class="hm-icon">${m.icon}</span><b>${e(m.name)}</b><small>${e(m.desc)}</small></button>`).join('')}</div>
     <h3 class="section-title">🏛 5つの施設 <small>それぞれの背景はあなたが添付した画像をそのまま使用しています</small></h3>
     <div class="facility-cards">${FACILITIES.map(f => `
       <button class="facility-card" data-action="nav" data-to="facility" data-facility="${f.id}" style="--accent:${f.color}">
@@ -811,27 +921,32 @@ function nurtureTab(tab, app, s) {
   }
   if (tab === 1) {
     const jobSum = Object.values(c.jobLevels).reduce((a,b)=>a+b,0);
-    return `<div class="callout">現在の職業：<b>${job.icon} ${e(job.name)}</b> / 職業Lv.${c.jobLevels[c.jobId]||1} / 全職業熟練度合計 ${jobSum}。職業Lvを上げると技を習得し、上級職が解放されます。</div>
+    const hist = [...(c.jobChangeHistory||[])].reverse().slice(0,8);
+    return `<div class="callout">現在の役職：<b>${job.icon} ${e(job.name)}</b> / 職業Lv.${c.jobLevels[c.jobId]||1} / 全職業熟練度合計 ${jobSum}。<b>役職変更はランクアップ時・転生時のみ</b>可能です。ここでは確認だけできます。</div>
+    <div class="hint-box">変更の機会は「進化」タブでランクを上げたとき、または「やり込み」の転生時に表示されます。${c.godUnlocked?`<br><span class="pill on">特殊役職「神」解放済（${e(SPECIAL_NAME_LABEL[c.specialKey])}）</span>`:''}</div>
     <div class="job-grid">${JOBS.map(j=>{
       const ok = jobUnlocked(s,c,j), cur = c.jobId===j.id;
-      return `<button type="button" class="job-card ${cur?'current':''} ${ok?'':'locked'}" style="--jc:${j.color}" data-action="changeJob" data-job="${j.id}" ${cur||!ok?'disabled':''}>
-        <div class="job-top"><span class="job-icon">${j.icon}</span><div><b>${e(j.name)}</b><small>${['','基本職','上級職','特殊職'][j.tier]} / Lv.${c.jobLevels[j.id]||0}</small></div></div>
+      return `<div class="job-card ${cur?'current':''} ${ok?'':'locked'}" style="--jc:${j.color}">
+        <div class="job-top"><span class="job-icon">${j.icon}</span><div><b>${e(j.name)}</b><small>${j.req?.god?'特殊役職・神':['','基本職','上級職','特殊職'][j.tier]||'特殊職'} / Lv.${c.jobLevels[j.id]||0}</small></div></div>
         <p>${e(j.desc)}</p>
         <div class="job-growth">${STAT_KEYS.slice(2,6).map(k=>`<span>${STAT_NAMES[k].slice(0,2)} <b>${j.growth[k]}</b></span>`).join('')}</div>
         <small class="muted">武器：${j.weapons.join('・')}<br>解放：${e(jobReqText(j))}</small>
-        ${cur?`<span class="pill on">就業中（押して選択済み）</span>`:ok?`<span class="pill on">押して転職（${fmt(j.tier*500)}コイン）</span>`:`<span class="pill off">未解放</span>`}
-      </button>`;}).join('')}</div>
+        ${cur?`<span class="pill on">現在の役職（変更不可）</span>`:ok?`<span class="pill off">ランクアップ／転生時に変更可</span>`:`<span class="pill off">未解放</span>`}
+      </div>`;}).join('')}</div>
+    <div class="panel soft"><h4>役職変更履歴 <small class="muted">セーブされます</small></h4>
+      ${hist.length?`<div class="log-list">${hist.map(h=>`<div class="log-line"><span>${new Date(h.at).toLocaleString('ja-JP',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})}</span> ${e(h.reason==='rebirth'?'転生':'ランクアップ')} / ${e(h.from||'—')} → ${e(h.to||'—')} ${h.kept?'（維持）':''}</div>`).join('')}</div>`:'<p class="muted">まだ役職変更の履歴はありません。</p>'}</div>
     <div class="panel soft"><h4>職業熟練度一覧</h4><div class="mastery-grid">${Object.entries(c.jobLevels).map(([id,lv])=>`<div><span>${e(JOB[id]?.name||id)}</span>${bar(lv,30,`#6cc8ff`,`Lv.${lv} / 30`)}</div>`).join('')}</div></div>`;
   }
   if (tab === 2) {
     const filter = app.skillFilter || 'all';
     const cats = ['all',...new Set(SKILLS.map(x=>x.cat))];
     const offset = app.skillOffset || 0;
-    const unlearned = SKILLS.filter(x => !c.skills.some(y=>y.id===x.id) && (filter==='all'||x.cat===filter) && (x.cat!=='覚醒限定技'||c.awakening>=1));
+    const unlearned = SKILLS.filter(x => !c.skills.some(y=>y.id===x.id) && !x.ultimate && x.source!=='god'
+      && (filter==='all'||x.cat===filter) && (x.cat!=='覚醒限定技'||c.awakening>=1));
     const shown = unlearned.slice(offset, offset+24);
     const books = Object.entries(s.inventory.items).filter(([id,n])=>n>0 && ITEM[id]?.kind==='book');
     return `<div class="two-col">
-      <div class="panel soft"><h4>習得済みの技 <span class="pill">${c.skills.length} / ${SKILLS.length}</span></h4>
+      <div class="panel soft"><h4>習得済みの技 <span class="pill">${c.skills.filter(k=>!ULTIMATE_IDS.has(k.id)&&SKILL[k.id]?.source!=='god').length} / ${LEARNABLE_SKILL_COUNT}</span></h4>
         <p class="muted small">戦闘で使える技は最大8つ。★を押して入れ替えられます。熟練度は修行場で上げられます。</p>
         <div class="skill-list">${c.skills.map(k=>{const sk=SKILL[k.id]; const on=c.equippedSkills.includes(k.id);return `<div class="skill-line">${elementTag(sk.element)}<div><b>${e(sk.name)}</b><small>${e(sk.cat)} / 威力${sk.power||'—'} / MP${sk.mp} / CD${sk.cd} / 熟練${k.mastery}/20</small></div><button class="btn btn-mini ${on?'on':''}" data-action="skillToggle" data-skill="${sk.id}">${on?'★ 装備中':'☆ 装備'}</button></div>`;}).join('')}</div>
         <h4 class="mt">技の書を使う</h4>${books.length?`<div class="chip-row">${books.map(([id,n])=>`<button class="btn btn-mini" data-action="useBook" data-book="${id}">${e(ITEM[id].name)} ×${n}</button>`).join('')}</div>`:'<p class="muted">技の書を持っていません（道具屋・交換所で入手）</p>'}
@@ -870,12 +985,12 @@ function nurtureTab(tab, app, s) {
 /* ---------- 武器・装備工房 ---------- */
 function equipRow(inst, s, opts={}) {
   const def = instanceDef(inst);
-  const es = equipmentStats(inst);
+  const es = equipmentStats(inst, activeChar(s));
   return `<div class="equip-line ${opts.sel?'sel':''}">
     <span class="eq-glow" style="--rc:${def.color}"></span>
     <div class="eq-main"><b style="color:${def.color}">${e(def.name)} <small>+${inst.enhance||0}</small></b>
       <small>${e(def.type)} / ${e(SLOT_NAME[def.slot])} / ${STAT_KEYS.filter(k=>es[k]).map(k=>`${STAT_NAMES[k]}+${es[k]}`).join(' ') || '—'}</small>
-      ${(es.effects||[]).map(x=>`<small class="effect">✧ ${e(({crit:'会心強化',lifesteal:'吸血',mpRegen:'魔力循環',hpRegen:'自動回復',counter:'反撃',firstStrike:'先制',ignoreDef:'貫通',damageCut:'鉄壁',extraStrike:'追撃',statusGuard:'状態耐性',expBonus:'賢者の加護',coinBonus:'福運',bpBonus:'闘志'})[x.id]||x.id)} +${x.value}</small>`).join('')}
+      ${(es.effects||[]).map(x=>`<small class="effect">✧ ${e(EFFECTS[x.id]?.name||x.id)} +${x.value}</small>`).join('')}
     </div>${rarityTag(def.rarity)}${rankBadge(instanceRank(inst))}${opts.button||''}</div>`;
 }
 function forgeTab(tab, app, s) {
@@ -1097,7 +1212,15 @@ function codexScreen(app, s) {
   const collected = collectedSkills(s);
   let body = '';
   if (tab === 0) body = `<div class="callout">収集：${s.catalog.jobs.length} / ${JOBS.length} 職業。転職すると図鑑に記録されます。</div><div class="codex-grid">${JOBS.map(j=>`<div class="codex-card ${s.catalog.jobs.includes(j.id)?'':'unknown'}" style="--jc:${j.color}"><span>${j.icon}</span><b>${s.catalog.jobs.includes(j.id)?e(j.name):'？？？'}</b><small>${['','基本職','上級職','特殊職'][j.tier]} / ${e(jobReqText(j))}</small></div>`).join('')}</div>`;
-  if (tab === 1) body = `<div class="callout">全技収集：${collected.length} / ${SKILLS.length} 種 ${collected.length>=SKILLS.length?'🌟 コンプリート！':''}</div><div class="codex-skills">${SKILLS.map(sk=>`<div class="codex-skill ${collected.includes(sk.id)?'':'unknown'}">${elementTag(sk.element)}<b>${collected.includes(sk.id)?e(sk.name):'？？？'}</b><small>${collected.includes(sk.id)?`${e(sk.cat)} / 威力${sk.power||'—'} / MP${sk.mp}`:'未習得'}</small></div>`).join('')}</div>`;
+  if (tab === 1) {
+    const ordinary = SKILLS.filter(sk=>!ULTIMATE_IDS.has(sk.id)&&sk.source!=='god');
+    const specials = SKILLS.filter(sk=>ULTIMATE_IDS.has(sk.id)||sk.source==='god');
+    const card = sk => `<div class="codex-skill ${collected.includes(sk.id)?'':'unknown'}">${elementTag(sk.element)}<b>${collected.includes(sk.id)?e(sk.name):'？？？'}</b><small>${collected.includes(sk.id)?`${e(sk.cat)} / 威力${sk.power||'—'} / MP${sk.mp||0}`:'未習得・進化で解放'}</small></div>`;
+    body = `<div class="callout">全技収集：${collected.filter(id=>!ULTIMATE_IDS.has(id)&&SKILL[id]?.source!=='god').length} / ${LEARNABLE_SKILL_COUNT} 種 ${collected.filter(id=>!ULTIMATE_IDS.has(id)&&SKILL[id]?.source!=='god').length>=LEARNABLE_SKILL_COUNT?'🌟 コンプリート！':''}</div>
+      <div class="codex-skills">${ordinary.map(card).join('')}</div>
+      <h4 class="mt">✵ 奥義・神専用技 <small class="muted">ランク進化 / 特殊ギミックで解放</small></h4>
+      <div class="codex-skills">${specials.map(card).join('')}</div>`;
+  }
   if (tab === 2) body = `<div class="callout">装備図鑑：${s.catalog.equipment.length} / ${EQUIPMENT.length} 種。ガチャ・交換・合成で入手すると記録されます。</div><div class="codex-skills">${EQUIPMENT.map(d=>`<div class="codex-skill ${s.catalog.equipment.includes(d.id)?'':'unknown'}" style="--rc:${d.color}"><b style="color:${s.catalog.equipment.includes(d.id)?d.color:'#667'}">${s.catalog.equipment.includes(d.id)?e(d.name):'？？？'}</b><small>${s.catalog.equipment.includes(d.id)?`${e(d.type)} / ${e(SLOT_NAME[d.slot])}`:'未発見'} ${rarityTag(d.rarity)}</small></div>`).join('')}</div>`;
   if (tab === 3) body = `<div class="callout">撃破・対戦したCPU：${s.catalog.enemies.length} / ${ENEMIES.length + 20} 記録（ダンジョンの敵も含む）</div><div class="enemy-grid">${ENEMIES.map(en=>`<div class="codex-card ${s.catalog.enemies.includes(en.id)?'':'unknown'}"><span>${en.boss?'☄':en.tier>=1?'⚔':'✦'}</span><b>${s.catalog.enemies.includes(en.id)?e(en.trueName||en.name):'？？？'}</b><small>${s.catalog.enemies.includes(en.id)?`${e(JOB[en.job]?.name||'')} / Lv.${en.level}`:'未対戦'}</small></div>`).join('')}</div>`;
   if (tab === 4) body = `<div class="callout">実績：${Object.keys(s.achievements).length} / ${ACHIEVEMENTS.length} 達成</div><div class="codex-grid">${ACHIEVEMENTS.map(a=>`<div class="codex-card ${s.achievements[a.id]?'':'unknown'}"><span>${s.achievements[a.id]?'🏆':'🔒'}</span><b>${e(a.name)}</b><small>${e(a.desc)} / 称号「${e(a.title)}」</small></div>`).join('')}</div>`;
@@ -1165,10 +1288,15 @@ function settingsScreen(app, s) {
 function combatPanel(b, side, label, char) {
   const isP = side === b.player;
   const statuses = b.statusLabel(side);
-  return `<div class="combatant ${isP?'p1':'p2'}" id="${isP?'arena-player':'arena-enemy'}">
+  const jobName = JOB[side.job]?.name || '—';
+  const rarity = isP ? (char?.rarity || 'R')
+    : (side.hidden ? 'S' : side.boss ? 'M' : side.level >= 40 ? 'L' : side.level >= 25 ? 'E' : 'R');
+  return `<div class="combatant ${isP?'p1':'p2'} ${isP&&char?.jobId===GOD_JOB_ID?'god-mode':''}" id="${isP?'arena-player':'arena-enemy'}">
     <div class="combat-sprite ${isP?'':'mirrored'}">${isP && char ? charImage(char,'battle') : spriteImg(side.sprite,'battle',side.aura)}</div>
     ${isP && char ? `<div class="combat-rank">${rankBadge(char.rarity)}</div>` : ''}
-    <div class="combat-info"><div class="combat-name">${e(side.name)} <small>Lv.${side.level} ${e(JOB[side.job]?.name||'')}</small></div>
+    <div class="combat-info">
+      <div class="combat-name">${e(side.name)}</div>
+      <div class="combat-meta"><span class="pill">${e(rarity)}</span><span>Lv.${side.level}</span><span>${e(jobName)}</span></div>
       ${bar(side.hp,side.maxHp,'linear-gradient(90deg,#ff5f6d,#ffb37b)',`HP ${fmt(side.hp)} / ${fmt(side.maxHp)}`)}
       ${bar(side.mp,side.maxMp,'linear-gradient(90deg,#4f8cff,#8ce6ff)',`MP ${fmt(side.mp)} / ${fmt(side.maxMp)}`)}
       <div class="combat-status">${side.shield?`<span class="st shield">🛡 ${fmt(side.shield)}</span>`:''}${side.guard?'<span class="st">防御</span>':''}${statuses?`<span class="st bad">${e(statuses)}</span>`:''}${side.buffs.filter(x=>x.amount>0).map(x=>`<span class="st good">${e(({atk:'攻↑',def:'防↑',spd:'速↑',mag:'魔↑',acc:'命中↑',eva:'回避↑'})[x.stat]||x.stat)}</span>`).join('')}</div>
@@ -1181,23 +1309,48 @@ function battleScreen(app, s) {
   const actions = b.actionList(b.player);
   const items = b.usableItems();
   const locked = b.phase !== 'player';
+  const speed = b.autoSpeed || 1;
+  const ultimates = actions.filter(sk => sk.ultimate);
+  const gauge = Math.min(ULTIMATE_GAUGE_MAX, Math.round(b.ultimateGauge || 0));
+  const phaseLabel = b.phase==='player'?'あなたのターン':b.phase==='cpu'?'CPUのターン':b.phase==='end'?'決着':'処理中…';
   return `<div class="battle-screen" style="background-image:url('assets/battle_bg.jpg')">
     <div class="battle-shade"></div>
-    <header class="battle-top"><div><span class="eyebrow">${b.mode==='dungeon'?`ダンジョン ${b.floor}階`:b.mode==='hidden'?'隠しボス戦':'CPU対戦'}</span><h2>⚔ TURN ${b.turn}</h2></div>
-      <div class="battle-top-right"><span class="pill ${b.phase==='player'?'on':''}">${b.phase==='player'?'あなたのターン':b.phase==='cpu'?'CPUのターン':b.phase==='end'?'決着':'処理中…'}</span>
-      <label class="battle-size"><span>表示サイズ <output id="out_battle_scale">${Math.round((activeChar(s)?.imageSettings?.battleScale||1)*100)}%</output></span>
-        <input type="range" data-setting="battleScale" data-target="battle" min="0.5" max="1.8" step="0.05" value="${activeChar(s)?.imageSettings?.battleScale||1}"></label>
-      <button class="btn btn-ghost" data-action="battleAuto">${b.autoMode?'⏹ おまかせ停止':'🤖 おまかせ'}</button><button class="btn btn-ghost" data-action="battleSurrender">🏳 降参</button></div></header>
+    <header class="battle-top">
+      <div class="battle-turn"><span class="eyebrow">${b.mode==='dungeon'?`ダンジョン ${b.floor}階`:b.mode==='hidden'?'隠しボス戦':'CPU対戦'} / ${e(phaseLabel)}</span><h2>⚔ TURN ${b.turn}</h2></div>
+      <div class="battle-top-right">
+        <span class="pill ${b.phase==='player'?'on':''}">${e(phaseLabel)}</span>
+        <span class="pill ${b.autoMode?'on':'off'} auto-state">AUTO <b>${b.autoMode?'ON':'OFF'}</b></span>
+        <button class="btn ${b.autoMode?'btn-primary':'btn-glass'} btn-mini" data-action="battleAuto">${b.autoMode?'AUTO 停止':'AUTO'}</button>
+        <div class="speed-switch" role="group" aria-label="AUTO 戦闘速度">
+          ${[1,2,3].map(n=>`<button class="spd ${speed===n&&b.autoMode?'on':''}" data-action="battleSpeed" data-speed="${n}" ${b.autoMode?'':'disabled'}>${n}倍速</button>`).join('')}
+        </div>
+        <button class="btn btn-ghost btn-mini" data-action="battleSurrender">🏳 降参</button>
+      </div>
+    </header>
+    <div class="battle-hud">
+      <div class="gauge-box"><span>✵ 奥義ゲージ</span>${bar(gauge, ULTIMATE_GAUGE_MAX, 'linear-gradient(90deg,#ffd77a,#ff8fa8,#68f7d4)', `${gauge} / ${ULTIMATE_GAUGE_MAX}`)}</div>
+      <div class="auto-opt"><label><input type="checkbox" data-setting="autoUltimate" data-target="settings" ${b.autoUltimate?'checked':''}> AUTOで奥義を使う</label><span class="muted small">${b.autoMode?`${speed}倍速で進行中`:'手動戦闘（通常速度）'}</span></div>
+    </div>
     <div class="arena">
       <div class="arena-floor"></div>
       <div class="combat-row">${combatPanel(b,b.player,'player',activeChar(s))}<div class="vs-mark">VS</div>${combatPanel(b,b.enemy,'enemy',null)}</div>
       <div id="battleBanner" class="battle-banner"></div>
     </div>
     <div class="battle-lower">
-      <section class="battle-log panel"><h4>📜 バトルログ</h4><div id="logScroll" class="log-scroll">${b.logs.map(l=>`<div class="blog ${e(l.kind)}">${e(l.text)}</div>`).join('')}</div></section>
-      <section class="battle-actions panel"><h4>コマンド <span class="muted small">${locked?'相手の行動中…':'行動を選択'}</span></h4>
+      <div class="battle-vitals">
+        <span><b>🧙 ${e(b.player.name)}</b> HP ${bar(b.player.hp,b.player.maxHp,'linear-gradient(90deg,#ff5f6d,#ffb37b)',`${fmt(b.player.hp)}/${fmt(b.player.maxHp)}`)} MP ${bar(b.player.mp,b.player.maxMp,'linear-gradient(90deg,#4f8cff,#8ce6ff)',`${fmt(b.player.mp)}/${fmt(b.player.maxMp)}`)}</span>
+        <span><b>👹 ${e(b.enemy.name)}</b> HP ${bar(b.enemy.hp,b.enemy.maxHp,'linear-gradient(90deg,#ff5f6d,#ffb37b)',`${fmt(b.enemy.hp)}/${fmt(b.enemy.maxHp)}`)} MP ${bar(b.enemy.mp,b.enemy.maxMp,'linear-gradient(90deg,#4f8cff,#8ce6ff)',`${fmt(b.enemy.mp)}/${fmt(b.enemy.maxMp)}`)}</span>
+      </div>
+      <section class="battle-log panel"><h4>📜 バトルログ</h4><div id="logScroll" class="log-scroll">${b.logs.map(l=>`<div class="blog ${e(l.kind)}"><small>T${l.turn}</small> ${e(l.text)}</div>`).join('')}</div></section>
+      <section class="battle-actions panel">
+        <h4>コマンド <span class="muted small">${locked?'相手の行動中…':'行動を選択'} / ${b.autoMode?'AUTO':`手動`}</span></h4>
+        ${ultimates.length?`<div class="ultimate-row"><span class="ur-label">✵ 奥義</span>${ultimates.map(sk=>{
+          const ready = b.canUseUltimate(sk) && !locked;
+          return `<button class="ultimate-btn ${ready?'ready':''}" data-action="battleAction" data-id="${e(sk.id)}" ${ready?'':'disabled'} style="--ec:${(ELEMENTS[sk.element]||ELEMENTS.none).color}">
+            <b>${e(sk.name)}</b><small>威力 ${sk.power} / MP ${sk.mp} / ${ready?'発動可能':`ゲージ ${gauge}%・CD ${b.player.cds[sk.id]||0}`}</small></button>`;
+        }).join('')}</div>`:''}
         <div class="filter-tabs small">${[['skill','技'],['item','アイテム'],['basic','基本']].map(([id,label])=>`<button class="ftab ${tab===id?'on':''}" data-action="battleTab" data-tab="${id}">${label}</button>`).join('')}</div>
-        ${tab==='skill'?`<div class="action-grid">${actions.map(sk=>{
+        ${tab==='skill'?`<div class="action-grid">${actions.filter(sk=>!sk.ultimate).map(sk=>{
           const cd=b.player.cds[sk.id]||0;
           const usable=sk.usable!==false && !locked && b.player.mp>=(sk.mp||0) && cd===0 && b.canAct(b.player);
           return `<button class="action-btn" data-action="battleAction" data-id="${e(sk.id)}" ${usable?'':'disabled'} style="--ec:${(ELEMENTS[sk.element]||ELEMENTS.none).color}">
@@ -1209,9 +1362,9 @@ function battleScreen(app, s) {
         ${tab==='basic'?`<div class="item-actions">
           <button class="action-btn item" data-action="battleAction" data-id="__attack" ${locked?'disabled':''}><span>⚔</span><b>通常攻撃</b><small>MP消費なし / 威力100</small></button>
           <button class="action-btn item" data-action="battleAction" data-id="__guard" ${locked?'disabled':''}><span>🛡</span><b>防御する</b><small>被ダメ軽減 / MP+14 / HP少回復</small></button>
-          <button class="action-btn item" data-action="battleAuto" ${locked&&!b.autoMode?'disabled':''}><span>🤖</span><b>おまかせ戦闘</b><small>${b.autoMode?'停止する':'自動で技を選んで戦う'}</small></button>
+          <button class="action-btn item" data-action="battleAuto"><span>AUTO</span><b>${b.autoMode?'AUTO を OFF':'AUTO を ON'}</b><small>戦闘中いつでも切替 / ターンは飛びません</small></button>
           <button class="action-btn item" data-action="battleSurrender"><span>🏳</span><b>降参する</b><small>敗北扱い。少量のポイントは獲得</small></button>
-        </div><div class="hint-box">技の装備は「育成の間 → 技」で最大8つまで変更できます。属性が相手に有利だとダメージ1.3倍。</div>`:''}
+        </div><div class="hint-box">表示サイズは「見た目の変更」で戦闘開始前に設定し、戦闘中は固定です。技の装備は育成の間 → 技で変更できます。</div>`:''}
       </section>
     </div>
   </div>${toastArea(app)}`;
@@ -1253,6 +1406,9 @@ export function renderScreen(app, s) {
     case 'title': return titleScreen(app,s);
     case 'create': return createScreen(app,s);
     case 'town': return townScreen(app,s);
+    case 'story': return storyScreen(app,s);
+    case 'gather': return gatherScreen(app,s);
+    case 'help': return helpScreen(app,s);
     case 'facility': return facilityScreen(app,s);
     case 'character': return characterScreen(app,s);
     case 'appearance': return appearanceScreen(app,s);
@@ -1264,5 +1420,5 @@ export function renderScreen(app, s) {
     default: return titleScreen(app,s);
   } })();
   return html + materialModal(app, s) + gachaRatesModal(app, s)
-    + weaponDetailModal(app, s) + gachaPresentation(app, s);
+    + weaponDetailModal(app, s) + gachaPresentation(app, s) + jobChangeModal(app, s);
 }

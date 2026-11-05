@@ -7,6 +7,9 @@ import {
   RANKS, QUESTS, ACHIEVEMENTS, TITLES, TITLE, EXCHANGE, STYLES, SLOTS,
   AWAKENING_NAMES, collectedSkills, CHAR_RARITIES, CHAR_RARITY, CHAR_RARITY_ORDER,
   charRankIndex, EVOLUTION_RULES, EVOLUTION_BY_FROM, RATE_TOTAL,
+  SKILL_COUNT, LEARNABLE_SKILLS, ULTIMATE_IDS, JOB_ULTIMATE, GOD_ULTIMATE_ID,
+  SPECIAL_ULTIMATE, specialNameKey, SPECIAL_NAME_LABEL, GOD_JOB_ID, GOD_SKILL_IDS,
+  GOD_EQUIPMENT_IDS, GOD_EQUIPMENT, ULTIMATE_GAUGE_MAX,
 } from './data.js?v=2';
 import { MATERIAL_ITEMS, MATERIAL_BY_ID, MAT_RANKS, MAT_RANK_INFO, RANK_REQUIREMENTS, materialUpgradeTarget } from './materials.js?v=2';
 import {
@@ -161,9 +164,46 @@ function migrate(s) {
   }));
   merged.inventory.equipment = (merged.inventory.equipment || []).map(eq => ({ rank: eq.rank || 'R', ...eq }));
   merged.version = VERSION;
+  merged.home = { ...d.home, ...(s.home || {}) };
+  merged.story = { ...d.story, ...(s.story || {}), seen:s.story?.seen || [], cleared:s.story?.cleared || [] };
+  merged.settings = { ...d.settings, ...(s.settings || {}) };
+  merged.settings.autoSpeed = clamp(Number(merged.settings.autoSpeed) || 1, 1, 3);
+  merged.settings.autoUltimate = merged.settings.autoUltimate !== false;
+  merged.settings.autoOn = !!merged.settings.autoOn;
+  merged.characters = merged.characters.map(c => normalizeCharacter(c, merged));
   if (merged.lastDaily !== nowDate()) resetDailyQuests(merged);
   return merged;
 }
+/** 旧セーブに新しい進行データを補う（名前ギミックの判定は 1 回だけ） */
+function normalizeCharacter(c, state) {
+  const eb = c.evolutionBonus || {};
+  c.evolutionBonus = { ...Object.fromEntries(STAT_KEYS.map(k => [k, 0])), ...eb,
+    effects: { crit:0, critDamage:0, ultimatePower:0, ...(eb.effects || {}) } };
+  c.equipmentBonus = c.equipmentBonus || null;
+  c.jobChangeHistory = Array.isArray(c.jobChangeHistory) ? c.jobChangeHistory : [];
+  c.ultimateSkills = Array.isArray(c.ultimateSkills) ? c.ultimateSkills : [];
+  if (!c.specialChecked) {
+    // 旧セーブ移行時だけ現在名で 1 回判定。以後の改名では再発動しない。
+    c.specialKey = specialNameKey(c.name) || null;
+    c.specialChecked = true;
+  }
+  if (c.specialKey === undefined) c.specialKey = null;
+  c.godUnlocked = !!c.godUnlocked || !!c.specialKey;
+  c.specialUltimateId = c.specialUltimateId || (c.specialKey ? SPECIAL_ULTIMATE[c.specialKey] : null);
+  // 既に進化済みのキャラにも、習得条件を満たした奥義を 1 回だけ付与
+  const has = id => c.skills.some(k => k.id === id);
+  if (c.specialKey && charRankIndex(c.rarity) >= 1 && c.specialUltimateId && !has(c.specialUltimateId)) {
+    learnSkillDirect(c, state, c.specialUltimateId, true);
+  }
+  if (charRankIndex(c.rarity) >= 4) {
+    const uidv = c.jobId === GOD_JOB_ID ? GOD_ULTIMATE_ID : JOB_ULTIMATE[c.jobId];
+    if (uidv && !has(uidv)) learnSkillDirect(c, state, uidv, true);
+  }
+  for (const k of c.skills) if (ULTIMATE_IDS.has(k.id) && !c.ultimateSkills.includes(k.id)) c.ultimateSkills.push(k.id);
+  syncEquipmentSnapshot(state, c);
+  return c;
+}
+export { normalizeCharacter };
 
 export function hasSaveFlag() {
   try { return localStorage.getItem('ocf_has_save') === '1'; } catch (e) { return false; }
@@ -202,6 +242,15 @@ function blankCharacter() {
     skills: [], equippedSkills: [], skillMastery: {},
     awakening: 0, evolution: 0, rebirth: 0,
     equipment: { weapon:null, armor:null, accessory:null, ornament:null },
+    // ---- 追加システム（すべてセーブ対象）----
+    evolutionBonus: null,           // ランク進化で得た永続ボーナス（装備とは別管理）
+    equipmentBonus: null,           // 装備由来の上昇分のスナップショット
+    specialKey: null,               // 作成時に確定した特殊ギミック名（後から変えない）
+    specialChecked: false,          // 旧セーブ移行で 1 回だけ判定した印
+    godUnlocked: false,             // 特殊役職「神」の解放状況
+    specialUltimateId: null,        // 習得した特殊奥義
+    jobChangeHistory: [],           // ランクアップ／転生時の役職変更履歴
+    ultimateSkills: [],             // 習得済み奥義（重複防止）
     styleId: 'balanced', titleId: 't_none', aura: 'none', frame: 'gold',
     record: { wins:0, losses:0, streak:0, bestStreak:0, damage:0 },
   };
@@ -215,7 +264,10 @@ export function newState() {
     coins: 1200, bp: 0, rankPoints: 0,
     winStreak: 0, bestStreak: 0,
     wins: 0, losses: 0,
-    settings: { sfx: true, bgm: false, animSpeed: 1, autosave: true },
+    settings: { sfx: true, bgm: false, animSpeed: 1, autosave: true,
+      autoOn: false, autoSpeed: 1, autoUltimate: true },
+    home: { started:false, lastVisit:null, lastMenu:null },
+    story: { chapter:1, seen:[], cleared:[] },
     inventory: { items: { potion_s:3, ether_s:2, antidote:1, mat_ore:2, evo_stone_R:3, weapon_ore_R:2 }, equipment: [] },
     pity: { weapon: normalizePity(), armor: normalizePity() },
     catalog: { equipment: [], skills: [], jobs: [], enemies: [], titles: ['t_none'], materials: ['evo_stone_R','weapon_ore_R'] },
@@ -251,6 +303,12 @@ export function createCharacter(state, opts) {
   c.jobId = job.id; c.styleId = style.id;
   c.jobLevels = { [job.id]: 1 }; c.jobExp = { [job.id]: 0 };
   c.frame = 'gold';
+  // 特殊ギミック：判定は作成時の名前だけで 1 回。後から改名しても増加しない。
+  c.specialChecked = true;
+  c.specialKey = specialNameKey(c.name);
+  c.godUnlocked = !!c.specialKey;
+  c.specialUltimateId = c.specialKey ? SPECIAL_ULTIMATE[c.specialKey] : null;
+  if (c.specialKey) logEvent(state, `「${c.name}」に特殊ギミックが発動！特殊役職「神」への道と専用奥義が解放された。`, 'create');
   // 初期装備：選んだ武器系統のノーマル品
   const weaponType = opts.weaponType || job.weapons[0];
   const weaponDef = EQUIPMENT.find(e => e.slot === 'weapon' && e.type === weaponType && e.rarity === 'N')
@@ -261,6 +319,7 @@ export function createCharacter(state, opts) {
   c.equipment.weapon = inst.uid;
   // 初期技：職業の最初の2つ + 基本攻撃
   ['sk_none_slash', 'sk_charge', ...job.skills.slice(0, 2)].forEach(id => learnSkillDirect(c, state, id, true));
+  syncEquipmentSnapshot(state, c);
   const st = computeStats(c, state);
   c.hp = st.hp; c.mp = st.mp; c.hpMaxCache = st.hp; c.mpMaxCache = st.mp;
   state.characters.push(c);
@@ -284,69 +343,169 @@ export function instanceRank(inst) { return inst?.rank || 'R'; }
 export function charRank(c) { return CHAR_RARITY[c?.rarity || 'R'] || CHAR_RARITY.R; }
 export function instanceDef(inst) { return EQUIP_BY_ID[inst?.defId] || null; }
 
-export function equipmentStats(inst) {
+/* -----------------------------------------------------------
+   装備による能力強化
+   - レアリティが高いほど上昇幅が大きい（N<R<E<L<M<S）
+   - 上昇幅は「装備のレアリティ × キャラのレベル × キャラのランク」だけで決まり、
+     職業・スタイル・振り分けには依存しない（同じ装備なら不自然に性能が変わらない）
+   - 装備を外せば消え、同じ uid を複数スロットに入れても重複加算しない
+   ----------------------------------------------------------- */
+const RARITY_EQUIP_SCALE = { N:1.0, R:2.0, E:3.4, L:5.4, M:8.0, S:12.0 };
+const STAT_WEIGHT = { atk:1, mag:1, spd:0.7, acc:0.7, def:0.55, hp:0.5, mp:0.5, eva:0.6 };
+const HIGH_EFFECT_POOL = [
+  'crit','critDamage','ultimatePower','normalAttackPower','extraDamage','ignoreDef',
+  'lifesteal','counter','firstStrike','extraStrike','damageCut','hpRegen','mpRegen','statusGuard',
+  'element_fire','element_water','element_wind','element_earth','element_thunder',
+  'element_ice','element_light','element_dark','element_star',
+];
+const HIGH_EFFECT_BASE = {
+  crit:9, critDamage:34, ultimatePower:28, normalAttackPower:24, extraDamage:45,
+  ignoreDef:14, lifesteal:8, counter:12, firstStrike:20, extraStrike:12,
+  damageCut:8, hpRegen:3, mpRegen:5, statusGuard:30,
+};
+function effectValue(id, ri, seed) {
+  const base = HIGH_EFFECT_BASE[id] || (id.startsWith('element_') ? 26 : 10);
+  return Math.max(1, Math.round(base * (1 + ri * 0.42) + (seed % 7)));
+}
+
+export function equipmentStats(inst, c = null) {
   const def = instanceDef(inst);
   if (!def) return { ...emptyStats(), effects: [] };
   const rankMult = CHAR_RARITY[instanceRank(inst)]?.mult || 1;
-  const m = (1 + (inst.enhance || 0) * 0.11) * rankMult;
+  const enhance = inst.enhance || 0;
+  const m = (1 + enhance * 0.11) * rankMult;
+  const ri = Math.max(0, RARITY_ORDER.indexOf(instanceRarity(inst)));
+  const rarityScale = c ? (RARITY_EQUIP_SCALE[instanceRarity(inst)] || 1) : 1;
+  const levelScale = c ? 1 + Math.min(1.6, (Math.max(1, c.level || 1) - 1) * 0.024) : 1;
+  const rankScale = c ? 1 + charRankIndex(c.rarity) * 0.22 : 1;
+  const scale = rarityScale * levelScale * rankScale;
   const out = { ...emptyStats(), effects: [] };
-  for (const k of STAT_KEYS) out[k] = Math.round((def.stats[k] || 0) * m + (inst.enhance || 0) * (k === 'hp' ? 6 : k === 'mp' ? 2 : 1));
-  out.effects = (def.stats.effects || []).map(e => ({ ...e, value: Math.round(e.value * (1 + (inst.enhance || 0) * 0.06) * rankMult) }));
-  // ランク進化で武器の種類・形状はそのままに、ランク固有の特殊効果を追加
-  const ri = charRankIndex(instanceRank(inst));
-  if (ri > 0) {
-    const pool = ['crit','lifesteal','mpRegen','hpRegen','counter','ignoreDef','extraStrike','damageCut'];
-    const base = { crit:4, lifesteal:4, mpRegen:3, hpRegen:2, counter:6, ignoreDef:8, extraStrike:5, damageCut:4 };
-    const seed = [...String(def.id)].reduce((a,ch)=>a+ch.charCodeAt(0),0);
-    const id = pool[(seed + ri) % pool.length];
-    out.effects.push({ id, value: Math.max(1, Math.round(base[id] * ri * rankMult)) });
-    if (ri >= 3) out.effects.push({ id:'crit', value: Math.max(1, Math.round(3 * ri * rankMult)) });
+  for (const k of STAT_KEYS) {
+    const raw = (def.stats[k] || 0) * m + enhance * (k === 'hp' ? 6 : k === 'mp' ? 2 : 1);
+    out[k] = Math.round(raw * scale * (STAT_WEIGHT[k] || 1));
+  }
+  // 元々の定義効果
+  out.effects = (def.stats.effects || []).map(x => ({
+    ...x, value: Math.round(x.value * (1 + enhance * 0.06) * rankMult * (c ? 1 + ri * 0.18 : 1)),
+  }));
+  // 高レアリティほど多数の強力な特殊効果（攻撃力以外も強化）
+  const seed = [...String(def.id)].reduce((a, ch) => a + ch.charCodeAt(0), 0);
+  const count = inst?.enemy ? 0
+    : ri >= 5 ? 5 : ri >= 4 ? 4 : ri >= 3 ? 3 : ri >= 2 ? 2 : 0;
+  for (let i = 0; i < count; i++) {
+    const id = HIGH_EFFECT_POOL[(seed + i * 7 + ri * 3) % HIGH_EFFECT_POOL.length];
+    out.effects.push({ id, value: effectValue(id, ri, seed + i) });
+  }
+  // 高レアには攻撃力以外の「強力な特殊効果」を必ず保証する
+  if (!inst?.enemy && ri >= 3) {
+    const guaranteed = ri >= 5
+      ? ['crit','critDamage','ultimatePower','normalAttackPower','ignoreDef','extraDamage']
+      : ri >= 4 ? ['crit','critDamage','ultimatePower','ignoreDef']
+      : ['crit','ultimatePower'];
+    for (const id of guaranteed) {
+      out.effects.push({ id, value: effectValue(id, ri, seed + 11) });
+    }
+    const el = ['element_fire','element_water','element_wind','element_earth','element_thunder',
+      'element_ice','element_light','element_dark','element_star'][seed % 9];
+    out.effects.push({ id:el, value: effectValue(el, ri, seed + 3) });
+  }
+  // 装備ランク進化で付く効果（武器の種類・形状は維持）
+  const eqRi = charRankIndex(instanceRank(inst));
+  if (eqRi > 0) {
+    const pool = ['crit','lifesteal','mpRegen','hpRegen','counter','ignoreDef','extraStrike','damageCut','ultimatePower','critDamage'];
+    const base = { crit:4, lifesteal:4, mpRegen:3, hpRegen:2, counter:6, ignoreDef:8,
+      extraStrike:5, damageCut:4, ultimatePower:8, critDamage:12 };
+    const id = pool[(seed + eqRi) % pool.length];
+    out.effects.push({ id, value: Math.max(1, Math.round(base[id] * eqRi * rankMult)) });
+    if (eqRi >= 3) out.effects.push({ id:'critDamage', value: Math.max(1, Math.round(9 * eqRi * rankMult)) });
   }
   return out;
 }
 export function instanceRarity(inst) { return instanceDef(inst)?.rarity || 'N'; }
 export function findInstance(state, uidv) { return state.inventory.equipment.find(e => e.uid === uidv); }
 
+/** 装備中のインスタンス。同じ uid は 1 回だけ（重複装着による不正加算を防止） */
 export function equippedInstances(c, state) {
-  return SLOTS.map(slot => findInstance(state, c.equipment[slot])).filter(Boolean);
+  const seen = new Set();
+  const out = [];
+  for (const slot of SLOTS) {
+    const uidv = c.equipment?.[slot];
+    if (!uidv || seen.has(uidv)) continue;
+    const inst = findInstance(state, uidv);
+    if (!inst) continue;
+    seen.add(uidv);
+    out.push(inst);
+  }
+  return out;
+}
+/** 装備由来の上昇分だけを取り出す（進化ボーナスとは完全に別） */
+export function equipmentBonuses(c, state) {
+  const stats = emptyStats(), effects = [];
+  for (const inst of equippedInstances(c, state)) {
+    const es = equipmentStats(inst, c);
+    for (const k of STAT_KEYS) stats[k] += es[k] || 0;
+    effects.push(...es.effects);
+  }
+  return { stats, effects };
+}
+/** セーブ用スナップショット（装備変更後も進化ボーナスは失われない） */
+export function syncEquipmentSnapshot(state, c) {
+  const eq = equipmentBonuses(c, state);
+  c.equipmentBonus = { ...eq.stats, effects: eq.effects.reduce((a, e) => {
+    a[e.id] = (a[e.id] || 0) + e.value; return a;
+  }, {}) };
+  return c.equipmentBonus;
 }
 
-export function computeStats(c, state) {
+/** 進化・覚醒・転生・称号・レベル・職業・振り分けから成る「素の能力値」 */
+function coreStats(c, state) {
   const job = JOB[c.jobId] || JOB.warrior;
-  const style = STYLES.find(s => s.id === c.styleId) || STYLES[0];
+  const style = STYLES.find(x => x.id === c.styleId) || STYLES[0];
   const lv = c.level - 1;
   const s = {};
   for (const k of STAT_KEYS) {
     s[k] = 30 + (k === 'hp' ? 100 : k === 'mp' ? 30 : k === 'acc' ? 80 : k === 'eva' ? 5 : 10)
-      + job.growth[k] * lv + (c.alloc[k] || 0) + (style.bonus[k] || 0);
+      + job.growth[k] * lv + (c.alloc[k] || 0) + (style.bonus[k] || 0)
+      + (c.evolutionBonus?.[k] || 0);
   }
-  // 装備
-  for (const inst of equippedInstances(c, state)) {
-    const es = equipmentStats(inst);
-    for (const k of STAT_KEYS) s[k] += es[k] || 0;
-  }
-  // 称号
   const title = TITLE[c.titleId] || TITLE.t_none;
   for (const k of STAT_KEYS) s[k] += title.bonus[k] || 0;
-  // 覚醒・進化・転生ボーナス（乗算）
   const rankMult = CHAR_RARITY[c.rarity || 'R']?.mult || 1;
   const mult = (1 + c.awakening * 0.13 + c.evolution * 0.05 + (c.rebirth || 0) * 0.12) * rankMult;
   for (const k of STAT_KEYS) s[k] = Math.round(s[k] * (k === 'acc' || k === 'eva' ? 1 + (mult - 1) * 0.25 : mult));
-  s.hp = Math.max(120, Math.round(s.hp));
-  s.mp = Math.max(20, Math.round(s.mp));
-  s.acc = clamp(s.acc, 30, 240); s.eva = clamp(s.eva, 0, 90);
-  // 特殊効果を集約
-  s.effects = aggregateEffects(c, state, title);
   return s;
 }
 
-function aggregateEffects(c, state, title) {
+export function computeStats(c, state) {
+  const core = coreStats(c, state);
+  const eq = equipmentBonuses(c, state);
+  const s = { ...core };
+  for (const k of STAT_KEYS) s[k] += eq.stats[k] || 0;
+  s.hp = Math.max(120, Math.round(s.hp));
+  s.mp = Math.max(20, Math.round(s.mp));
+  s.acc = clamp(s.acc, 30, 5000); s.eva = clamp(s.eva, 0, 400);
+  // ゲーム内で使用する追加能力値
+  s.mdef = Math.round(s.def * 0.7 + s.mag * 0.45);
+  const eff = aggregateEffects(c, state, eq.effects);
+  s.effects = eff;
+  s.crit = 6 + (eff.crit || 0);
+  s.critDamage = 165 + (eff.critDamage || 0);
+  s.ultimatePower = (eff.ultimatePower || 0) + charRankIndex(c.rarity) * 12 + (c.jobId === GOD_JOB_ID ? 35 : 0);
+  s.normalAttackPower = eff.normalAttackPower || 0;
+  s.extraDamage = eff.extraDamage || 0;
+  s.ignoreDef = eff.ignoreDef || 0;
+  return s;
+}
+
+function aggregateEffects(c, state, eqEffects = []) {
   const acc = {};
   const push = (id, v) => { acc[id] = (acc[id] || 0) + v; };
-  for (const inst of equippedInstances(c, state)) {
-    for (const e of equipmentStats(inst).effects) push(e.id, e.value);
-  }
+  for (const e of eqEffects) push(e.id, e.value);
+  const title = TITLE[c.titleId] || TITLE.t_none;
   for (const [k, v] of Object.entries(title.bonus)) if (!STAT_KEYS.includes(k)) push(k, v);
+  // ランク進化で得た永続効果（装備を替えても失われない）
+  const eb = c.evolutionBonus?.effects || {};
+  for (const [k, v] of Object.entries(eb)) if (v) push(k, v);
   if (c.awakening >= 2) push('crit', 3 + c.awakening * 2);
   if (c.awakening >= 4) push('lifesteal', 4);
   if (c.styleId === 'critical') push('crit', 6);
@@ -355,7 +514,9 @@ function aggregateEffects(c, state, title) {
 
 export function powerScore(c, state) {
   const s = computeStats(c, state);
-  return Math.round(s.hp / 4 + s.mp / 5 + s.atk * 2 + s.def * 1.8 + s.spd * 1.5 + s.mag * 1.8 + (s.acc + s.eva) * 1.2 + c.awakening * 120 + charRankIndex(c.rarity) * 160 + c.level * 8);
+  return Math.round(s.hp / 4 + s.mp / 5 + s.atk * 2 + s.def * 1.8 + s.mdef * 1.2
+    + s.spd * 1.5 + s.mag * 1.8 + (s.acc + s.eva) * 1.2
+    + (s.critDamage - 165) * 0.6 + c.awakening * 120 + charRankIndex(c.rarity) * 220 + c.level * 8);
 }
 
 /* ---------- ログ・通貨 ---------- */
@@ -450,12 +611,14 @@ export function restoreFull(state, c) {
 export function jobUnlocked(state, c, job) {
   if (!job.req) return true;
   const r = job.req;
+  if (r.god) return !!c.specialKey && !!c.godUnlocked;
   if (r.level && c.level < r.level) return false;
   if (r.awakening && c.awakening < r.awakening) return false;
   if (r.jobs) for (const [id, lv] of Object.entries(r.jobs)) if ((c.jobLevels[id] || 0) < lv) return false;
   return true;
 }
 export function jobReqText(job) {
+  if (job.req?.god) return '指定名ギミック解放 / ランクアップ・転生時のみ変更可';
   if (!job.req) return '初期から選択可能';
   const r = job.req, p = [];
   if (r.level) p.push(`Lv.${r.level}`);
@@ -463,9 +626,12 @@ export function jobReqText(job) {
   if (r.jobs) for (const [id, lv] of Object.entries(r.jobs)) p.push(`${JOB[id]?.name || id} Lv.${lv}`);
   return p.join(' / ');
 }
-export function changeJob(state, c, jobId) {
+export function changeJob(state, c, jobId, allow = false) {
+  // 役職変更は「ランクアップ時」か「転生時」だけ。通常画面からは不可。
+  if (!allow) return { ok:false, msg:'役職変更はランクアップ時・転生時のみ可能です' };
   const job = JOB[jobId];
   if (!job || !jobUnlocked(state, c, job)) return { ok:false, msg:'解放条件を満たしていません' };
+  if (job.req?.god && !c.specialKey) return { ok:false, msg:'この役職は指定された名前にのみ解放されます' };
   if (c.jobId === jobId) return { ok:false, msg:'すでに就いている職業です' };
   const cost = job.tier * 500;
   if (state.coins < cost) return { ok:false, msg:`コインが ${fmt(cost)} 必要です` };
@@ -474,11 +640,25 @@ export function changeJob(state, c, jobId) {
   if (!c.jobLevels[jobId]) c.jobLevels[jobId] = 1;
   if (!c.jobExp[jobId]) c.jobExp[jobId] = 0;
   addCatalog(state.catalog.jobs, jobId);
-  // 就いた時点で習得できる技
-  job.skills.slice(0, Math.max(1, job.tier + 1)).forEach(id => learnSkillDirect(c, state, id, true));
-  logEvent(state, `${c.name}が「${job.name}」に転職した。`, 'job');
+  // 就いた時点で習得できる技（神は専用技を全部）
+  job.skills.slice(0, job.req?.god ? job.skills.length : Math.max(1, job.tier + 1))
+    .forEach(id => learnSkillDirect(c, state, id, true));
+  // 既に LR なら変更先の奥義も即座に適用
+  if (charRankIndex(c.rarity) >= 4) {
+    const uidv = jobId === GOD_JOB_ID ? GOD_ULTIMATE_ID : JOB_ULTIMATE[jobId];
+    if (uidv) learnSkillDirect(c, state, uidv, true);
+  }
+  // 神専用装備を 1 つだけ授与（重複付与しない）
+  if (job.req?.god && !state.inventory.equipment.some(e => e.defId === 'eq_god_weapon')) {
+    addEquipment(state, 'eq_god_weapon');
+  }
+  logEvent(state, `${c.name}が「${job.name}」に役職変更した。`, 'job');
   checkAchievements(state);
   return { ok:true, msg:`${job.name}になった！（-${fmt(cost)}コイン）` };
+}
+/** 役職変更の機会があるか（ランクアップ／転生の選択肢 UI 用） */
+export function jobChangeCandidates(state, c) {
+  return JOBS.filter(j => jobUnlocked(state, c, j) && j.id !== c.jobId);
 }
 export function grantJobExp(state, c, amount) {
   const id = c.jobId;
@@ -506,6 +686,10 @@ function learnSkillDirect(c, state, id, silent = false) {
   if (!SKILL[id] || hasSkill(c, id)) return false;
   c.skills.push({ id, mastery: 0, learnedAt: new Date().toISOString() });
   if (c.equippedSkills.length < 8) c.equippedSkills.push(id);
+  if (SKILL[id]?.ultimate) {
+    c.ultimateSkills = Array.isArray(c.ultimateSkills) ? c.ultimateSkills : [];
+    if (!c.ultimateSkills.includes(id)) c.ultimateSkills.push(id);
+  }
   addCatalog(state.catalog.skills, id);
   state.stats.skillLearned++;
   bump(state, 'skill', 1);
@@ -513,6 +697,8 @@ function learnSkillDirect(c, state, id, silent = false) {
   return true;
 }
 export function learnSkill(state, c, id, cost, useBook) {
+  if (SKILL[id]?.ultimate || SKILL[id]?.source === 'god')
+    return { ok:false, msg:'この技はランク進化・特殊ギミックでしか習得できません' };
   if (hasSkill(c, id)) return { ok:false, msg:'すでに習得済みです' };
   if (SKILL[id].cat === '覚醒限定技' && c.awakening < 1) return { ok:false, msg:'覚醒後に解放されます' };
   if (useBook) {
@@ -539,7 +725,8 @@ export function useSkillBook(state, c, bookId) {
   else if (bookId === 'book_high') pool = SKILLS.filter(s => s.tier >= 5);
   else pool = SKILLS.filter(s => s.cat === '覚醒限定技' || s.cat === '必殺技');
   const unknown = pool.filter(s => !hasSkill(c, s.id) && s.cat !== '覚醒限定技');
-  const list = unknown.length ? unknown : pool.filter(s => !hasSkill(c, s.id));
+  const list = (unknown.length ? unknown : pool.filter(s => !hasSkill(c, s.id)))
+    .filter(s => !s.ultimate && s.source !== 'god');
   if (!list.length) {
     addCoins(state, 600);
     return { ok:true, msg:'習得可能な技がなかったため、600コインに変換しました' };
@@ -594,6 +781,29 @@ export function doAwaken(state, c) {
 }
 
 /* ---------- キャラクターのランク進化（レベルとは別管理） ---------- */
+export function emptyEvolutionBonus() {
+  return { ...Object.fromEntries(STAT_KEYS.map(k => [k, 0])),
+    effects:{ crit:0, critDamage:0, ultimatePower:0 } };
+}
+export function mergeEvolutionBonus(base, add) {
+  const out = { ...emptyEvolutionBonus(), ...(base || {}) };
+  for (const k of STAT_KEYS) out[k] = (out[k] || 0) + (add[k] || 0);
+  out.effects = { ...out.effects };
+  for (const [k,v] of Object.entries(add.effects || {})) out.effects[k] = (out.effects[k] || 0) + v;
+  return out;
+}
+/** 進化で得る全ステータスの大幅上昇（装備・職業に依存しない永続値） */
+export function rankUpBonus(state, c, to) {
+  // 装備を外した「素の能力値」を基準に、ランクが上がるほど大きな割合で強化
+  const bare = { ...c, equipment:{ weapon:null, armor:null, accessory:null, ornament:null } };
+  const base = coreStats(bare, state);
+  const idx = charRankIndex(to);
+  const rate = EVOLUTION_BY_FROM[c.rarity]?.rate || 0.22 + idx * 0.1;
+  const b = emptyEvolutionBonus();
+  for (const k of STAT_KEYS) b[k] = Math.max(3, Math.round(base[k] * rate));
+  b.effects = { crit: 2 + idx * 2, critDamage: 8 + idx * 6, ultimatePower: 10 + idx * 9 };
+  return b;
+}
 export function evolutionPreview(state, c) {
   const rule = EVOLUTION_BY_FROM[c.rarity || 'R'];
   if (!rule) return { max:true, rule:null, mats:[], ok:false, reasons:['最終ランク LR に到達済み'] };
@@ -604,9 +814,18 @@ export function evolutionPreview(state, c) {
   if (state.coins < rule.coins) reasons.push(`コイン ${fmt(rule.coins)}`);
   for (const m of mats) if (m.have < m.n) reasons.push(`${MATERIAL_BY_ID[m.id]?.name || m.id} ×${m.n}（現在 ${m.have}）`);
   const beforeStats = computeStats(c, state);
-  const afterStats = computeStats({ ...c, rarity: rule.to }, state);
+  const bonus = rankUpBonus(state, c, rule.to);
+  const afterStats = computeStats({ ...c, rarity: rule.to,
+    evolutionBonus: mergeEvolutionBonus(c.evolutionBonus, bonus) }, state);
+  const extra = ['mdef','crit','critDamage','ultimatePower'];
+  const gains = STAT_KEYS.filter(k => afterStats[k] > beforeStats[k])
+    .map(k => ({ key:k, value:afterStats[k]-beforeStats[k] }));
+  for (const k of extra) if ((afterStats[k]||0) > (beforeStats[k]||0))
+    gains.push({ key:k, value:afterStats[k]-beforeStats[k] });
   return { max:false, rule, mats, reasons, ok:reasons.length === 0, beforeStats, afterStats,
-    nextRank: CHAR_RARITY[rule.to], skill: SKILL[rule.skill] };
+    bonus, gains, nextRank: CHAR_RARITY[rule.to], skill: SKILL[rule.skill],
+    jobUltimate: rule.to === 'LR' ? SKILL[c.jobId === GOD_JOB_ID ? GOD_ULTIMATE_ID : JOB_ULTIMATE[c.jobId]] : null,
+    specialUltimate: c.specialUltimateId ? SKILL[c.specialUltimateId] : null };
 }
 export function evolveCharacter(state, c) {
   const p = evolutionPreview(state, c);
@@ -615,16 +834,32 @@ export function evolveCharacter(state, c) {
   const rule = p.rule;
   addCoins(state, -rule.coins, false);
   for (const m of p.mats) removeItem(state, m.id, m.n);
-  // 元画像・名前・職業・技・装備・育成記録は一切変更しない
+  // レベル・EXP・名前・元画像・職業・習得済み技・装備・戦績は一切変更しない
+  c.evolutionBonus = mergeEvolutionBonus(c.evolutionBonus, p.bonus);
   c.rarity = rule.to;
   c.statPoints += 6;
   learnSkillDirect(c, state, rule.skill);
+  // 特殊奥義：最初の R → SR 進化で習得（通常職の奥義は LR のまま）
+  let learnedSpecial = null;
+  if (rule.from === 'R' && c.specialKey && c.specialUltimateId) {
+    if (learnSkillDirect(c, state, c.specialUltimateId)) learnedSpecial = SKILL[c.specialUltimateId];
+  }
+  // LR 進化で職業（神含む）に応じた奥義を習得
+  let learnedUltimate = null;
+  if (rule.to === 'LR') {
+    const uidv = c.jobId === GOD_JOB_ID ? GOD_ULTIMATE_ID : JOB_ULTIMATE[c.jobId];
+    if (uidv && learnSkillDirect(c, state, uidv)) learnedUltimate = SKILL[uidv];
+  }
   state.stats.evolutions++;
   restoreFull(state, c);
-  logEvent(state, `「${c.name}」が ${rule.from} → ${rule.to} に進化！能力値が大幅に上昇し「${SKILL[rule.skill].name}」を習得。`, 'evolution');
+  syncEquipmentSnapshot(state, c);
+  const extraLog = [learnedSpecial && `特殊奥義「${learnedSpecial.name}」`,
+    learnedUltimate && `奥義「${learnedUltimate.name}」`].filter(Boolean).join(' / ');
+  logEvent(state, `「${c.name}」が ${rule.from} → ${rule.to} に進化！全ステータスが大幅上昇${extraLog ? `、${extraLog}を習得` : ''}。`, 'evolution');
   checkAchievements(state);
-  return { ok:true, msg:`${rule.from} → ${rule.to} 進化成功！ ${rule.gain}`, rule,
-    gains: STAT_KEYS.filter(k => p.afterStats[k] > p.beforeStats[k]).map(k => ({ key:k, value:p.afterStats[k]-p.beforeStats[k] })) };
+  return { ok:true, msg:`${rule.from} → ${rule.to} 進化成功！ ${rule.gain}${extraLog?` / ${extraLog}`:''}`, rule,
+    gains:p.gains, learnedSpecial, learnedUltimate,
+    jobChangeOffer:{ reason:'rank', from:rule.from, to:rule.to } };
 }
 
 /* ---------- 武器・装備のランク進化 ---------- */
@@ -652,6 +887,7 @@ export function evolveEquipment(state, instUid) {
   addCoins(state, -p.coins, false);
   for (const m of p.mats) removeItem(state, m.id, m.n);
   p.inst.rank = p.next;   // 武器の種類・形状・defId は維持したまま装飾と効果だけ強化
+  for (const ch of state.characters) syncEquipmentSnapshot(state, ch);
   state.stats.equipEvolutions++;
   logEvent(state, `${p.def.name} がランク ${p.cur} → ${p.next} に進化した。`, 'evolution');
   checkAchievements(state);
@@ -697,7 +933,8 @@ export function doRebirth(state, c) {
   bump(state, 'rebirth', 1);
   logEvent(state, `${c.name}が${c.rebirth}回目の転生を果たした。能力値の下限が永遠に引き上げられた。`, 'rebirth');
   checkAchievements(state);
-  return { ok:true, msg:`転生完了！永続ボーナス+12%、ステータスポイント+15` };
+  return { ok:true, msg:`転生完了！永続ボーナス+12%、ステータスポイント+15`,
+    jobChangeOffer:{ reason:'rebirth', from:c.rarity, to:c.rarity } };
 }
 
 /* ---------- 装備・ガチャ・強化・合成 ---------- */
@@ -712,10 +949,12 @@ export function equipItem(state, c, instUid, slot) {
   if (!inst || !SLOTS.includes(slot)) return false;
   const def = instanceDef(inst);
   if (def.slot !== slot) return false;
+  if (def.godOnly && c.jobId !== GOD_JOB_ID) return false;
   if (def.slot === 'weapon' && !JOB[c.jobId].weapons.includes(def.type)) {
     return false;
   }
   c.equipment[slot] = inst.uid;
+  syncEquipmentSnapshot(state, c);
   const st = computeStats(c, state);
   c.hp = Math.min(c.hp, st.hp); c.mp = Math.min(c.mp, st.mp);
   c.hpMaxCache = st.hp; c.mpMaxCache = st.mp;
@@ -723,6 +962,7 @@ export function equipItem(state, c, instUid, slot) {
 }
 export function unequip(state, c, slot) {
   c.equipment[slot] = null;
+  syncEquipmentSnapshot(state, c);
   const st = computeStats(c, state);
   c.hp = Math.min(c.hp, st.hp); c.mp = Math.min(c.mp, st.mp);
 }
@@ -734,6 +974,7 @@ export function sellEquipment(state, uidv) {
   const def = instanceDef(inst);
   const price = Math.round((60 + RARITY[def.rarity].mult * 90) * (1 + (inst.enhance || 0) * 0.15));
   state.inventory.equipment.splice(i, 1);
+  for (const ch of state.characters) syncEquipmentSnapshot(state, ch);
   addCoins(state, price);
   return { ok:true, msg:`${def.name} を ${fmt(price)}コインで売却` };
 }
@@ -842,6 +1083,7 @@ export function enhanceEquipment(state, instUid) {
   if (itemCount(state, 'mat_ore') < ore) return { ok:false, msg:`精錬鉱石が${ore}個必要です` };
   addCoins(state, -cost, false); removeItem(state, 'mat_ore', ore);
   inst.enhance++;
+  for (const ch of state.characters) syncEquipmentSnapshot(state, ch);
   logEvent(state, `${instanceDef(inst).name} を +${inst.enhance} に強化した。`, 'forge');
   return { ok:true, msg:`${instanceDef(inst).name} → +${inst.enhance}！` };
 }
@@ -900,12 +1142,22 @@ export function exchangeItem(state, c, exId) {
     const need = ex.skill === 'sk_secret' ? 5 : ex.skill === 'sk_awaken3' || ex.skill === 'sk_awaken2' ? 2 : 1;
     if (c.awakening < need) return { ok:false, msg:`覚醒${need}段階以上が必要です` };
   }
+  if (ex.kind === 'godEquip') {
+    if (!c.specialKey || !c.godUnlocked) return { ok:false, msg:'特殊役職「神」の解放者だけ交換できます' };
+    if (!GOD_EQUIPMENT.some(e => !state.inventory.equipment.some(x => x.defId === e.id)))
+      return { ok:false, msg:'神専用装備はすべて所持しています' };
+  }
   addBP(state, -ex.cost);
   if (ex.kind === 'skill') learnSkillDirect(c, state, ex.skill);
   if (ex.kind === 'item') grantMaterials(state, { [ex.item]: ex.count || 1 });
   if (ex.kind === 'title') { addCatalog(state.titles, ex.title); c.titleId = ex.title; }
+  if (ex.kind === 'godEquip') {
+    const pool = GOD_EQUIPMENT.filter(e => !state.inventory.equipment.some(x => x.defId === e.id));
+    const inst = addEquipment(state, rand(pool).id);
+    logEvent(state, `交換所で ${instanceDef(inst).name} を入手。`, 'exchange');
+  }
   if (ex.kind === 'equip') {
-    const pool = EQUIPMENT.filter(e => e.rarity === ex.rarity);
+    const pool = EQUIPMENT.filter(e => e.rarity === ex.rarity && !e.godOnly);
     const inst = addEquipment(state, rand(pool).id);
     logEvent(state, `交換所で ${instanceDef(inst).name} を入手。`, 'exchange');
   }
@@ -1206,16 +1458,18 @@ export function buildEnemyCombatant(enemy, scale = 1) {
     mag: Math.round((14 + lv * 1.1 + job.growth.mag * lv * 0.8) * mul),
     acc: Math.round(86 + lv * 0.4 + job.growth.acc * lv),
     eva: Math.round(5 + lv * 0.22 + job.growth.eva * lv),
+    mdef: 0,
     effects: enemy.boss ? { crit:12, damageCut:8, statusGuard:25 } : { crit:4 },
   };
   const rarIdx = Math.min(5, Math.max(0, Math.floor((mul - 0.8) * 2.2)));
   for (const eq of enemy.equipment || []) {
     const def = EQUIPMENT.find(e => e.slot === eq.slot && e.rarity === (eq.rarity || RARITY_ORDER[rarIdx]));
     if (!def) continue;
-    const es = equipmentStats({ defId:def.id, enhance:0 });
+    const es = equipmentStats({ defId:def.id, enhance:0, enemy:true });
     for (const k of STAT_KEYS) stats[k] += Math.round((es[k] || 0) * 0.75);
     for (const e of es.effects) stats.effects[e.id] = (stats.effects[e.id] || 0) + e.value;
   }
+  stats.mdef = Math.round(stats.def * 0.7 + stats.mag * 0.45);
   return stats;
 }
 

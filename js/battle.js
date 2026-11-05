@@ -1,7 +1,9 @@
 /* ===========================================================
    ターン制 CPU 対戦エンジン
    =========================================================== */
-import { SKILL, ELEMENTS, JOB, ITEM } from './data.js?v=2';
+import { SKILL, ELEMENTS, JOB, ITEM, charRankIndex, EFFECTS,
+  ULTIMATE_GAUGE_MAX, ULTIMATE_GAUGE_GAIN, ULTIMATE_GAUGE_HIT_GAIN,
+  ULTIMATE_IDS, GOD_JOB_ID } from './data.js?v=2';
 import {
   computeStats, buildEnemyCombatant, battleRewards, advanceDungeon, removeItem,
   addCatalog, logEvent, restoreFull, rankInfo, clamp,
@@ -15,7 +17,7 @@ const JOB_ELEMENT = {
   warrior:'none', fencer:'wind', knight:'earth', mage:'fire', priest:'light', thief:'dark',
   archer:'wind', monk:'earth', gunner:'thunder', summoner:'star', alchemist:'water', ninja:'dark',
   swordmaster:'light', archmage:'fire', assassin:'dark', dragonknight:'fire', spellblade:'thunder',
-  apostle:'light', destroyer:'fire', timeweaver:'star', starguard:'star',
+  apostle:'light', destroyer:'fire', timeweaver:'star', starguard:'star', god:'star',
 };
 
 export class Battle {
@@ -34,7 +36,12 @@ export class Battle {
     this.logs = [];
     this.damageDealt = 0;
     this.damageTaken = 0;
-    this.autoMode = false;
+    this.autoMode = !!this.state.settings?.autoOn;
+    this.autoSpeed = clamp(Number(this.state.settings?.autoSpeed) || 1, 1, 3);
+    this.autoUltimate = this.state.settings?.autoUltimate !== false;
+    this.autoPending = false;
+    this.autoTimer = null;
+    this.ultimateGauge = 0;
     this.finished = false;
 
     const ps = computeStats(this.char, this.state);
@@ -45,7 +52,12 @@ export class Battle {
       base:ps, hp:ps.hp, mp:ps.mp, maxHp:ps.hp, maxMp:ps.mp,
       element: JOB_ELEMENT[this.char.jobId] || 'none',
       effects: ps.effects || {}, statuses:[], buffs:[], cds:{}, shield:0, counter:null, guard:false,
-      skills: this.char.equippedSkills.length ? [...this.char.equippedSkills] : this.char.skills.slice(0,4).map(s=>s.id),
+      // 奥義は装備枠(8)に関係なく常に使用可能。重複を除いて追加する。
+      skills: [...new Set([
+        ...(this.char.equippedSkills.length ? this.char.equippedSkills : this.char.skills.slice(0,4).map(s=>s.id)),
+        ...(this.char.ultimateSkills || []),
+        ...this.char.skills.map(s => s.id).filter(id => ULTIMATE_IDS.has(id)),
+      ])],
       mastery: Object.fromEntries(this.char.skills.map(s=>[s.id,s.mastery||0])),
     };
     this.enemy = {
@@ -68,7 +80,36 @@ export class Battle {
   }
   fx(o) { this.onFx(o); }
   changed() { this.onChange(); }
-  delay(ms) { return sleep(Math.max(60, Math.round(ms / this.anim))); }
+  /** AUTO 中だけ 1/2/3 倍速。最小ウェイトを残して演出・ログを読める速さに留める */
+  get speedFactor() { return this.autoMode ? this.autoSpeed : 1; }
+  delay(ms) { return sleep(Math.max(90, Math.round(ms / (this.anim * this.speedFactor)))); }
+  queueAuto(ms = 380) {
+    if (!this.autoMode || this.finished || this.phase !== 'player' || this.autoTimer) return;
+    this.autoPending = true;
+    this.autoTimer = setTimeout(() => {
+      this.autoTimer = null; this.autoPending = false;
+      if (this.autoMode && !this.finished && this.phase === 'player') this.autoStep();
+    }, Math.max(110, Math.round(ms / this.speedFactor)));
+  }
+  cancelAuto() {
+    if (this.autoTimer) { clearTimeout(this.autoTimer); this.autoTimer = null; }
+    this.autoPending = false;
+  }
+  canUseUltimate(sk) {
+    return !!(sk && sk.ultimate && this.ultimateGauge >= ULTIMATE_GAUGE_MAX
+      && this.player.mp >= (sk.mp || 0) && (this.player.cds[sk.id] || 0) === 0 && this.canAct(this.player));
+  }
+  ultimateMultiplier(actor, skill) {
+    const c = this.char;
+    const ri = charRankIndex(c.rarity);
+    let m = 1 + ri * 0.22;
+    if (c.rarity === 'LR') m += 0.35;
+    if (c.jobId === GOD_JOB_ID) m += 0.45;
+    m += this.eff(actor, 'ultimatePower') / 100;
+    m *= 1 + (this.stat(actor, 'atk') + this.stat(actor, 'mag')) / 2600; // 能力値・装備
+    if (skill.special) m *= 1 + ri * 0.28 + (c.jobId === GOD_JOB_ID ? 0.4 : 0); // 特殊奥義は進化で強化
+    return m;
+  }
 
   hpPct(side) { return Math.max(0, Math.min(100, side.hp / side.maxHp * 100)); }
   mpPct(side) { return Math.max(0, Math.min(100, side.mp / side.maxMp * 100)); }
@@ -87,7 +128,9 @@ export class Battle {
     if (side === this.player) {
       const list = [{ id:'__attack', name:'通常攻撃', mp:0, cd:0, element:'none', cat:'基本', power:100, desc:'MPを消費しない基本攻撃' },
                     ...side.skills.map(id => SKILL[id]).filter(Boolean)];
-      return list.map(s => ({ ...s, usable: side.mp >= (s.mp||0) && (side.cds[s.id]||0) === 0 && this.canAct(side) }));
+      return list.map(s => ({ ...s,
+        usable: side.mp >= (s.mp||0) && (side.cds[s.id]||0) === 0 && this.canAct(side)
+          && (!s.ultimate || this.canUseUltimate(s)) }));
     }
     return side.skills.map(id => SKILL[id]).filter(Boolean);
   }
@@ -107,6 +150,11 @@ export class Battle {
   /* ---------- ターン開始処理 ---------- */
   async tickTurn(side) {
     side.guard = false;
+    if (side === this.player) {
+      this.ultimateGauge = Math.min(ULTIMATE_GAUGE_MAX,
+        this.ultimateGauge + ULTIMATE_GAUGE_GAIN * (this.char.rarity === 'LR' ? 1.2 : 1)
+        + (this.char.jobId === GOD_JOB_ID ? 6 : 0));
+    }
     for (const k of Object.keys(side.cds)) if (side.cds[k] > 0) side.cds[k]--;
     for (const b of side.buffs) b.dur--;
     side.buffs = side.buffs.filter(b => b.dur > 0);
@@ -143,7 +191,15 @@ export class Battle {
     const aKey = attacker === this.player ? 'player' : 'enemy';
     const scale = part.scale === 'mag' ? 'mag' : 'atk';
     const mastery = attacker.mastery?.[skill?.id] || 0;
-    const power = (part.power || 100) * (1 + mastery*0.03);
+    let power = (part.power || 100) * (1 + mastery*0.03);
+    if (skill?.ultimate) power *= this.ultimateMultiplier(attacker, skill);
+    if (skill?.id === '__attack' || skill?.cat === '基本')
+      power *= 1 + this.eff(attacker, 'normalAttackPower') / 100;
+    if (skill?.element && skill.element !== 'none')
+      power *= 1 + this.eff(attacker, `element_${skill.element}`) / 100;
+    // 「地ならし」は地面を揺るがす全体攻撃。ボスに特に有効。
+    if (skill?.special === 'すずそう' && defender === this.enemy && this.enemyDef.boss)
+      power *= 1.65;
     const hitChance = clamp(this.stat(attacker,'acc') - this.stat(defender,'eva')*0.55 + 42, 30, 99);
     if (!part.trueHit && !pct(hitChance)) {
       this.log(`${attacker.name} の攻撃は外れた！`, 'miss');
@@ -153,13 +209,18 @@ export class Battle {
     const critRate = 6 + this.eff(attacker,'crit') + Math.max(0, (this.stat(attacker,'acc')-90)*0.15);
     const crit = pct(critRate);
     const eMul = this.elementMult(skill?.element || part.element || 'none', defender.element);
-    const def = this.stat(defender,'def') * (1 - (part.pierce || this.eff(attacker,'ignoreDef')/100 || 0));
+    const defKey = scale === 'mag' ? 'mdef' : 'def';
+    const pierce = Math.min(0.85, (part.pierce || 0) + this.eff(attacker,'ignoreDef')/100);
+    const def = this.stat(defender, defKey) * (1 - pierce);
     const mit = 100 / (100 + Math.max(0,def) * 0.62);
     const buffAtk = 1 + (this.eff(attacker,'firstStrike') && this.turn === 1 ? 0.2 : 0);
     let dmg = this.stat(attacker, scale) * (power/100) * rnd(0.92,1.08) * mit * eMul * buffAtk;
-    if (crit) dmg *= 1.65;
+    if (crit) dmg *= 1.65 + this.eff(attacker,'critDamage')/100;
     if (defender.guard) dmg *= 0.42;
     dmg *= 1 - Math.min(0.5, this.eff(defender,'damageCut')/100);
+    // 攻撃時の追加ダメージ（複数ヒット時は分割して過剰にならないようにする）
+    const flat = this.eff(attacker, 'extraDamage');
+    if (flat) dmg += Math.max(1, Math.round(flat / (part.hits || 1)));
     dmg = Math.max(1, Math.round(dmg));
     // シールド
     if (defender.shield > 0) {
@@ -235,7 +296,16 @@ export class Battle {
     actor.mp -= (skill.mp||0);
     if (skill.cd) actor.cds[skill.id] = skill.cd;
     this.log(`▶ ${actor.name}：「${skill.name}」`, aKey === 'player'?'playerAct':'enemyAct');
-    this.fx({ type:'skill', side:aKey, name:skill.name, fx:skill.fx || 'slash', element:skill.element || 'none' });
+    if (skill.special === 'すずそう') this.log('🌍 大地が唸り、戦場全体が揺れた！（ボスに特大ダメージ）', 'crit');
+    if (skill.special === '河岡') this.log('💠 味方全体に大きな加護が満ち、敵へ光が走る！', 'buff');
+    if (skill.ultimate) {
+      this.log(`✦ 奥義発動！ ${skill.name} ✦`, 'crit');
+      this.fx({ type:'ultimate', side:aKey, name:skill.name, element:skill.element || 'star',
+        special:skill.special || '', job:actor.job });
+      await this.delay(300); // 豪華だが短く（テンポを落とさない）
+    } else {
+      this.fx({ type:'skill', side:aKey, name:skill.name, fx:skill.fx || 'slash', element:skill.element || 'none' });
+    }
     await this.delay(360);
 
     if (actor.statuses.some(s => s.id === 'confuse') && pct(35)) {
@@ -247,7 +317,12 @@ export class Battle {
       return;
     }
 
-    for (const part of (skill.parts || [{op:'damage',power:skill.power||100,scale:'atk',hits:1}])) {
+    const parts = skill.parts || [{op:'damage',power:skill.power||100,scale:'atk',hits:1}];
+    const specialBoost = skill.special ? 1 + charRankIndex(this.char.rarity) * 0.22 : 1;
+    for (const rawPart of parts) {
+      const part = specialBoost !== 1 && ['heal','buff','shield','restoreMp'].includes(rawPart.op)
+        ? { ...rawPart, power:rawPart.power ? Math.round(rawPart.power*specialBoost) : rawPart.power,
+            amount:rawPart.amount ? Math.round(rawPart.amount*specialBoost) : rawPart.amount } : rawPart;
       switch (part.op) {
         case 'damage': {
           const hits = part.hits || 1;
@@ -317,6 +392,7 @@ export class Battle {
   /* ---------- プレイヤー行動 ---------- */
   async act(actionId) {
     if (this.finished || this.phase !== 'player') return;
+    this.cancelAuto();   // 手動操作と AUTO が同じターンを二重に進めない
     this.phase = 'busy'; this.changed();
     if (actionId === '__guard') {
       this.player.guard = true;
@@ -347,10 +423,20 @@ export class Battle {
     } else {
       const sk = actionId === '__attack' ? basicAttack() : SKILL[actionId];
       if (!sk) { this.phase='player'; this.changed(); return; }
+      if (sk.ultimate && !this.canUseUltimate(sk)) {
+        this.log(`奥義ゲージが足りません（${Math.floor(this.ultimateGauge)} / ${ULTIMATE_GAUGE_MAX}）`, 'miss');
+        this.phase = 'player'; this.changed(); return;
+      }
       if (this.player.mp < (sk.mp||0)) { this.log('MPが足りません', 'miss'); this.phase='player'; this.changed(); return; }
+      if (sk.ultimate) {
+        this.ultimateGauge = 0;                       // 連続使用不可
+        this.player.cds[sk.id] = Math.max(sk.cd || 0, 3);
+        this.log(`奥義ゲージを消費（0 / ${ULTIMATE_GAUGE_MAX}）`, 'system');
+      }
       await this.resolveAction(this.player, this.enemy, sk);
     }
     if (this.enemy.hp <= 0 || this.player.hp <= 0) { await this.finish(this.enemy.hp <= 0); return; }
+    this.ultimateGauge = Math.min(ULTIMATE_GAUGE_MAX, this.ultimateGauge + ULTIMATE_GAUGE_HIT_GAIN);
     await this.enemyTurn();
     if (this.finished) return;
     if (this.enemy.hp <= 0 || this.player.hp <= 0) { await this.finish(this.enemy.hp <= 0); return; }
@@ -359,7 +445,7 @@ export class Battle {
     if (!await this.tickTurn(this.player)) return;
     this.log(`── ターン ${this.turn} ──`, 'system');
     this.changed();
-    if (this.autoMode) setTimeout(() => this.autoStep(), 420);
+    this.queueAuto(420);
   }
 
   /* ---------- CPU思考 ---------- */
@@ -386,32 +472,53 @@ export class Battle {
     await this.resolveAction(this.enemy, this.player, pick);
   }
 
-  /* ---------- おまかせ ---------- */
+  /* ---------- AUTO ---------- */
   async autoStep() {
     if (this.finished || this.phase !== 'player' || !this.autoMode) return;
     const list = this.actionList(this.player).filter(s => s.usable && s.id !== '__attack');
     let choice = '__attack';
-    if (this.hpPct(this.player) < 35 && this.usableItems().find(i => i.battle?.op === 'heal')) {
-      choice = '__item:' + this.usableItems().find(i => i.battle?.op === 'heal').id;
-    } else if (list.length) {
-      const damaging = list.filter(s => s.parts?.some(p => p.op === 'damage') || s.power);
-      const pool = damaging.length ? damaging : list;
-      const sorted = pool.sort((a,b)=> (b.power||0) - (a.power||0));
-      choice = sorted[0].id;
-    }
+    const healItem = this.usableItems().find(i => i.battle?.op === 'heal' || i.battle?.op === 'full');
+    const healSkill = list.find(s => s.parts?.some(p => p.op === 'heal'));
+    const finisher = this.autoUltimate
+      ? list.find(s => s.ultimate && this.canUseUltimate(s)) : null;
+    const score = s => (s.power || 0) * (s.parts?.[0]?.hits || 1)
+      * (s.ultimate ? 1.6 : 1) * (1 + (this.eff(this.player, `element_${s.element}`) || 0) / 300);
+    const damaging = list.filter(s => s.parts?.some(p => p.op === 'damage' || p.op === 'summon') || s.power)
+      .sort((a,b) => score(b) - score(a));
+    if (this.hpPct(this.player) < 35 && healItem) choice = '__item:' + healItem.id;
+    else if (this.hpPct(this.player) < 50 && healSkill) choice = healSkill.id;
+    else if (finisher) choice = finisher.id;                    // 設定に応じて奥義を自動使用
+    else if (this.hpPct(this.player) < 25 && !healItem && !healSkill) choice = '__guard';
+    else if (this.mpPct(this.player) < 18 && damaging.length === 0) choice = '__guard';
+    else if (damaging.length) choice = damaging[0].id;
+    else if (list.length) choice = list[0].id;
     await this.act(choice);
   }
   toggleAuto() {
     this.autoMode = !this.autoMode;
-    this.log(this.autoMode ? 'おまかせ戦闘：ON' : 'おまかせ戦闘：OFF', 'system');
+    this.state.settings.autoOn = this.autoMode;
+    if (!this.autoMode) { this.cancelAuto(); this.autoSpeed = 1; this.state.settings.autoSpeed = 1; }
+    this.log(this.autoMode ? 'AUTO：ON' : 'AUTO：OFF（通常速度）', 'system');
     this.changed();
-    if (this.autoMode && this.phase === 'player') setTimeout(() => this.autoStep(), 350);
+    this.queueAuto(350);
+  }
+  setAutoSpeed(n) {
+    this.autoSpeed = clamp(Number(n) || 1, 1, 3);
+    this.state.settings.autoSpeed = this.autoSpeed;
+    this.log(`AUTO 戦闘速度：${this.autoSpeed}倍速`, 'system');
+    this.changed();   // 戦闘は停止しない。次の delay から反映される
+  }
+  setAutoUltimate(on) {
+    this.autoUltimate = !!on;
+    this.state.settings.autoUltimate = !!on;
+    this.log(`AUTO 奥義自動使用：${on ? 'ON' : 'OFF'}`, 'system');
+    this.changed();
   }
 
   /* ---------- 決着 ---------- */
   async finish(won) {
     if (this.finished) return;
-    this.finished = true; this.phase = 'end'; this.autoMode = false;
+    this.finished = true; this.phase = 'end'; this.autoMode = false; this.autoPending = false; this.cancelAuto();
     this.log(won ? `★ ${this.player.name} の勝利！` : `… ${this.player.name} の敗北`, won?'win':'lose');
     this.fx({ type: won?'victory':'defeat', side:'player' });
     this.changed();
@@ -434,6 +541,15 @@ export class Battle {
     this.log('降参した。', 'lose');
     await this.finish(false);
   }
+}
+
+function sfxUltimate() {
+  try {
+    const w = globalThis.window;
+    const Ctx = w && (w.AudioContext || w.webkitAudioContext);
+    if (!Ctx || !w.__OCF_ULTIMATE_SFX__) return;
+    w.__OCF_ULTIMATE_SFX__();
+  } catch (err) { /* 音が出せない環境では無視 */ }
 }
 
 function basicAttack() {

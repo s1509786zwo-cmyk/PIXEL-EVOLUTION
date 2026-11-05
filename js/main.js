@@ -15,6 +15,7 @@ const app = {
   confirmReset: false, charName: '', started: false,
   materialDetail: null, evolveEquip: null, lastBonus: [],
   gacha: null, gachaRatesDetail: false, gachaItemDetail: null,
+  jobChangeOffer: null,
 };
 let state = S.newState();
 let toastTimer = null, regenTimer = null;
@@ -55,11 +56,21 @@ async function navigate(screen, params = {}) {
 }
 
 function initDraft() {
+  const saved = state.draftSave;
   app.draft = {
     step: 1, image: null, original: '', sprite: '', meta: null, width: 0, height: 0,
     settings: S.defaultImageSettings(), transparentData: '',
     name: '', jobId: 'warrior', weaponType: '剣', styleId: 'balanced', frame: 'gold',
   };
+  if (saved?.original) {
+    Object.assign(app.draft, {
+      original:saved.original, sprite:saved.original, name:saved.name || '',
+      settings:{ ...S.defaultImageSettings(), ...(saved.imageSettings||{}) },
+      transparentData:saved.transparentData || '', jobId:saved.jobId||'warrior',
+      weaponType:saved.weaponType||'剣', styleId:saved.styleId||'balanced', frame:saved.frame||'gold',
+      width:saved.width||0, height:saved.height||0, meta:{ name:'保存済みの下書き' },
+    });
+  }
   app.compare = false;
 }
 async function prepareLook() {
@@ -124,7 +135,6 @@ function updateImagePreview(target) {
   }
   const z = $(`zoom_${target}`); if (z) z.textContent = `${Math.round(set.scale * 100)}%`;
   const out = $(`out_${target}_scale`); if (out) out.textContent = set.scale.toFixed(2);
-  const bs = $('out_battle_scale'); if (bs && target === 'look') bs.textContent = `${Math.round(set.battleScale*100)}%`;
 }
 function syncSettingInputs(target) {
   const o = srcObj(target); if (!o) return;
@@ -173,13 +183,13 @@ function updateSetting(el, target, key) {
   if (el.type === 'checkbox') v = el.checked;
   else if (el.type === 'range' || el.type === 'number') v = Number(el.value);
   else v = el.value;
-  if (target === 'settings') { state.settings[key] = v; save(); }
+  if (target === 'settings') {
+    state.settings[key] = v; save();
+    if (key === 'autoUltimate' && app.battle) app.battle.setAutoUltimate(v);
+  }
   else if (target === 'battle') {
-    const c = S.activeChar(state); if (!c) return;
-    c.imageSettings = { ...S.defaultImageSettings(), ...(c.imageSettings||{}), [key]:v };
-    save();
-    const img = document.querySelector('#arena-player .char-img');
-    if (img) img.style.transform = imageTransform(c.imageSettings, 'battle');
+    // 戦闘中の表示サイズ変更は廃止。戦闘開始前に「見た目の変更」で設定する。
+    return;
   } else {
     const o = srcObj(target); if (!o) return;
     o.settings[key] = v;
@@ -190,8 +200,6 @@ function updateSetting(el, target, key) {
   if (out) out.textContent = typeof v === 'number' ? (String(el.step).includes('.') ? Number(v).toFixed(2) : v) : v;
   const z = $(`zoom_${target}`);
   if (z && key === 'scale') z.textContent = `${Math.round(v*100)}%`;
-  const bs = $('out_battle_scale');
-  if (bs && key === 'battleScale') bs.textContent = `${Math.round(v*100)}%`;
 }
 
 async function handleFile(el) {
@@ -287,7 +295,12 @@ function sfx(kind) {
   if (kind === 'win') { [523,659,784,1046].forEach((f,i)=>tone(f,0.22,'triangle',0.032,i*0.12)); }
   if (kind === 'lose') { [330,262,196].forEach((f,i)=>tone(f,0.25,'sine',0.03,i*0.15)); }
   if (kind === 'hit') tone(140, 0.07, 'square', 0.02);
+  if (kind === 'ultimate') {
+    [196,262,330,392,523,659,784,1046].forEach((f,i)=>tone(f,0.34,'triangle',0.032,i*0.085));
+    tone(1046,0.75,'sine',0.026,0.7);
+  }
 }
+window.__OCF_ULTIMATE_SFX__ = () => sfx('ultimate');
 /* ---------------- ガチャ演出（結果は startGachaPresentation 前に確定済み） ---------------- */
 const GACHA_BASE_MS = { N:520, R:700, E:920, L:1280, M:1650, S:2250 };
 function gachaSfx(rarity) {
@@ -398,6 +411,12 @@ function fxTarget(side) {
   const r = el?.getBoundingClientRect();
   return { x: r ? r.left + r.width/2 : window.innerWidth/2, y: r ? r.top + r.height*0.32 : window.innerHeight/2 };
 }
+const SPECIAL_FX = {
+  '飯山':   { n:0, color:'#ff8f6b', glyph:'✹', label:'連撃の嵐' },
+  '三尾':   { n:1, color:'#ffe066', glyph:'⚡', label:'一気の連携' },
+  'すずそう':{ n:2, color:'#d8a866', glyph:'🌍', label:'大地をならす' },
+  '河岡':   { n:3, color:'#ff9ecf', glyph:'💠', label:'おにーちゃんの加護' },
+};
 function showFx(o) {
   const layer = $('fx-layer'); if (!layer) return;
   const el = document.createElement('div');
@@ -417,6 +436,16 @@ function showFx(o) {
     const color = D.ELEMENTS[o.element]?.color || '#ffd77a';
     el.style.setProperty('--fx-color', color);
     el.innerHTML = `<span>✦</span>${e(o.name)}<span>✦</span>`;
+  } else if (o.type === 'ultimate') {
+    const sp = SPECIAL_FX[o.special];
+    el.className = `fx-ultimate${sp ? ` sp-fx-${sp.n}` : ''}`;
+    const color = sp?.color || D.ELEMENTS[o.element]?.color || '#ffd77a';
+    el.style.setProperty('--fx-color', color);
+    el.innerHTML = `<div class="fu-ring"></div><div class="fu-rays"></div>
+      <div class="fu-label">${sp ? `${sp.glyph} ${sp.label} ✵` : '✵ 奥義 ✵'}</div>
+      <div class="fu-name">${e(o.name)}</div>
+      ${sp?`<div class="fu-special">${e(D.SPECIAL_NAME_LABEL[o.special]||o.special)}の名を宿す専用演出</div>`:''}`;
+    sfx('ultimate');
   } else if (o.type === 'victory' || o.type === 'defeat') {
     el.className = `fx-big ${o.type}`;
     el.textContent = o.type === 'victory' ? 'WIN!' : 'LOSE...';
@@ -427,7 +456,7 @@ function showFx(o) {
     el.style.left = `${p.x}px`; el.style.top = `${p.y - 40}px`;
   }
   layer.appendChild(el);
-  setTimeout(() => el.remove(), 1100);
+  setTimeout(() => el.remove(), o.type === 'ultimate' ? 1000 : 1100);
 }
 
 /* ---------------- 戦闘開始・終了 ---------------- */
@@ -454,6 +483,8 @@ async function startBattle(enemyDef, mode = 'cpu', floor = 0) {
     },
   });
   b.player.sprite = c.original || c.sprite;
+  b.enemy.boss = !!enemyDef.boss;
+  b.fixedBattleScale = (c.imageSettings?.battleScale || 1);   // 戦闘中は固定
   b.enemy.sprite = P.makeEnemySprite(enemyDef);
   app.battle = b; app.result = null; app.battleTab = 'skill'; app.screen = 'battle';
   ready = true;
@@ -475,6 +506,24 @@ function centerEdits(target, msg) {
 }
 
 /* ---------------- アクション ---------------- */
+function recordJobChange(offer, jobId, kept) {
+  const c = S.activeChar(state);
+  if (!c) return;
+  const before = c.jobId;
+  let r = { ok:true, msg:`現在の役職「${D.JOB[before].name}」を維持しました` };
+  if (!kept) r = S.changeJob(state, c, jobId, true);
+  if (!r.ok) return toast(r.msg, 'error');
+  c.jobChangeHistory = Array.isArray(c.jobChangeHistory) ? c.jobChangeHistory : [];
+  c.jobChangeHistory.push({
+    at:new Date().toISOString(), reason:offer.reason,
+    rankFrom:offer.from, rankTo:offer.to,
+    from:before, to:c.jobId, kept,
+  });
+  app.jobChangeOffer = null;
+  save(true);
+  return commit(r.msg + '（役職変更履歴を保存しました）', true);
+}
+
 async function handleAction(action, ds, el) {
   const c = S.activeChar(state);
   sfx('click');
@@ -484,28 +533,23 @@ async function handleAction(action, ds, el) {
       if (ds.to === 'facility') return navigate('facility', { facility: ds.facility, tab: ds.tab });
       return navigate(ds.to, ds.codexTab !== undefined ? { codexTab:ds.codexTab } : {});
     }
-    case 'titleStart': initDraft(); sfx('ok'); return navigate('create');
-    case 'titleContinue': {
-      if (!state.characters.length && state.draftSave?.original) {
-        initDraft();
-        const d = state.draftSave;
-        Object.assign(app.draft, {
-          original:d.original, sprite:d.original, name:d.name || '',
-          settings:{ ...S.defaultImageSettings(), ...(d.imageSettings||{}) },
-          transparentData:d.transparentData || '', jobId:d.jobId||'warrior',
-          weaponType:d.weaponType||'剣', styleId:d.styleId||'balanced', frame:d.frame||'gold',
-          width:d.width||0, height:d.height||0, meta:{ name:'保存済みの下書き' },
-        });
-        try { app.draft.image = (await P.loadImageURL(d.original)).image; } catch (err) { app.draft.image = null; }
-        sfx('ok'); toast('保存済みの下書きを復元しました'); return navigate('create');
-      }
-      if (state.characters.length || S.hasSaveFlag()) { sfx('ok'); toast('セーブデータを読み込みました'); return navigate('town'); }
-      return toast('セーブデータがありません。ゲームスタートから始めましょう', 'error');
+    case 'titleStart': {
+      state.home = { ...(state.home||{}), started:true, lastVisit:new Date().toISOString() };
+      initDraft(); save(true); sfx('ok'); return navigate('town');
     }
-    case 'titleCreate': initDraft(); return navigate('create');
+    case 'titleContinue': {
+      initDraft();
+      state.home = { ...(state.home||{}), started:true, lastVisit:new Date().toISOString() };
+      save(true); sfx('ok');
+      if (state.characters.length) toast('セーブデータを読み込みました。街から再開します');
+      else if (state.draftSave?.original) toast('保存済みの下書きがあります。街からキャラクター作成を開けます');
+      else toast('街のホーム画面から始めましょう');
+      return navigate('town');
+    }
+    case 'titleCreate': initDraft(); return navigate('town');
     case 'titleCodex': return navigate('codex');
     case 'titleSettings': return navigate('settings');
-    case 'newChar': initDraft(); return navigate('create');
+    case 'newChar': initDraft(); return navigate('create');   // 街のホーム画面から作成へ
     case 'tab': app.tabs[ds.facility] = Number(ds.i); return render();
     case 'codexTab': app.codexTab = Number(ds.i); return render();
     case 'enemyGroup': app.enemyGroup = ds.group; return render();
@@ -608,6 +652,7 @@ async function handleAction(action, ds, el) {
         jobId:d.jobId, weaponType:d.weaponType, styleId:d.styleId, frame:d.frame,
         width:d.width, height:d.height,
       };
+      state.home = { ...(state.home||{}), started:true, lastVisit:new Date().toISOString() };
       save(true);
       sfx('win');
       app.draft = null; app.compare = false;
@@ -639,8 +684,10 @@ async function handleAction(action, ds, el) {
     case 'renameChar': {
       const name = (app.charName || '').trim().slice(0,16);
       if (!name) return toast('名前を入力してください', 'error');
-      c.name = name; S.logEvent(state, `名前を「${name}」に変更した。`, 'look');
-      return commit('名前を変更しました');
+      c.name = name;
+      // 特殊ギミックは作成時に確定した specialKey だけを参照する。改名では再判定しない。
+      S.logEvent(state, `名前を「${name}」に変更した。（特殊ギミック・能力値・奥義は不変）`, 'look');
+      return commit('名前を変更しました（能力値・奥義・特殊ギミックは変わりません）');
     }
     case 'switchChar': state.activeId = ds.id; app.look = null; return commit('キャラクターを切り替えました');
     case 'deleteChar': {
@@ -659,6 +706,7 @@ async function handleAction(action, ds, el) {
       const r = S.evolveCharacter(state, c);
       if (r.ok) {
         app.evoResult = { type:'char', r:{ ...r, skill:D.SKILL[r.rule.skill] } };
+        if (r.jobChangeOffer) app.jobChangeOffer = r.jobChangeOffer;
         save(true); showEvolutionFx(r.rule.to, `${r.rule.from} → ${r.rule.to} 進化！`);
       }
       return commit(r.msg, r.ok);
@@ -682,7 +730,27 @@ async function handleAction(action, ds, el) {
       return commit('HP・MPを全回復しました');
     }
     case 'resetAlloc': { const r = S.resetAllocs(state, c); return commit(r.msg, r.ok); }
-    case 'changeJob': { const r = S.changeJob(state, c, ds.job); return commit(r.msg, r.ok); }
+    case 'changeJob': {
+      if (!app.jobChangeOffer) return toast('役職変更はランクアップ時・転生時のみ可能です', 'error');
+      return recordJobChange(app.jobChangeOffer, ds.job, false);
+    }
+    case 'jobChangePick': {
+      if (!app.jobChangeOffer) return toast('役職変更の機会ではありません', 'error');
+      return recordJobChange(app.jobChangeOffer, ds.job, false);
+    }
+    case 'jobChangeKeep': {
+      if (!app.jobChangeOffer) return render();
+      return recordJobChange(app.jobChangeOffer, c.jobId, true);
+    }
+    case 'storyRead': {
+      const id = Number(ds.id);
+      const st = state.story || (state.story = { chapter:1, seen:[], cleared:[] });
+      if (!st.seen.includes(id)) st.seen.push(id);
+      if (!st.cleared.includes(id)) st.cleared.push(id);
+      const chapters = 6;
+      if (st.chapter < chapters && st.seen.includes(st.chapter)) st.chapter = Math.min(chapters, st.chapter + 1);
+      save(); return commit(`第${id}章を読みました。進行状況を保存しました`);
+    }
     case 'skillLearn': { const r = S.learnSkill(state, c, ds.skill, Number(ds.cost)); return commit(r.msg, r.ok); }
     case 'skillToggle': { const ok = S.toggleEquippedSkill(c, ds.skill); return commit(ok ? '技の装備を変更しました' : '装備枠は8つまでです', ok); }
     case 'useBook': { const r = S.useSkillBook(state, c, ds.book); return commit(r.msg, r.ok); }
@@ -786,11 +854,20 @@ async function handleAction(action, ds, el) {
     case 'claimQuest': { const r = S.claimQuest(state, c, ds.id); if (r.ok) sfx('ok'); return commit(r.msg, r.ok); }
     case 'claimRank': { const r = S.claimRankReward(state, Number(ds.idx)); return commit(r.msg, r.ok); }
     case 'exchange': { const r = S.exchangeItem(state, c, ds.id); if (r.ok) sfx('ok'); return commit(r.msg, r.ok); }
-    case 'rebirth': { const r = S.doRebirth(state, c); if (r.ok) sfx('win'); return commit(r.msg, r.ok); }
+    case 'rebirth': {
+      const r = S.doRebirth(state, c);
+      if (r.ok) { sfx('win'); if (r.jobChangeOffer) app.jobChangeOffer = r.jobChangeOffer; save(true); }
+      return commit(r.msg, r.ok);
+    }
 
     /* --- 戦闘 --- */
     case 'battleAction': if (app.battle) app.battle.act(ds.id).catch(err=>console.error(err)); return;
-    case 'battleAuto': if (app.battle) { app.battle.toggleAuto(); render(); } return;
+    case 'battleAuto': if (app.battle) { app.battle.toggleAuto(); save(); render(); } return;
+    case 'battleSpeed': {
+      if (!app.battle) return;
+      if (!app.battle.autoMode) return toast('戦闘速度の変更は AUTO が ON のときだけ可能です', 'error');
+      app.battle.setAutoSpeed(Number(ds.speed) || 1); save(); render(); return;
+    }
     case 'battleSurrender': if (app.battle) app.battle.surrender(); return;
     case 'resultRetry': {
       const r = app.result;
@@ -814,7 +891,7 @@ async function handleAction(action, ds, el) {
       Object.assign(app, { screen:'title', params:{}, tabs:{}, draft:null, look:null, battle:null, result:null,
         lastPull:[], lastBonus:[], selectedSynth:[], selectedEquip:null, confirmReset:false,
         enemyGroup:'normal', compare:false, materialDetail:null, evolveEquip:null,
-        gacha:null, gachaRatesDetail:false, gachaItemDetail:null });
+        gacha:null, gachaRatesDetail:false, gachaItemDetail:null, jobChangeOffer:null });
       render(); window.scrollTo({top:0});
       return toast('データを初期化しました');
     }
@@ -875,6 +952,7 @@ window.__OCF = { app, get state() { return state; }, S, D, P, navigate, handleAc
 (async function boot() {
   const loaded = await S.loadState();
   if (loaded) state = loaded;
+  if (state.home?.started) app.screen = 'town';   // 次回起動時も街のホーム画面から
   ensureEnemySprites();
   render();
   // 透過設定だけ保存されている場合、再起動後に透過PNGを作り直す（元画像は不変）
