@@ -1,13 +1,13 @@
 // ============ 図鑑・実績・称号 ============
-import { el, fmt, bus, pct, esc } from '../util.js?v=20261105b';
-import { go, topbar, bottomNav, modal, toast, skillRow, empty } from '../ui.js?v=20261105b';
-import { S, activeChar, persist, claimCodexMilestone } from '../state.js?v=20261105b';
-import { JOBS, JOB_MAP, TIER_NAME, WEAPON_TYPES } from '../data/jobs.js?v=20261105b';
-import { SKILLS, SKILL_MAP, ELEMENTS, CAT_NAME, skillDesc } from '../data/skills.js?v=20261105b';
-import { RARITIES, RARITY, SLOTS, WEAPON_NAMES, ARMOR_NAMES, ACCESSORY_NAMES, ORNAMENT_NAMES, SPECIAL_EQUIPS } from '../data/equipment.js?v=20261105b';
-import { ACHIEVEMENTS, TITLES, TITLE_MAP, CODEX_MILESTONES } from '../data/meta.js?v=20261105b';
-import { OPPONENT_NAMES, BOSSES } from '../data/enemies.js?v=20261105b';
-import { sfx } from '../audio.js?v=20261105b';
+import { el, fmt, bus, pct, esc } from '../util.js?v=20261105c';
+import { go, topbar, bottomNav, modal, toast, skillRow, empty } from '../ui.js?v=20261105c';
+import { S, activeChar, persist, claimCodexMilestone } from '../state.js?v=20261105c';
+import { JOBS, JOB_MAP, TIER_NAME, WEAPON_TYPES } from '../data/jobs.js?v=20261105c';
+import { SKILLS, SKILL_MAP, ELEMENTS, CAT_NAME, skillDesc } from '../data/skills.js?v=20261105c';
+import { RARITIES, RARITY, SLOTS, WEAPON_NAMES, ARMOR_NAMES, ACCESSORY_NAMES, ORNAMENT_NAMES, SPECIAL_EQUIPS } from '../data/equipment.js?v=20261105c';
+import { ACHIEVEMENTS, TITLES, TITLE_MAP, CODEX_MILESTONES } from '../data/meta.js?v=20261105c';
+import { OPPONENT_NAMES, BOSSES } from '../data/enemies.js?v=20261105c';
+import { sfx } from '../audio.js?v=20261105c';
 
 export function renderCodex(){
   const body=el('div',{style:{maxWidth:'980px',margin:'0 auto'}});

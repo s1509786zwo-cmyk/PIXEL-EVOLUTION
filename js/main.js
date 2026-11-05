@@ -1,19 +1,23 @@
 // ============ エントリーポイント ============
-import { loadGame } from './save.js?v=20261105b';
-import { S, setState, defaultState, regenStamina, persist } from './state.js?v=20261105b';
-import { register, go, toast } from './ui.js?v=20261105b';
-import { initAudio, setVolumes } from './audio.js?v=20261105b';
-import { bus } from './util.js?v=20261105b';
-import { renderTitle } from './screens/title.js?v=20261105b';
-import { renderCreate } from './screens/create.js?v=20261105b';
-import { renderHub } from './screens/hub.js?v=20261105b';
-import { renderHall } from './screens/hall.js?v=20261105b';
-import { renderForge } from './screens/forge.js?v=20261105b';
-import { renderDojo } from './screens/dojo.js?v=20261105b';
-import { renderGuild } from './screens/guild.js?v=20261105b';
-import { renderShop } from './screens/shop.js?v=20261105b';
-import { renderCodex } from './screens/codex.js?v=20261105b';
-import { renderSettings } from './screens/settings.js?v=20261105b';
+import { loadGame } from './save.js?v=20261105c';
+import { S, setState, defaultState, regenStamina, persist } from './state.js?v=20261105c';
+import { register, go, toast } from './ui.js?v=20261105c';
+import { initAudio, setVolumes } from './audio.js?v=20261105c';
+import { bus } from './util.js?v=20261105c';
+import { renderTitle } from './screens/title.js?v=20261105c';
+import { renderCreate } from './screens/create.js?v=20261105c';
+import { renderHub } from './screens/hub.js?v=20261105c';
+import { renderHall } from './screens/hall.js?v=20261105c';
+import { renderForge } from './screens/forge.js?v=20261105c';
+import { renderDojo } from './screens/dojo.js?v=20261105c';
+import { renderGuild } from './screens/guild.js?v=20261105c';
+import { renderShop } from './screens/shop.js?v=20261105c';
+import { renderCodex } from './screens/codex.js?v=20261105c';
+import { renderSettings } from './screens/settings.js?v=20261105c';
+
+// ビルド確認用(キャッシュ問題の切り分け)。設定画面にも表示。
+const BUILD = document.documentElement.dataset.build || 'dev';
+console.log(`%cオリキャラファイターズ build ${BUILD}`, 'color:#ffd76a;font-weight:bold');
 
 async function boot(){
   // セーブロード

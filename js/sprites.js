@@ -1,6 +1,6 @@
 // ============ CPU用プロシージャル・ドット絵スプライト ============
-import { mulberry32 } from './util.js?v=20261105b';
-import { JOB_MAP } from './data/jobs.js?v=20261105b';
+import { mulberry32 } from './util.js?v=20261105c';
+import { JOB_MAP } from './data/jobs.js?v=20261105c';
 
 const SKINS = ['#f6d3ae','#e8b98a','#d29b6c','#b07a4a','#8a5a34','#ffe0c2'];
 const HAIRS = ['#23262e','#4a3220','#7a4a22','#c9a227','#b03030','#2e5f9e','#6a3fa0','#d8d8e0','#2e7d54','#e07020'];

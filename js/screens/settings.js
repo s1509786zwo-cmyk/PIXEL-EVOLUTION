@@ -1,9 +1,9 @@
 // ============ 設定 ============
-import { el, bus } from '../util.js?v=20261105b';
-import { go, topbar, bottomNav, modal, toast, confirmModal } from '../ui.js?v=20261105b';
-import { S, persist, persistNow, setState, defaultState } from '../state.js?v=20261105b';
-import { setVolumes, sfx, stopBGM } from '../audio.js?v=20261105b';
-import { exportSave, deleteSave, loadGame } from '../save.js?v=20261105b';
+import { el, bus } from '../util.js?v=20261105c';
+import { go, topbar, bottomNav, modal, toast, confirmModal } from '../ui.js?v=20261105c';
+import { S, persist, persistNow, setState, defaultState } from '../state.js?v=20261105c';
+import { setVolumes, sfx, stopBGM } from '../audio.js?v=20261105c';
+import { exportSave, deleteSave, loadGame } from '../save.js?v=20261105c';
 
 export function renderSettings(){
   const body=el('div',{style:{maxWidth:'720px',margin:'0 auto'}});
@@ -54,6 +54,7 @@ export function renderSettings(){
       el('div',{class:'sec-title',style:{justifyContent:'center'}},'オリキャラファイターズ'),
       el('p',{class:'txt-dim small'},'自分の画像からオリキャラを作り、育てて、CPUと戦う2D育成RPG。'),
       el('p',{class:'txt-dim small'},'技215種 / 職業22種 / 装備6レアリティ / 覚醒5段階 / 転生・ダンジョン・実績搭載'),
+      el('p',{class:'txt-dim small',style:{marginTop:'6px'}},`ビルド: ${document.documentElement.dataset.build||'dev'}(元画像そのまま使用版)`),
       el('button',{class:'btn btn-gold mt12', onclick:()=>{sfx('click');go('title');}},'タイトルへ戻る')));
   return el('div',{class:'screen'},
     el('div',{class:'screen-bg', style:{backgroundImage:'url(assets/bg/shop.jpg)'}}),

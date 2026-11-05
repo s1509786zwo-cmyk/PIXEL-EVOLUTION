@@ -1,11 +1,11 @@
 // ============ 武器・装備工房 ============
-import { el, fmt, bus } from '../util.js?v=20261105b';
-import { go, facilityScreen, charSummary, equipRow, equipStatLine, modal, toast, confirmModal, empty } from '../ui.js?v=20261105b';
-import { S, activeChar, equipItem, unequipSlot, getEquip, doGacha, enhanceEquip, fuseEquips, sellEquip, persist, STAT_NAME } from '../state.js?v=20261105b';
-import { JOB_MAP, WEAPON_TYPES } from '../data/jobs.js?v=20261105b';
-import { RARITY, RARITIES, SLOTS, GACHA_RATES, GACHA_COST, GACHA_COST10, PITY_L, PITY_M, enhanceCost, MAX_ENHANCE, equipStat, equipPower, EFFECT_MAP } from '../data/equipment.js?v=20261105b';
-import { ITEM_MAP } from '../data/items.js?v=20261105b';
-import { sfx } from '../audio.js?v=20261105b';
+import { el, fmt, bus } from '../util.js?v=20261105c';
+import { go, facilityScreen, charSummary, equipRow, equipStatLine, modal, toast, confirmModal, empty } from '../ui.js?v=20261105c';
+import { S, activeChar, equipItem, unequipSlot, getEquip, doGacha, enhanceEquip, fuseEquips, sellEquip, persist, STAT_NAME } from '../state.js?v=20261105c';
+import { JOB_MAP, WEAPON_TYPES } from '../data/jobs.js?v=20261105c';
+import { RARITY, RARITIES, SLOTS, GACHA_RATES, GACHA_COST, GACHA_COST10, PITY_L, PITY_M, enhanceCost, MAX_ENHANCE, equipStat, equipPower, EFFECT_MAP } from '../data/equipment.js?v=20261105c';
+import { ITEM_MAP } from '../data/items.js?v=20261105c';
+import { sfx } from '../audio.js?v=20261105c';
 
 export function renderForge(){
   const ch = activeChar();

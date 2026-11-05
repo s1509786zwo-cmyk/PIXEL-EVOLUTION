@@ -1,12 +1,12 @@
 // ============ 共通UI・ルーター ============
-import { el, $, fmt, bus, pct } from './util.js?v=20261105b';
-import { S, activeChar, charStats, charPower, regenStamina, STAM_MAX, persist, STAT_NAME, allocate } from './state.js?v=20261105b';
-import { JOB_MAP } from './data/jobs.js?v=20261105b';
-import { SKILL_MAP, ELEMENTS, skillDesc, CAT_NAME } from './data/skills.js?v=20261105b';
-import { RARITY, SLOTS, equipStat, equipPower } from './data/equipment.js?v=20261105b';
-import { ITEM_MAP } from './data/items.js?v=20261105b';
-import { rankOf } from './data/meta.js?v=20261105b';
-import { sfx, playBGM } from './audio.js?v=20261105b';
+import { el, $, fmt, bus, pct } from './util.js?v=20261105c';
+import { S, activeChar, charStats, charPower, regenStamina, STAM_MAX, persist, STAT_NAME, allocate } from './state.js?v=20261105c';
+import { JOB_MAP } from './data/jobs.js?v=20261105c';
+import { SKILL_MAP, ELEMENTS, skillDesc, CAT_NAME } from './data/skills.js?v=20261105c';
+import { RARITY, SLOTS, equipStat, equipPower } from './data/equipment.js?v=20261105c';
+import { ITEM_MAP } from './data/items.js?v=20261105c';
+import { rankOf } from './data/meta.js?v=20261105c';
+import { sfx, playBGM } from './audio.js?v=20261105c';
 
 const screens = {};
 let current = null;

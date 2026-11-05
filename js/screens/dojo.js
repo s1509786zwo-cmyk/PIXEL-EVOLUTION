@@ -1,12 +1,12 @@
 // ============ 修行場 ============
-import { el, fmt, bus, pct } from '../util.js?v=20261105b';
-import { facilityScreen, charSummary, skillRow, toast, empty } from '../ui.js?v=20261105b';
-import { S, activeChar, train, practiceSkill, skillXpNeed, regenStamina, STAM_MAX, persist, STAT_NAME } from '../state.js?v=20261105b';
-import { SKILL_MAP } from '../data/skills.js?v=20261105b';
-import { makeEnemy } from '../data/enemies.js?v=20261105b';
-import { JOB_MAP } from '../data/jobs.js?v=20261105b';
-import { startBattle } from '../battle-ui.js?v=20261105b';
-import { sfx } from '../audio.js?v=20261105b';
+import { el, fmt, bus, pct } from '../util.js?v=20261105c';
+import { facilityScreen, charSummary, skillRow, toast, empty } from '../ui.js?v=20261105c';
+import { S, activeChar, train, practiceSkill, skillXpNeed, regenStamina, STAM_MAX, persist, STAT_NAME } from '../state.js?v=20261105c';
+import { SKILL_MAP } from '../data/skills.js?v=20261105c';
+import { makeEnemy } from '../data/enemies.js?v=20261105c';
+import { JOB_MAP } from '../data/jobs.js?v=20261105c';
+import { startBattle } from '../battle-ui.js?v=20261105c';
+import { sfx } from '../audio.js?v=20261105c';
 
 const TRAIN_QUESTS = [
   {id:'q_basic', name:'基礎修行', ico:'🎯', desc:'Lvを少し下げた相手と2連戦。修行の基本。', waves:2, lvOff:-2, mult:0.9, stamina:15,
@@ -93,10 +93,10 @@ export function renderDojo(){
                 onEnd:(res)=>{
                   if(res.win){
                     S.coins+=q.reward.coins; S.points+=q.reward.points||0;
-                    import('../state.js?v=20261105b').then(m=>{ m.addXp(ch,q.reward.xp); for(const [it,n] of Object.entries(q.reward.items||{})) m.addItem(it,n); });
+                    import('../state.js?v=20261105c').then(m=>{ m.addXp(ch,q.reward.xp); for(const [it,n] of Object.entries(q.reward.items||{})) m.addItem(it,n); });
                     toast(`修行達成！🪙${q.reward.coins} 獲得！`,'gold');
                   }
-                  import('../ui.js?v=20261105b').then(m=>m.go('dojo'));
+                  import('../ui.js?v=20261105c').then(m=>m.go('dojo'));
                 }});
             }},'挑戦する'))))));
   }
