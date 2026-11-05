@@ -1,26 +1,34 @@
 /* ===========================================================
-   画像読み込み → ドット絵変換エンジン / CPUスプライト生成
-   - 単なる縮小・モザイクではなく、エッジ保持平滑化 + 特徴強調 +
-     適応パレット(k-means) + ディザ + 陰影のバンド化 + 輪郭描き起こし
+   画像読み込み / 背景透過 / CPUスプライト生成
+   - プレイヤー画像のドット絵変換・AI描き直しは廃止。
+     読み込んだ元画像をそのままキャラクター画像として使う。
+   - 背景透過だけは元画像の背景色を推定してアルファを抜く。
+     （輪郭・服装・色・細部は一切変更しない）
    =========================================================== */
 
-export const MAX_SOURCE = 1100;
-
+/* プレイヤーが選んだ画像は再エンコードせず、バイト列そのままを保持する。
+   PNG / JPEG / WebP / GIF / BMP / AVIF などブラウザが読める形式に対応。 */
 export function readImageFile(file) {
   return new Promise((resolve, reject) => {
-    if (!file || !file.type.startsWith('image/')) return reject(new Error('画像ファイルを選択してください'));
+    if (!file) return reject(new Error('画像ファイルを選択してください'));
+    const ok = (file.type || '').startsWith('image/')
+      || /\.(png|jpe?g|webp|gif|bmp|avif|svg|heic|heif)$/i.test(file.name || '');
+    if (!ok) return reject(new Error('画像ファイル（PNG/JPEG/WebP など）を選択してください'));
     const fr = new FileReader();
     fr.onerror = () => reject(new Error('ファイルを読み込めませんでした'));
     fr.onload = () => {
       const img = new Image();
-      img.onload = () => resolve(normalizeImage(img));
-      img.onerror = () => reject(new Error('画像を開けませんでした（対応形式: PNG / JPEG / WebP / GIF）'));
+      img.onload = () => resolve({
+        image: img, dataURL: fr.result,
+        width: img.naturalWidth || img.width, height: img.naturalHeight || img.height,
+        name: file.name || '',
+      });
+      img.onerror = () => reject(new Error('この形式の画像は表示できませんでした'));
       img.src = fr.result;
     };
     fr.readAsDataURL(file);
   });
 }
-
 export function loadImageURL(url) {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -29,80 +37,6 @@ export function loadImageURL(url) {
     img.onerror = () => reject(new Error('画像の読み込みに失敗しました'));
     img.src = url;
   });
-}
-
-/** 元画像を保存用に正規化（最大辺1100px・透過保持） */
-export function normalizeImage(img) {
-  const r = Math.min(1, MAX_SOURCE / Math.max(img.width, img.height));
-  const w = Math.max(1, Math.round(img.width * r)), h = Math.max(1, Math.round(img.height * r));
-  const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
-  const ctx = cv.getContext('2d');
-  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
-  ctx.drawImage(img, 0, 0, w, h);
-  let dataURL;
-  try { dataURL = cv.toDataURL('image/png'); }
-  catch (e) { dataURL = cv.toDataURL('image/jpeg', 0.9); }
-  if (dataURL.length > 3_200_000) dataURL = cv.toDataURL('image/jpeg', 0.82);
-  return { image: cv, dataURL, width: w, height: h };
-}
-
-/** 切り抜き矩形を計算（settings.scale / cropX / cropY / body） */
-export function cropRect(image, s) {
-  const iw = image.width, ih = image.height;
-  const aspect = 0.78; // 縦長のキャラクター枠
-  let cw = Math.min(iw, ih * aspect);
-  let ch = cw / aspect;
-  if (s.body === 'upper') ch *= 0.60;
-  const zoom = Math.max(0.45, Math.min(3.2, s.scale || 1));
-  cw /= zoom; ch /= zoom;
-  cw = Math.min(cw, iw); ch = Math.min(ch, ih);
-  let cx = (s.cropX ?? 0.5) * iw;
-  let cy = s.body === 'upper' ? (0.12 + (s.cropY ?? 0.5) * 0.30) * ih : (s.cropY ?? 0.5) * ih;
-  cx = Math.max(cw / 2, Math.min(iw - cw / 2, cx));
-  cy = Math.max(ch / 2, Math.min(ih - ch / 2, cy));
-  return { x: cx - cw / 2, y: cy - ch / 2, w: cw, h: ch };
-}
-
-/** 切り抜きプレビュー（枠・三分割線・ガイド付き） */
-export function drawCropPreview(canvas, image, s) {
-  if (!canvas || !image) return;
-  const rect = canvas.getBoundingClientRect();
-  const W = Math.max(240, Math.round(rect.width || canvas.clientWidth || 320));
-  const H = Math.round(W * 0.78);
-  const dpr = Math.min(2, window.devicePixelRatio || 1);
-  canvas.width = W * dpr; canvas.height = H * dpr;
-  canvas.style.height = H + 'px';
-  const ctx = canvas.getContext('2d');
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  ctx.clearRect(0, 0, W, H);
-  // 市松模様
-  for (let y = 0; y < H; y += 16) for (let x = 0; x < W; x += 16) {
-    ctx.fillStyle = ((x / 16 + y / 16) % 2) ? '#1b2440' : '#222d4d';
-    ctx.fillRect(x, y, 16, 16);
-  }
-  const r = cropRect(image, s);
-  // 画像全体を薄く、選択範囲を鮮明に
-  const fit = Math.min(W / image.width, H / image.height);
-  const dw = image.width * fit, dh = image.height * fit;
-  ctx.globalAlpha = 0.28;
-  ctx.drawImage(image, (W - dw) / 2, (H - dh) / 2, dw, dh);
-  ctx.globalAlpha = 1;
-  const sx = W / r.w, sy = H / r.h;
-  ctx.drawImage(image, r.x, r.y, r.w, r.h, 0, 0, W, H);
-  // ドットグリッド（設定した細かさ）
-  const gx = Math.max(8, Math.min(80, s.grid || 40));
-  ctx.strokeStyle = 'rgba(255,255,255,.10)'; ctx.lineWidth = 1;
-  for (let x = 0; x <= W; x += W / gx) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
-  for (let y = 0; y <= H; y += H / Math.round(gx / 0.78)) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
-  // 顔の目安ガイド
-  ctx.strokeStyle = 'rgba(255,215,122,.75)'; ctx.lineWidth = 1.5;
-  ctx.strokeRect(W * 0.29, H * 0.08, W * 0.42, H * 0.30);
-  ctx.strokeStyle = 'rgba(79,216,255,.9)'; ctx.lineWidth = 2;
-  ctx.strokeRect(2, 2, W - 4, H - 4);
-  ctx.fillStyle = 'rgba(10,14,28,.78)'; ctx.fillRect(6, H - 30, 158, 23);
-  ctx.fillStyle = '#fff'; ctx.font = '11px sans-serif';
-  ctx.fillText(`切り抜き倍率 ×${(s.scale||1).toFixed(2)} / ${s.body === 'upper' ? '上半身' : '全身'}`, 12, H - 14);
-  return { sx, sy, W, H };
 }
 
 const clamp255 = v => v < 0 ? 0 : v > 255 ? 255 : v;
@@ -204,211 +138,21 @@ function removeBackground(data, w, h, strength = 30) {
   }
 }
 
-/** エッジ保持平滑化（色差で重みを落とす簡易バイラテラル） */
-function bilateral(data, w, h) {
-  const out = new Uint8ClampedArray(data);
-  for (let y = 1; y < h-1; y++) for (let x = 1; x < w-1; x++) {
-    const p = (y*w+x)*4;
-    if (data[p+3] < 16) continue;
-    let sr=0,sg=0,sb=0,sw=0;
-    for (let dy=-1; dy<=1; dy++) for (let dx=-1; dx<=1; dx++) {
-      const q = ((y+dy)*w + (x+dx))*4;
-      if (data[q+3] < 16) continue;
-      const d = dist2(data[p],data[p+1],data[p+2],data[q],data[q+1],data[q+2]);
-      const wgt = (dx===0&&dy===0 ? 4 : 1) * Math.exp(-d / 3200);
-      sr += data[q]*wgt; sg += data[q+1]*wgt; sb += data[q+2]*wgt; sw += wgt;
-    }
-    if (sw > 0) { out[p]=sr/sw; out[p+1]=sg/sw; out[p+2]=sb/sw; }
-  }
-  return out;
+
+/** 背景だけを透過したPNGを生成（元画像のデータは書き換えない） */
+export function makeTransparentImage(image, strength = 30) {
+  const W = Math.min(900, image.width || 900), H = Math.round(W * (image.height / image.width));
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const ctx = cv.getContext('2d', { willReadFrequently:true });
+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+  ctx.clearRect(0,0,W,H);
+  ctx.drawImage(image, 0, 0, W, H);
+  const data = ctx.getImageData(0,0,W,H).data;
+  removeBackground(data, W, H, strength);
+  ctx.putImageData(new ImageData(new Uint8ClampedArray(data), W, H), 0, 0);
+  return { dataURL: cv.toDataURL('image/png'), width: W, height: H };
 }
 
-/** 肌色ピクセルから顔の位置を推定（中央・上部をフォールバック） */
-function detectFace(data, w, h) {
-  let sx=0, sy=0, n=0, minX=w, maxX=0, minY=h, maxY=0;
-  for (let y = 0; y < h*0.72; y += 2) for (let x = 0; x < w; x += 2) {
-    const p = (y*w+x)*4;
-    if (data[p+3] < 40) continue;
-    const r=data[p], g=data[p+1], b=data[p+2];
-    const skin = r > 90 && r > g*1.06 && g > b*1.02 && r-b > 18 && r-b < 115 && Math.max(r,g,b)-Math.min(r,g,b) < 130;
-    if (!skin) continue;
-    const weight = 1 - y/h*0.35;
-    sx += x*weight; sy += y*weight; n += weight;
-    minX=Math.min(minX,x); maxX=Math.max(maxX,x); minY=Math.min(minY,y); maxY=Math.max(maxY,y);
-  }
-  if (n < 12) return { x:w*0.28, y:h*0.10, w:w*0.44, h:h*0.32, found:false };
-  const cx = sx/n, cy = sy/n;
-  const fw = Math.max(w*0.22, Math.min(w*0.60, (maxX-minX)*1.3));
-  const fh = Math.max(h*0.16, Math.min(h*0.42, (maxY-minY)*1.5));
-  return { x: Math.max(0, cx-fw/2), y: Math.max(0, cy-fh/2), w:fw, h:fh, found:true };
-}
-
-/** k-means で適応パレットを作成（顔領域を重み付け） */
-function buildPalette(data, w, h, k, face) {
-  const samples = [];
-  const bins = new Map();
-  for (let y=0;y<h;y++) for (let x=0;x<w;x++) {
-    const p=(y*w+x)*4;
-    if (data[p+3] < 40) continue;
-    const inFace = x>=face.x && x<=face.x+face.w && y>=face.y && y<=face.y+face.h;
-    const weight = inFace ? 3 : 1;
-    samples.push({ r:data[p], g:data[p+1], b:data[p+2], w:weight, x, y });
-    const key = `${data[p]>>4}_${data[p+1]>>4}_${data[p+2]>>4}`;
-    const bin = bins.get(key) || { r:0,g:0,b:0,n:0 };
-    bin.r+=data[p]; bin.g+=data[p+1]; bin.b+=data[p+2]; bin.n+=weight; bins.set(key,bin);
-  }
-  if (!samples.length) return [[40,44,60]];
-  let centers = [...bins.values()].sort((a,b)=>b.n-a.n).slice(0,k).map(b=>[b.r/b.n,b.g/b.n,b.b/b.n]);
-  if (centers.length < k) {
-    const extra = samples.filter((_,i)=>i%Math.max(1,Math.floor(samples.length/(k-centers.length)))===0)
-      .slice(0,k-centers.length).map(s=>[s.r,s.g,s.b]);
-    centers = centers.concat(extra);
-  }
-  for (let it=0; it<7; it++) {
-    const acc = centers.map(()=>[0,0,0,0]);
-    for (const s of samples) {
-      let bi=0, bd=Infinity;
-      for (let i=0;i<centers.length;i++) {
-        const c=centers[i]; const d=(s.r-c[0])**2+(s.g-c[1])**2+(s.b-c[2])**2;
-        if (d<bd){bd=d;bi=i;}
-      }
-      acc[bi][0]+=s.r*s.w; acc[bi][1]+=s.g*s.w; acc[bi][2]+=s.b*s.w; acc[bi][3]+=s.w;
-    }
-    for (let i=0;i<centers.length;i++) if (acc[i][3]) centers[i]=[acc[i][0]/acc[i][3],acc[i][1]/acc[i][3],acc[i][2]/acc[i][3]];
-  }
-  return centers;
-}
-
-const BAYER = [0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5];
-
-/** メイン変換：元画像 → 戦闘用ドット絵PNG（dataURL） */
-export function makePixelSprite(image, s) {
-  const gw = Math.max(20, Math.min(72, Math.round(s.grid || 40)));
-  const gh = Math.round(gw / 0.78);
-  const SW = Math.max(gw*3, 192), SH = Math.round(SW/0.78);
-  const r = cropRect(image, s);
-
-  // 1) 高解像度バッファへ切り抜き
-  const hi = document.createElement('canvas'); hi.width=SW; hi.height=SH;
-  const hx = hi.getContext('2d', { willReadFrequently:true });
-  hx.imageSmoothingEnabled = true; hx.imageSmoothingQuality='high';
-  hx.clearRect(0,0,SW,SH);
-  if (!s.transparent) { hx.fillStyle='#ffffff'; hx.fillRect(0,0,SW,SH); }
-  hx.drawImage(image, r.x, r.y, r.w, r.h, 0,0,SW,SH);
-  let data = hx.getImageData(0,0,SW,SH).data;
-  if (s.transparent) removeBackground(data, SW, SH, 30);
-  data = bilateral(data, SW, SH);
-
-  // 2) 縮小（エリア平均）＋ 顔特徴を保持するためのアンシャープ
-  const small = document.createElement('canvas'); small.width=gw; small.height=gh;
-  const sx = small.getContext('2d', { willReadFrequently:true });
-  const tmp = document.createElement('canvas'); tmp.width=SW; tmp.height=SH;
-  tmp.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(data), SW, SH), 0,0);
-  sx.imageSmoothingEnabled=true; sx.imageSmoothingQuality='high';
-  sx.clearRect(0,0,gw,gh);
-  sx.drawImage(tmp, 0,0,SW,SH, 0,0,gw,gh);
-  const grid = sx.getImageData(0,0,gw,gh);
-  const d = grid.data;
-  const face = detectFace(data, SW, SH);
-  const faceN = { x: face.x/SW*gw, y: face.y/SH*gh, w: face.w/SW*gw, h: face.h/SH*gh };
-
-  // コントラスト・彩度調整（顔・髪の特徴を際立たせる）
-  const sat = s.saturation ?? 1.12, con = s.contrast ?? 1.08;
-  for (let i=0;i<d.length;i+=4) {
-    if (d[i+3] < 20) continue;
-    const lum = d[i]*0.299 + d[i+1]*0.587 + d[i+2]*0.114;
-    d[i]   = clamp255((d[i]-lum)*sat + lum*con);
-    d[i+1] = clamp255((d[i+1]-lum)*sat + lum*con);
-    d[i+2] = clamp255((d[i+2]-lum)*sat + lum*con);
-  }
-
-  // エッジ保持の鮮鋭化（顔は強め、衣装は弱め）
-  if (s.faceBoost !== false) {
-    const orig = new Uint8ClampedArray(d);
-    const lumAt = (arr,x,y) => { const p=(y*gw+x)*4; return arr[p]*0.299+arr[p+1]*0.587+arr[p+2]*0.114; };
-    for (let y=1;y<gh-1;y++) for (let x=1;x<gw-1;x++) {
-      const p=(y*gw+x)*4;
-      if (orig[p+3] < 30) continue;
-      const blur = (lumAt(orig,x-1,y)+lumAt(orig,x+1,y)+lumAt(orig,x,y-1)+lumAt(orig,x,y+1)+lumAt(orig,x,y)*2)/6;
-      const sharp = lumAt(orig,x,y) - blur;
-      const inFace = x>=faceN.x-1 && x<=faceN.x+faceN.w+1 && y>=faceN.y-1 && y<=faceN.y+faceN.h+1;
-      const amt = inFace ? 1.15 : 0.42;
-      for (let k=0;k<3;k++) d[p+k] = clamp255(orig[p+k] + sharp*amt);
-    }
-  }
-
-  // 3) 適応パレット + 秩序ディザ + 3段階の陰影（描き直し）
-  const palette = buildPalette(d, gw, gh, Math.max(5, Math.min(48, Math.round(s.colors||24))), faceN);
-  const near = (r,g,b) => {
-    let bi=0,bd=Infinity;
-    for (let i=0;i<palette.length;i++) {
-      const c=palette[i], dd=(r-c[0])**2+(g-c[1])**2+(b-c[2])**2;
-      if (dd<bd){bd=dd;bi=i;}
-    }
-    return palette[bi];
-  };
-  const dither = (s.dither ?? 0.35) * 26;
-  for (let y=0;y<gh;y++) for (let x=0;x<gw;x++) {
-    const p=(y*gw+x)*4;
-    if (d[p+3] < 24) { d[p+3]=0; continue; }
-    const b = (BAYER[(y%4)*4 + (x%4)]/15 - 0.5) * dither;
-    const c = near(clamp255(d[p]+b), clamp255(d[p+1]+b), clamp255(d[p+2]+b));
-    const lum = (c[0]*0.299+c[1]*0.587+c[2]*0.114)/255;
-    // バンド化：ハイライト / 標準 / 影 / 深い影
-    const band = lum > 0.72 ? 1.08 : lum > 0.46 ? 1.0 : lum > 0.24 ? 0.84 : 0.70;
-    d[p]   = clamp255(c[0]*band + (band>1?8:-3));
-    d[p+1] = clamp255(c[1]*band + (band>1?8:-3));
-    d[p+2] = clamp255(c[2]*band + (band>1?8:-3));
-    d[p+3] = 255;
-  }
-
-  // 4) 輪郭の描き起こし（Sobel + シルエット外郭）
-  const outline = Math.max(0, Math.min(4, s.outline ?? 2));
-  if (outline > 0) {
-    const src = new Uint8ClampedArray(d);
-    const L = (x,y) => { const p=(clamp255(Math.max(0,Math.min(gw-1,x)))*1 + clamp255(Math.max(0,Math.min(gh-1,y)))*gw)*4; return src[p]*0.299+src[p+1]*0.587+src[p+2]*0.114; };
-    const alpha = (x,y) => x<0||y<0||x>=gw||y>=gh ? 0 : src[(y*gw+x)*4+3];
-    const threshold = 92 - outline*11;
-    for (let y=0;y<gh;y++) for (let x=0;x<gw;x++) {
-      const p=(y*gw+x)*4;
-      if (src[p+3] < 24) continue;
-      const gx = L(x+1,y-1)+2*L(x+1,y)+L(x+1,y+1)-L(x-1,y-1)-2*L(x-1,y)-L(x-1,y+1);
-      const gy = L(x-1,y+1)+2*L(x,y+1)+L(x+1,y+1)-L(x-1,y-1)-2*L(x,y-1)-L(x+1,y-1);
-      const g = Math.sqrt(gx*gx+gy*gy)/4;
-      if (g > threshold) {
-        const k = Math.max(0.22, 0.58 - outline*0.09);
-        d[p]=src[p]*k; d[p+1]=src[p+1]*k; d[p+2]=src[p+2]*k*1.05; d[p+3]=255;
-      }
-      // 外側に1pxの濃い輪郭
-      if (outline >= 2 && (alpha(x-1,y)<24 || alpha(x+1,y)<24 || alpha(x,y-1)<24 || alpha(x,y+1)<24)) {
-        const k = 0.34;
-        d[p]=src[p]*k; d[p+1]=src[p+1]*k; d[p+2]=src[p+2]*k*1.1; d[p+3]=255;
-      }
-    }
-    // 透明側にもう1px輪郭を足す
-    const sil = new Uint8ClampedArray(d);
-    for (let y=0;y<gh;y++) for (let x=0;x<gw;x++) {
-      const p=(y*gw+x)*4;
-      if (sil[p+3] > 24) continue;
-      const up = y>0 ? sil[p-gw*4+3] : 0, dn = y<gh-1 ? sil[p+gw*4+3] : 0;
-      const lf = x>0 ? sil[p-4+3] : 0, rt = x<gw-1 ? sil[p+4+3] : 0;
-      if (up>24||dn>24||lf>24||rt>24) { d[p]=26; d[p+1]=24; d[p+2]=38; d[p+3]=Math.round(150+outline*22); }
-    }
-  }
-
-  // 5) 最近傍で拡大して書き出し（本物のピクセルアートとして保存）
-  small.getContext('2d').putImageData(grid,0,0);
-  const PX = 8;
-  const out = document.createElement('canvas'); out.width=gw*PX; out.height=gh*PX;
-  const ox = out.getContext('2d'); ox.imageSmoothingEnabled=false;
-  ox.clearRect(0,0,out.width,out.height);
-  ox.drawImage(small,0,0,gw,gh,0,0,out.width,out.height);
-  return { dataURL: out.toDataURL('image/png'), width: gw, height: gh, face: face.found };
-}
-
-/* ===========================================================
-   CPUキャラクター用の高品質ドット絵を手続き的に描く
-   =========================================================== */
 function seeded(seed) {
   let x = 0;
   for (const ch of String(seed)) x = (x*31 + ch.charCodeAt(0)) >>> 0;

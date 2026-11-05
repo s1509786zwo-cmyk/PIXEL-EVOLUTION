@@ -572,3 +572,251 @@ small{font-size:11px}
   .action-grid,.item-actions{grid-template-columns:1fr 1fr}
   .topbar-res{font-size:9.5px}
 }
+
+/* ===========================================================
+   生画像エディタ / ランク進化 / 素材アイコン
+   =========================================================== */
+.step-ind{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.step-ind span{flex:1;text-align:center;padding:8px 10px;border-radius:9px;font-size:11px;color:var(--muted);border:1px solid var(--line);background:rgba(255,255,255,.03)}
+.step-ind .on{color:var(--gold2);border-color:var(--line2);background:rgba(233,201,121,.09)}
+
+/* ---------- 元画像ステージ（非破壊・アスペクト比維持） ---------- */
+.char-stage{position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:12px;isolation:isolate;background:radial-gradient(circle at 50% 35%,rgba(70,120,200,.16),rgba(6,10,24,.55) 72%)}
+.char-frame{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;overflow:hidden;z-index:1;border-radius:inherit}
+.char-img{display:block;width:100%;height:100%;object-fit:contain;object-position:center center;image-rendering:auto;transform-origin:center center;transition:filter .12s linear,transform .12s linear;user-select:none;-webkit-user-drag:none}
+.char-stage.tiny{width:38px;height:38px;flex:0 0 38px;border-radius:8px}
+.char-stage.medium{width:84px;height:100px;flex:0 0 84px}
+.char-stage.portrait{width:100%;height:230px}
+.char-stage.battle{width:150px;height:200px}
+.char-stage.editor{width:100%;height:clamp(300px,56vh,480px);border:1px solid var(--line);cursor:grab;
+  background-color:#0c1430;background-image:linear-gradient(45deg,rgba(255,255,255,.035) 25%,transparent 25%,transparent 75%,rgba(255,255,255,.035) 75%),linear-gradient(45deg,rgba(255,255,255,.035) 25%,transparent 25%,transparent 75%,rgba(255,255,255,.035) 75%);background-position:0 0,12px 12px;background-size:24px 24px}
+.char-stage.editor:active{cursor:grabbing}
+.char-stage.compare{width:100%;height:190px}
+.char-stage.evo{width:100%;height:250px}
+.char-stage.empty{display:grid;place-items:center;color:var(--cyan);font-size:26px;border:1px dashed var(--line)}
+.char-stage.fit-face .char-img{object-position:center top}
+.char-frame.gold{box-shadow:inset 0 0 0 1px rgba(233,201,121,.25)}
+.char-frame.blue{box-shadow:inset 0 0 0 1px rgba(101,217,255,.3)}
+.char-frame.violet{box-shadow:inset 0 0 0 1px rgba(185,139,255,.3)}
+.char-frame.prism{box-shadow:inset 0 0 0 1px rgba(104,247,212,.35)}
+
+/* ---------- ランク演出（画像に重ねるだけ。顔・衣類は隠さない） ---------- */
+.rank-fx{position:absolute;inset:0;pointer-events:none;z-index:2;mix-blend-mode:screen}
+.rank-ring{inset:7%;border-radius:50%;border:1px solid rgba(220,235,255,.22);box-shadow:0 0 14px rgba(220,235,255,.12),inset 0 0 20px rgba(220,235,255,.08);opacity:.5}
+.rank-aura{background:radial-gradient(circle at 50% 45%,rgba(255,255,255,.10),transparent 62%);-webkit-mask-image:radial-gradient(circle,transparent 38%,#000 72%);mask-image:radial-gradient(circle,transparent 38%,#000 72%);opacity:.35}
+.rank-particles{background-image:radial-gradient(circle,rgba(255,255,255,.8) 1px,transparent 2px),radial-gradient(circle,rgba(255,255,255,.6) 1px,transparent 2px);background-size:38px 38px,54px 54px;background-position:0 0,18px 24px;-webkit-mask-image:radial-gradient(circle,transparent 42%,#000 78%);mask-image:radial-gradient(circle,transparent 42%,#000 78%);opacity:0;animation:rankFloat 8s linear infinite}
+.rank-crest{position:absolute;right:5%;bottom:4%;font-size:20px;color:#fff;text-shadow:0 0 12px currentColor;mix-blend-mode:screen;opacity:.8}
+@keyframes rankFloat{from{background-position:0 0,18px 24px}to{background-position:0 -76px,18px -84px}}
+.rank-SR .rank-ring{border:2px solid rgba(190,232,255,.55);box-shadow:0 0 22px rgba(120,200,255,.45),inset 0 0 24px rgba(200,235,255,.2);opacity:.75}
+.rank-SR .rank-aura{background:radial-gradient(circle at 50% 45%,rgba(160,220,255,.28),transparent 66%);opacity:.55}
+.rank-SR .rank-particles{opacity:.22}
+.rank-SSR .rank-ring{border:3px double rgba(255,215,122,.75);box-shadow:0 0 30px rgba(255,200,90,.55),0 0 44px rgba(185,139,255,.35),inset 0 0 32px rgba(255,220,140,.22);opacity:.9}
+.rank-SSR .rank-aura{background:radial-gradient(circle at 50% 45%,rgba(255,210,110,.32),rgba(185,139,255,.16) 50%,transparent 72%);opacity:.7}
+.rank-SSR .rank-particles{opacity:.4;animation-duration:6s}
+.rank-UR .rank-ring{border:3px solid rgba(220,170,255,.85);box-shadow:0 0 36px rgba(190,120,255,.7),0 0 62px rgba(104,247,212,.35),inset 0 0 40px rgba(220,170,255,.25);opacity:1;animation:rankPulse 2.6s ease-in-out infinite}
+.rank-UR .rank-aura{background:conic-gradient(from 0deg at 50% 50%,rgba(190,120,255,.25),rgba(104,247,212,.18),rgba(255,220,150,.22),rgba(190,120,255,.25));opacity:.7;animation:rankSpin 9s linear infinite}
+.rank-UR .rank-particles{opacity:.65;animation-duration:4s}
+.rank-UR .rank-crest{font-size:26px;color:#e9c2ff}
+.rank-LR .rank-ring{border:3px solid rgba(255,255,255,.9);background:conic-gradient(from 0deg,rgba(255,120,160,.18),rgba(255,215,120,.18),rgba(140,255,200,.18),rgba(120,200,255,.18),rgba(200,140,255,.18),rgba(255,120,160,.18));box-shadow:0 0 44px rgba(255,245,200,.85),0 0 80px rgba(120,220,255,.5),inset 0 0 46px rgba(255,255,255,.22);opacity:1;animation:rankSpin 7s linear infinite,rankPulse 2s ease-in-out infinite}
+.rank-LR .rank-aura{background:conic-gradient(from 90deg at 50% 50%,rgba(255,140,180,.3),rgba(255,225,140,.3),rgba(150,255,210,.3),rgba(140,210,255,.3),rgba(210,150,255,.3),rgba(255,140,180,.3));opacity:.85;animation:rankSpin 6s linear infinite reverse}
+.rank-LR .rank-particles{opacity:.85;animation-duration:3s}
+.rank-LR .rank-crest{font-size:30px;color:#fff6cf;text-shadow:0 0 18px #fff,0 0 30px #ffd77a}
+@keyframes rankSpin{to{transform:rotate(360deg)}}
+@keyframes rankPulse{0%,100%{opacity:.72}50%{opacity:1}}
+.aura-blue .rank-ring{box-shadow:0 0 26px rgba(79,216,255,.6),inset 0 0 24px rgba(79,216,255,.2)}
+.aura-gold .rank-ring{box-shadow:0 0 26px rgba(255,215,122,.6),inset 0 0 24px rgba(255,215,122,.2)}
+.aura-rainbow .rank-ring{border-color:rgba(104,247,212,.8)}
+
+/* ---------- レアリティバッジ ---------- */
+.rank-badge{display:inline-flex;align-items:center;justify-content:center;min-width:36px;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;letter-spacing:.06em;border:1px solid currentColor;background:rgba(255,255,255,.05);vertical-align:middle}
+.rank-badge.rank-R{color:#c6d4e8;border-color:#8b9ab0}
+.rank-badge.rank-SR{color:#a9e4ff;border-color:#78c8ff;background:rgba(120,200,255,.14);box-shadow:0 0 12px rgba(120,200,255,.35)}
+.rank-badge.rank-SSR{color:#ffe6a1;border-color:#ffd77a;background:linear-gradient(135deg,rgba(255,215,122,.22),rgba(185,139,255,.18));box-shadow:0 0 15px rgba(255,215,122,.45)}
+.rank-badge.rank-UR{color:#f0d2ff;border-color:#d2a0ff;background:linear-gradient(135deg,rgba(185,139,255,.25),rgba(104,247,212,.12));box-shadow:0 0 18px rgba(185,139,255,.55)}
+.rank-badge.rank-LR{color:#fff8dc;border-color:#fff0c8;background:linear-gradient(135deg,rgba(255,120,160,.3),rgba(255,225,140,.3),rgba(140,210,255,.3));box-shadow:0 0 20px rgba(255,245,200,.7);animation:rankPulse 2.4s ease-in-out infinite}
+
+/* ---------- エディタレイアウト ---------- */
+.editor-grid{display:grid;grid-template-columns:minmax(0,1.12fr) minmax(0,.88fr);gap:16px;align-items:start}
+.editor-preview-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.editor-stage-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-top:9px}
+.editor-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;width:100%;height:100%;text-align:center;color:var(--muted)}
+.editor-empty span{font-size:58px;opacity:.6}.editor-empty b{color:var(--text);font-size:16px}.editor-empty p{max-width:280px;font-size:12px}
+.editor-controls{max-height:none}
+.editor-settings h4{margin-top:16px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+.zoom-head{display:flex;align-items:center;justify-content:space-between;margin:4px 0 2px;font-size:12px}
+.zoom-num{color:var(--gold2);font-size:16px;font-weight:800;font-variant-numeric:tabular-nums}
+.image-picker{display:flex;flex-direction:column;gap:8px;margin-top:14px}
+.image-picker .row-btns{margin-top:0}
+.editor-profile{margin-top:16px}
+.profile-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;align-items:end}
+.profile-row .row-btns{grid-column:1/-1;justify-content:flex-end}
+.compare-pair figure .char-stage{border:1px solid var(--line)}
+.compare-pair .char-stage.compare{height:190px}
+.exp-line{margin:10px 0}.exp-line small{display:block;color:var(--muted);margin-bottom:4px}
+.battle-size{display:flex;flex-direction:column;gap:2px;font-size:10px;color:var(--muted);min-width:110px}
+.battle-size input[type=range]{width:110px;accent-color:var(--gold)}
+.battle-size output{color:var(--gold2)}
+.combat-rank{position:absolute;top:4px;left:50%;transform:translateX(-50%);z-index:3}
+
+/* ---------- 素材アイコン ---------- */
+.mat-icon{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;line-height:0;vertical-align:middle;filter:drop-shadow(0 3px 6px rgba(0,0,0,.5))}
+.mat-icon svg{display:block;width:100%;height:100%;overflow:visible}
+.mat-SR .mat-icon{filter:drop-shadow(0 0 6px rgba(120,200,255,.6))}
+.mat-SSR .mat-icon{filter:drop-shadow(0 0 9px rgba(255,215,122,.7))}
+.mat-UR .mat-icon{filter:drop-shadow(0 0 12px rgba(185,139,255,.8))}
+.mat-LR .mat-icon{filter:drop-shadow(0 0 14px rgba(255,245,200,.9))}
+.item-emoji{font-size:22px;line-height:1;display:inline-flex}
+.mat-chip{display:inline-flex;align-items:center;gap:6px;padding:5px 9px;border-radius:9px;border:1px solid var(--line);background:rgba(255,255,255,.05);font-size:11px;cursor:pointer;transition:.15s}
+.mat-chip:hover{border-color:var(--gold);background:rgba(233,201,121,.1)}
+.mat-chip .mat-icon{width:30px;height:30px}.mat-chip b{color:var(--gold2)}
+.mat-chip-row{display:flex;flex-wrap:wrap;gap:7px;margin:8px 0}
+.mat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:9px}
+.mat-card{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 6px;border-radius:12px;border:1px solid var(--line);background:linear-gradient(160deg,rgba(30,42,76,.85),rgba(10,16,34,.92));color:var(--text);cursor:pointer;transition:.16s;position:relative;min-height:112px}
+.mat-card:hover{transform:translateY(-3px);border-color:var(--gold2);box-shadow:0 10px 24px rgba(0,0,0,.4)}
+.mat-card .mat-icon{width:54px;height:54px}
+.mat-card b{font-size:11px;text-align:center;line-height:1.35}
+.mat-card small{color:var(--gold2);font-size:11px;font-weight:700}
+.mat-card.unknown{filter:grayscale(1) brightness(.5);opacity:.6}
+.mat-card.mat-SSR{border-color:rgba(255,215,122,.4);background:linear-gradient(160deg,rgba(80,62,28,.6),rgba(24,18,40,.9))}
+.mat-card.mat-UR{border-color:rgba(185,139,255,.5);background:linear-gradient(160deg,rgba(66,38,96,.6),rgba(18,14,36,.92))}
+.mat-card.mat-LR{border-color:rgba(255,240,200,.6);background:linear-gradient(135deg,rgba(80,50,70,.6),rgba(40,48,70,.9));box-shadow:0 0 18px rgba(255,240,200,.18)}
+.mat-rank{font-size:9px;font-weight:800;letter-spacing:.08em;padding:1px 6px;border-radius:5px;border:1px solid currentColor;color:var(--muted)}
+.mat-rank.rank-SR{color:#a9e4ff}.mat-rank.rank-SSR{color:#ffe6a1}.mat-rank.rank-UR{color:#f0d2ff}.mat-rank.rank-LR{color:#fff8dc}
+.mat-rank.big{display:inline-block;font-size:12px;padding:3px 10px;margin-bottom:6px}
+.mat-codex-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:9px}
+.mat-req-list{display:flex;flex-direction:column;gap:7px;margin:8px 0 14px}
+.mat-req{display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.035);cursor:pointer}
+.mat-req:hover{border-color:var(--gold)}
+.mat-req .mat-icon{width:40px;height:40px}
+.mat-req>div{flex:1;min-width:0}
+.mat-req b{display:block;font-size:12px}.mat-req small{display:block;color:var(--muted);font-size:10px;line-height:1.4}
+.mat-req.ok{border-color:rgba(140,230,168,.35)}.mat-req.bad{border-color:rgba(255,122,122,.35)}
+.mat-count{font-variant-numeric:tabular-nums;font-size:12px;white-space:nowrap}
+.mat-use-list{display:flex;flex-direction:column;gap:7px;margin-bottom:12px}
+.mat-use{padding:8px 10px;border-radius:9px;background:rgba(255,255,255,.04);border:1px solid var(--line);display:flex;flex-direction:column;gap:2px;font-size:12px}
+.mat-use span{color:var(--gold2)}.mat-use small{color:var(--muted)}
+.mat-upgrade{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 11px;border-radius:10px;border:1px solid var(--line2);background:rgba(233,201,121,.07);margin:8px 0}
+.mat-upgrade>div{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px}
+.mat-upgrade .mat-icon{width:34px;height:34px}
+.mat-upgrade small{display:block;color:var(--muted);font-size:10px;width:100%}
+.mat-upgrade-list{display:flex;flex-direction:column;gap:7px;max-height:340px;overflow:auto}
+.source-list{display:flex;flex-direction:column;gap:8px}
+.source-list>div{padding:9px 11px;border-radius:9px;border:1px solid var(--line);background:rgba(255,255,255,.03)}
+.source-list b{display:block;font-size:12px;color:var(--gold2)}.source-list small{display:block;color:var(--muted);line-height:1.5;margin-top:2px}
+.reward-mats{margin:10px 0;padding:10px;border-radius:12px;border:1px solid var(--line2);background:rgba(233,201,121,.06)}
+
+/* ---------- 素材詳細モーダル ---------- */
+.modal-backdrop{position:fixed;inset:0;z-index:90;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(4,7,18,.78);backdrop-filter:blur(6px)}
+.modal-card{position:relative;width:min(560px,100%);max-height:88vh;overflow:auto;padding:22px;border-radius:18px;border:1px solid var(--line2);background:linear-gradient(160deg,rgba(26,38,70,.98),rgba(10,15,32,.99));box-shadow:0 28px 80px rgba(0,0,0,.7)}
+.modal-close{position:absolute;right:12px;top:12px;width:32px;height:32px;border-radius:8px;border:1px solid var(--line);background:rgba(255,255,255,.06);color:var(--text);font-size:14px}
+.mat-detail-top{display:flex;gap:16px;align-items:center;margin-bottom:14px}
+.mat-detail-top .mat-icon{width:96px;height:96px;flex:0 0 96px}
+.mat-detail-top h3{font-size:21px;margin:0 0 4px}.mat-detail-top p{font-size:12px;color:var(--muted);margin:0 0 4px;line-height:1.55}
+.mat-detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px 14px;margin:10px 0 16px}
+.mat-detail h4{margin-top:14px}
+
+/* ---------- 進化画面 ---------- */
+.evo-ladder{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin:12px 0 16px}
+.rank-ladder-step{padding:9px 8px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.035);text-align:center}
+.rank-ladder-step b{display:block;font-size:14px}.rank-ladder-step small{display:block;color:var(--muted);font-size:9.5px;line-height:1.4;margin-top:3px}
+.rank-ladder-step.active{border-color:var(--gold);box-shadow:0 0 16px rgba(233,201,121,.3);background:rgba(233,201,121,.1)}
+.rank-ladder-step.rank-LR{border-color:rgba(255,240,200,.55)}
+.evo-compare{display:grid;grid-template-columns:minmax(0,1fr) 42px minmax(0,1fr);gap:8px;align-items:start}
+.evo-side{padding:12px;border-radius:12px;border:1px solid var(--line);background:rgba(255,255,255,.03)}
+.evo-side.next{border-color:var(--line2);background:rgba(233,201,121,.06)}
+.evo-side h5{margin:0 0 8px;font-size:13px;color:var(--gold2)}
+.evo-side .rank-badge{margin-bottom:8px}
+.evo-arrow{display:grid;place-items:center;font-size:24px;color:var(--gold);align-self:center}
+.evo-facts{display:flex;flex-direction:column;gap:3px;margin:8px 0;font-size:11px}
+.evo-facts span{display:flex;justify-content:space-between;gap:6px;border-bottom:1px dashed var(--line);padding:3px 0}
+.evo-side .stat-grid{grid-template-columns:repeat(2,1fr)}
+.evo-conds .list-line{font-size:12px}
+.evo-conds .btn-lg{margin-top:12px}
+.eq-rank-visual{display:inline-flex;align-items:center;justify-content:center;position:relative;flex:0 0 auto;border-radius:16px;background:radial-gradient(circle,rgba(255,255,255,.08),transparent 70%)}
+.eq-rank-visual svg{overflow:visible}
+.eq-shape{opacity:.92}
+.eq-ring{fill:none;stroke:var(--eqc);stroke-width:1.6;opacity:.8}
+.eq-ring.rainbow{stroke:url(#none);stroke:#fff;stroke-width:2.4;stroke-dasharray:6 3;animation:rankSpin 8s linear infinite;transform-origin:center}
+.eq-rays,.eq-sparks{stroke:var(--eqc);fill:var(--eqc);stroke-width:2;opacity:.75}
+.eq-crown{fill:var(--eqc);opacity:.9}
+.eq-rank-visual.rank-SSR{filter:drop-shadow(0 0 10px rgba(255,215,122,.7))}
+.eq-rank-visual.rank-UR{filter:drop-shadow(0 0 16px rgba(185,139,255,.85))}
+.eq-rank-visual.rank-LR{filter:drop-shadow(0 0 18px rgba(255,245,200,.95))}
+.eq-evo-compare{display:grid;grid-template-columns:minmax(0,1fr) 36px minmax(0,1fr);gap:8px;align-items:start;margin-bottom:14px}
+.eq-evo-side{display:flex;flex-direction:column;align-items:center;gap:5px;padding:12px;border-radius:12px;border:1px solid var(--line);background:rgba(255,255,255,.03);text-align:center}
+.eq-evo-side.next{border-color:var(--line2);background:rgba(233,201,121,.06)}
+.eq-evo-side h5{margin:0;font-size:12px;color:var(--gold2)}
+.eq-evo-side>b{font-size:12px}.eq-evo-side>small{color:var(--muted);font-size:10px}
+.eq-evo-side .stat-grid{width:100%;grid-template-columns:repeat(2,1fr);margin-top:6px}
+
+/* ---------- ガチャ履歴 ---------- */
+.gacha-history{display:flex;flex-direction:column;gap:4px;max-height:260px;overflow:auto}
+.gacha-hist-line{display:grid;grid-template-columns:92px 1fr 110px 92px;gap:6px;align-items:center;padding:5px 7px;border-radius:7px;background:rgba(255,255,255,.035);font-size:10.5px}
+.gacha-hist-r{color:var(--rc);font-weight:800}
+.gacha-hist-line b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gacha-hist-line small,.gacha-hist-line time{color:var(--muted);font-size:9.5px}
+.pull-item.secret{border-color:#68f7d4;box-shadow:0 0 14px rgba(104,247,212,.4)}
+.pull-item.mythic{border-color:#ff6fae;box-shadow:0 0 12px rgba(255,111,174,.35)}
+
+/* ---------- レベルアップ / 進化演出 ---------- */
+.fx-levelup{position:fixed;left:50%;top:30%;transform:translateX(-50%);z-index:80;text-align:center;pointer-events:none;animation:fxLv 2.6s ease-out forwards;text-shadow:0 4px 20px rgba(0,0,0,.9)}
+@keyframes fxLv{0%{opacity:0;transform:translate(-50%,24px) scale(.8)}15%{opacity:1;transform:translate(-50%,0) scale(1)}80%{opacity:1}100%{opacity:0;transform:translate(-50%,-30px) scale(1.05)}}
+.lv-title{font-family:var(--serif);font-size:clamp(30px,7vw,56px);font-weight:800;letter-spacing:.1em;color:#ffe9a8;text-shadow:0 0 26px #ffd77a,0 0 60px rgba(255,215,122,.6)}
+.lv-nums{font-size:20px;color:#fff}.lv-nums b{color:#ffe9a8;font-size:30px}
+.lv-stats{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin:10px auto;max-width:520px}
+.lv-stats span{padding:4px 9px;border-radius:8px;background:rgba(140,230,168,.16);border:1px solid rgba(140,230,168,.5);font-size:11px;color:#c8f7d6}
+.lv-sub{font-size:12px;color:var(--cyan)}
+.fx-evolution{position:fixed;inset:0;z-index:85;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;overflow:hidden;background:radial-gradient(circle at 50% 50%,rgba(20,30,60,.5),rgba(4,6,16,.9));animation:evoFade 2.6s ease-out forwards}
+.fx-evolution.rank-LR{animation-duration:3.8s}
+@keyframes evoFade{0%{opacity:0}12%{opacity:1}75%{opacity:1}100%{opacity:0}}
+.evo-fx-ring{position:absolute;width:min(70vw,520px);height:min(70vw,520px);border-radius:50%;border:6px solid rgba(255,255,255,.85);box-shadow:0 0 60px rgba(255,215,122,.9),inset 0 0 60px rgba(255,255,255,.3);animation:evoRing 2.4s ease-out forwards}
+.evo-fx-rays{position:absolute;width:120vmax;height:120vmax;background:repeating-conic-gradient(from 0deg,rgba(255,255,255,.16) 0deg 3deg,transparent 3deg 12deg);animation:rankSpin 14s linear infinite;opacity:.5}
+.evo-fx-title{position:relative;font-family:var(--serif);font-size:clamp(20px,4vw,38px);color:#fff;letter-spacing:.08em;text-shadow:0 0 24px #ffd77a}
+.evo-fx-rank{position:relative;font-size:clamp(64px,18vw,150px);font-weight:900;line-height:1.1;color:#ffe9a8;text-shadow:0 0 30px #ffd77a,0 0 80px rgba(255,215,122,.7)}
+.evo-fx-sub{position:relative;font-size:12px;color:var(--text);margin-top:8px;text-align:center;padding:0 12px}
+@keyframes evoRing{0%{transform:scale(.1) rotate(0);opacity:0}30%{opacity:1}100%{transform:scale(1.6) rotate(180deg);opacity:0}}
+.rank-LR .evo-fx-ring{border-color:#fff8dc;background:conic-gradient(from 0deg,rgba(255,120,160,.25),rgba(255,225,140,.25),rgba(150,255,210,.25),rgba(140,210,255,.25),rgba(210,150,255,.25),rgba(255,120,160,.25));box-shadow:0 0 90px #fff6cf,0 0 160px rgba(120,220,255,.7)}
+.rank-LR .evo-fx-rank{background:linear-gradient(90deg,#ff8fa8,#ffd77a,#8ce6a8,#65d9ff,#b98bff,#ff8fa8);-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:none;filter:drop-shadow(0 0 22px rgba(255,255,255,.8))}
+.rank-LR .evo-fx-rays{background:repeating-conic-gradient(from 0deg,rgba(255,140,180,.2) 0deg 3deg,transparent 3deg 10deg,rgba(140,210,255,.15) 10deg 13deg,transparent 13deg 20deg);animation-duration:9s}
+.rank-SR .evo-fx-ring{border-color:#bdefff;box-shadow:0 0 60px rgba(120,200,255,.9),inset 0 0 50px rgba(190,232,255,.4)}
+.rank-SSR .evo-fx-ring{border-color:#ffd77a;border-width:9px;box-shadow:0 0 70px rgba(255,215,122,.95),0 0 110px rgba(185,139,255,.6)}
+.rank-UR .evo-fx-ring{border-color:#e2b6ff;border-width:10px;box-shadow:0 0 80px rgba(185,139,255,.95),0 0 140px rgba(104,247,212,.55)}
+
+/* ---------- レスポンシブ（縦スマホはプレビュー→設定→名前の順） ---------- */
+@media (max-width:1000px){
+  .editor-grid{grid-template-columns:1fr}
+  .profile-row{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .evo-ladder{grid-template-columns:repeat(3,1fr)}
+}
+@media (max-width:640px){
+  .char-stage.editor{height:clamp(260px,46vh,380px)}
+  .char-stage.portrait{height:200px}
+  .char-stage.battle{width:110px;height:145px}
+  .char-stage.evo{height:200px}
+  .editor-grid{gap:12px}
+  .profile-row{grid-template-columns:1fr}
+  .profile-row .row-btns{justify-content:stretch}
+  .profile-row .btn{flex:1}
+  .step-ind{gap:4px}.step-ind span{font-size:9.5px;padding:6px 4px}
+  .evo-compare,.eq-evo-compare{grid-template-columns:1fr;gap:6px}
+  .evo-arrow{transform:rotate(90deg);padding:2px}
+  .evo-ladder{grid-template-columns:repeat(2,1fr)}
+  .rank-ladder-step small{display:none}
+  .evo-side .stat-grid{grid-template-columns:repeat(2,1fr)}
+  .mat-grid,.mat-codex-row{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .mat-card{min-height:96px;padding:8px 3px}.mat-card .mat-icon{width:44px;height:44px}
+  .mat-detail-grid{grid-template-columns:1fr}
+  .mat-detail-top .mat-icon{width:68px;height:68px;flex-basis:68px}
+  .gacha-hist-line{grid-template-columns:78px 1fr 80px;gap:4px}
+  .gacha-hist-line time{display:none}
+  .battle-size{min-width:86px}.battle-size input[type=range]{width:86px}
+  .combat-rank{top:2px}
+  .modal-card{padding:16px}
+}
+.eq-mini-evo{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.03);margin-bottom:7px}
+.eq-mini-evo>div:first-child{display:flex;align-items:center;gap:10px;min-width:0}
+.eq-mini-evo b{font-size:12px}.eq-mini-evo small{display:block;color:var(--muted);font-size:10px;line-height:1.5}
+.eq-mini-evo .eq-rank-visual{flex:0 0 52px}
+.evo-result{display:flex;flex-direction:column;gap:4px;font-size:12px;line-height:1.6}
+.evo-result>b{font-size:14px}.evo-result .btn{align-self:flex-start;margin-top:4px}
+@media (max-width:640px){.eq-mini-evo{flex-wrap:wrap}.eq-mini-evo .btn{width:100%}}

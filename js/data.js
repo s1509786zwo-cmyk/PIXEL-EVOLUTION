@@ -1,10 +1,12 @@
+import { MATERIAL_ITEMS } from './materials.js';
+
 /* ===========================================================
    オリキャラファイターズ / ゲームデータ定義
    - 職業・技・装備・アイテム・CPU・クエスト・実績
    - すべてプログラムで実体を持つデータ（ダミーなし）
    =========================================================== */
 
-export const VERSION = 3;
+export const VERSION = 4;
 export const MAX_LEVEL_BASE = 60;
 export const AWAKENING_NAMES = ['未覚醒', '覚醒I・萌芽', '覚醒II・進化', '覚醒III・超越', '覚醒IV・神化', '覚醒V・極致'];
 
@@ -18,6 +20,40 @@ export const RARITIES = [
 ];
 export const RARITY = Object.fromEntries(RARITIES.map(r => [r.id, r]));
 export const RARITY_ORDER = RARITIES.map(r => r.id);
+
+/* 武器ガチャ排出確率の合計（常に100%） */
+export const RATE_TOTAL = Math.round(RARITIES.reduce((a, r) => a + r.rate, 0) * 10) / 10;
+
+/* -----------------------------------------------------------
+   キャラクターのレアリティ（= 進化段階）
+   ※ 武器ガチャのレアリティ RARITIES とは完全に別データ。
+   ※ レベルとは別管理で、レベルアップだけでは上がらない。
+   ----------------------------------------------------------- */
+export const CHAR_RARITIES = [
+  { id:'R',   name:'R',   color:'#aebfd4', glow:'#dbe8ff', mult:1.00, css:'rank-R',
+    label:'基本的な色彩と控えめな光', decor:'素朴な光の輪' },
+  { id:'SR',  name:'SR',  color:'#78c8ff', glow:'#c8efff', mult:1.18, css:'rank-SR',
+    label:'銀色・青色の装飾と小さな光', decor:'銀青の装飾リング' },
+  { id:'SSR', name:'SSR', color:'#ffd77a', glow:'#fff2b8', mult:1.42, css:'rank-SSR',
+    label:'金色・紫色の装飾、目立つオーラ', decor:'金紫の紋章とオーラ' },
+  { id:'UR',  name:'UR',  color:'#d2a0ff', glow:'#f2d4ff', mult:1.72, css:'rank-UR',
+    label:'強い発光、特別な紋章、豪華な粒子', decor:'神秘の紋章と粒子' },
+  { id:'LR',  name:'LR',  color:'#f7f0c8', glow:'#ffffff', mult:2.10, css:'rank-LR',
+    label:'虹色・白金色、専用オーラ、特別進化演出', decor:'虹白金の専用オーラ' },
+];
+export const CHAR_RARITY = Object.fromEntries(CHAR_RARITIES.map(r => [r.id, r]));
+export const CHAR_RARITY_ORDER = CHAR_RARITIES.map(r => r.id);
+export const charRankIndex = r => Math.max(0, CHAR_RARITY_ORDER.indexOf(r || 'R'));
+
+/* 進化ルール：必要レベルはゲームバランスに合わせて調整（20/35/50/65） */
+export const EVOLUTION_RULES = [
+  { from:'R',   to:'SR',  level:20, coins:2500,  skill:'sk_light_impact', gain:'全能力 +18%' },
+  { from:'SR',  to:'SSR', level:35, coins:9000,  skill:'sk_star_nova',    gain:'全能力 +42%' },
+  { from:'SSR', to:'UR',  level:50, coins:26000, skill:'sk_awaken1',      gain:'全能力 +72%' },
+  { from:'UR',  to:'LR',  level:65, coins:64000, skill:'sk_secret',       gain:'全能力 +110%' },
+];
+export const EVOLUTION_BY_FROM = Object.fromEntries(EVOLUTION_RULES.map(r => [r.from, r]));
+
 
 export const STAT_KEYS = ['hp', 'mp', 'atk', 'def', 'spd', 'mag', 'acc', 'eva'];
 export const STAT_NAMES = { hp: 'HP', mp: 'MP', atk: '攻撃力', def: '防御力', spd: '速度', mag: '魔力', acc: '命中率', eva: '回避率' };
@@ -326,7 +362,10 @@ export const ITEMS = [
   { id:'book_high', name:'技の書・極意', kind:'book', icon:'📘', price:3200, sell:960, desc:'ランダムな上級技を習得' },
   { id:'book_secret', name:'禁断の書', kind:'book', icon:'📜', price:0, sell:1200, desc:'覚醒・必殺級の技を習得' },
 ];
+// 進化素材 40 種（形状・装飾・発光が種類とランクごとに異なる）
+ITEMS.push(...MATERIAL_ITEMS);
 export const ITEM = Object.fromEntries(ITEMS.map(i => [i.id, i]));
+export const MATERIAL_ITEM_IDS = MATERIAL_ITEMS.map(m => m.id);
 
 /* -----------------------------------------------------------
    CPU対戦相手 / ダンジョン
@@ -396,23 +435,23 @@ export const RANKS = [
    クエスト / 実績 / 称号 / 交換所
    ----------------------------------------------------------- */
 export const QUESTS = [
-  { id:'q_win3', name:'腕試し', desc:'CPU対戦に3回勝利する', type:'win', need:3, reward:{coins:600,bp:20,items:{mat_ore:2}}, daily:false },
-  { id:'q_battle5', name:'修練の日々', desc:'対戦を5回行う', type:'battle', need:5, reward:{coins:400,exp:120}, daily:true },
-  { id:'q_train3', name:'汗の結晶', desc:'修行を3回行う', type:'train', need:3, reward:{coins:350,items:{mat_crystal:1}}, daily:true },
-  { id:'q_pull', name:'工房の賑わい', desc:'ガチャを1回引く', type:'pull', need:1, reward:{coins:300,bp:10}, daily:true },
+  { id:'q_win3', name:'腕試し', desc:'CPU対戦に3回勝利する', type:'win', need:3, reward:{coins:600,bp:20,items:{mat_ore:2,evo_stone_R:2}}, daily:false },
+  { id:'q_battle5', name:'修練の日々', desc:'対戦を5回行う', type:'battle', need:5, reward:{coins:400,exp:120,items:{evo_stone_R:1}}, daily:true },
+  { id:'q_train3', name:'汗の結晶', desc:'修行を3回行う', type:'train', need:3, reward:{coins:350,items:{mat_crystal:1,awaken_crystal_R:1}}, daily:true },
+  { id:'q_pull', name:'工房の賑わい', desc:'ガチャを1回引く', type:'pull', need:1, reward:{coins:300,bp:10,items:{weapon_ore_R:1}}, daily:true },
   { id:'q_skill', name:'技の探究', desc:'技を1つ習得する', type:'skill', need:1, reward:{bp:30,items:{book_basic:1}}, daily:false },
   { id:'q_awake', name:'眠れる力', desc:'覚醒を1段階進める', type:'awake', need:1, reward:{coins:1200,items:{mat_stardust:1}}, daily:false },
-  { id:'q_boss', name:'強敵討伐', desc:'ボスを1体倒す', type:'boss', need:1, reward:{bp:80,items:{mat_proof:1}}, daily:false },
-  { id:'q_dungeon', name:'迷宮踏破', desc:'ダンジョンを3階進む', type:'floor', need:3, reward:{coins:1500,bp:40}, daily:false },
+  { id:'q_boss', name:'強敵討伐', desc:'ボスを1体倒す', type:'boss', need:1, reward:{bp:80,items:{mat_proof:1,boss_core_SR:1}}, daily:false },
+  { id:'q_dungeon', name:'迷宮踏破', desc:'ダンジョンを3階進む', type:'floor', need:3, reward:{coins:1500,bp:40,items:{mana_crystal_SR:1}}, daily:false },
   { id:'q_synth', name:'鍛冶の妙', desc:'装備を1回合成する', type:'synth', need:1, reward:{items:{mat_catalyst:2},coins:500}, daily:false },
-  { id:'q_damage', name:'一撃必殺', desc:'累計10000ダメージを与える', type:'damage', need:10000, reward:{bp:100,items:{mat_stone:1}}, daily:false },
+  { id:'q_damage', name:'一撃必殺', desc:'累計10000ダメージを与える', type:'damage', need:10000, reward:{bp:100,items:{mat_stone:1,element_gem_SSR:1}}, daily:false },
   { id:'q_level', name:'成長の記録', desc:'レベルを10上げる', type:'level', need:10, reward:{coins:2000,exp:300}, daily:false },
-  { id:'q_rebirth', name:'輪廻の果て', desc:'転生を1回行う', type:'rebirth', need:1, reward:{bp:300,items:{mat_rebirth:1}}, daily:false },
+  { id:'q_rebirth', name:'輪廻の果て', desc:'転生を1回行う', type:'rebirth', need:1, reward:{bp:300,items:{mat_rebirth:1,legend_mat_UR:1}}, daily:false },
 ];
 export const ACHIEVEMENTS = [
-  { id:'a_first', name:'はじめの一歩', desc:'初めて対戦に勝利', cond:s=>s.stats.wins>=1, reward:{coins:500,bp:20}, title:'駆け出しの挑戦者' },
-  { id:'a_win10', name:'十連の猛者', desc:'対戦に10勝', cond:s=>s.stats.wins>=10, reward:{coins:1500,bp:60}, title:'熟達の戦士' },
-  { id:'a_win50', name:'百戦錬磨', desc:'対戦に50勝', cond:s=>s.stats.wins>=50, reward:{coins:6000,bp:200}, title:'歴戦の英雄' },
+  { id:'a_first', name:'はじめの一歩', desc:'初めて対戦に勝利', cond:s=>s.stats.wins>=1, reward:{coins:500,bp:20,items:{evo_stone_R:2}}, title:'駆け出しの挑戦者' },
+  { id:'a_win10', name:'十連の猛者', desc:'対戦に10勝', cond:s=>s.stats.wins>=10, reward:{coins:1500,bp:60,items:{awaken_crystal_SR:2}}, title:'熟達の戦士' },
+  { id:'a_win50', name:'百戦錬磨', desc:'対戦に50勝', cond:s=>s.stats.wins>=50, reward:{coins:6000,bp:200,items:{job_proof_SSR:1}}, title:'歴戦の英雄' },
   { id:'a_streak5', name:'連勝街道', desc:'5連勝を達成', cond:s=>s.bestStreak>=5, reward:{coins:1800,bp:80}, title:'無敗の疾風' },
   { id:'a_streak10', name:'不敗の証', desc:'10連勝を達成', cond:s=>s.bestStreak>=10, reward:{coins:5000,bp:180}, title:'不敗王' },
   { id:'a_lv30', name:'熟成の時', desc:'Lv.30に到達', cond:s=>maxLevel(s)>=30, reward:{coins:2000,items:{mat_stone:1}}, title:'努力の結晶' },
@@ -425,8 +464,8 @@ export const ACHIEVEMENTS = [
   { id:'a_allskills', name:'全技網羅', desc:'全ての技を集める', cond:s=>collectedSkills(s).length>=SKILLS.length, reward:{bp:1200,coins:30000}, title:'技の化身' },
   { id:'a_equip', name:'武具愛好家', desc:'装備を30種集める', cond:s=>s.catalog.equipment.length>=30, reward:{coins:2500,items:{mat_ore:5}}, title:'鑑定士' },
   { id:'a_secret', name:'虹の閃き', desc:'シークレット装備を入手', cond:s=>s.inventory.equipment.some(e=>e.rarity==='S'), reward:{bp:300,coins:8000}, title:'虹を掴みし者' },
-  { id:'a_boss', name:'塔の征服者', desc:'ボスを3体倒す', cond:s=>s.stats.bossKills>=3, reward:{bp:250,items:{mat_proof:2}}, title:'征伐者' },
-  { id:'a_hidden', name:'虚無を超えし者', desc:'隠しボスを撃破', cond:s=>s.stats.hiddenKills>=1, reward:{bp:600,coins:20000}, title:'虚無の征服者' },
+  { id:'a_boss', name:'塔の征服者', desc:'ボスを3体倒す', cond:s=>s.stats.bossKills>=3, reward:{bp:250,items:{mat_proof:2,boss_core_UR:1}}, title:'征伐者' },
+  { id:'a_hidden', name:'虚無を超えし者', desc:'隠しボスを撃破', cond:s=>s.stats.hiddenKills>=1, reward:{bp:600,coins:20000,items:{legend_mat_LR:1}}, title:'虚無の征服者' },
   { id:'a_dungeon', name:'迷宮の底', desc:'ダンジョン20階を踏破', cond:s=>s.dungeon.best>=20, reward:{bp:400,coins:15000}, title:'迷宮の主' },
   { id:'a_rebirth', name:'輪廻転生', desc:'転生を果たす', cond:s=>s.stats.rebirths>=1, reward:{bp:350,items:{mat_rebirth:1}}, title:'転生者' },
   { id:'a_rich', name:'金貨の山', desc:'累計50000コイン獲得', cond:s=>s.stats.coinsEarned>=50000, reward:{coins:10000}, title:'豪商' },
@@ -471,14 +510,17 @@ export const EXCHANGE = [
   { id:'ex_secret_eq', name:'シークレット装備', kind:'equip', rarity:'S', cost:1500, desc:'シークレット確定の装備' },
   { id:'ex_title', name:'称号「闘技場の星」', kind:'title', title:'t_rainbow', cost:300, desc:'会心+12%の称号' },
   { id:'ex_proof', name:'強敵の証', kind:'item', item:'mat_proof', count:1, cost:120, desc:'特殊職の解放条件' },
+  { id:'ex_mat_ssr', name:'魔力結晶・SSR', kind:'item', item:'mana_crystal_SSR', count:1, cost:220, desc:'SSR進化素材' },
+  { id:'ex_mat_ur', name:'ボスの核・UR', kind:'item', item:'boss_core_UR', count:1, cost:520, desc:'UR進化素材' },
+  { id:'ex_mat_lr', name:'伝説の素材・LR', kind:'item', item:'legend_mat_LR', count:1, cost:1100, desc:'LR最終進化素材' },
 ];
 
 /* -----------------------------------------------------------
    施設
    ----------------------------------------------------------- */
 export const FACILITIES = [
-  { id:'nurture', name:'育成の間', sub:'レベル・職業・技・覚醒', img:'assets/facility_nurture.jpg', icon:'✦', color:'#5ec8ff', tabs:['ステータス','職業','技','覚醒・進化'] },
-  { id:'forge', name:'武器・装備工房', sub:'ガチャ・装備・強化・合成', img:'assets/facility_forge.jpg', icon:'⚒', color:'#ffb45e', tabs:['装備','ガチャ','強化','合成'] },
+  { id:'nurture', name:'育成の間', sub:'レベル・職業・技・覚醒', img:'assets/facility_nurture.jpg', icon:'✦', color:'#5ec8ff', tabs:['ステータス','職業','技','覚醒','進化'] },
+  { id:'forge', name:'武器・装備工房', sub:'ガチャ・装備・強化・合成', img:'assets/facility_forge.jpg', icon:'⚒', color:'#ffb45e', tabs:['装備','ガチャ','強化','合成','ランク進化'] },
   { id:'training', name:'修行場', sub:'トレーニング・練習・クエスト', img:'assets/facility_training.jpg', icon:'⚔', color:'#8ce6a8', tabs:['トレーニング','技の練習','修行クエスト'] },
   { id:'guild', name:'冒険者ギルド', sub:'CPU対戦・ダンジョン・戦績', img:'assets/facility_guild.jpg', icon:'🏛', color:'#ffd77a', tabs:['CPU対戦','ダンジョン','クエスト','戦績・交換'] },
   { id:'shop', name:'道具屋', sub:'回復・素材・売却', img:'assets/facility_shop.jpg', icon:'🛒', color:'#e7a8ff', tabs:['購入','売却','素材'] },
