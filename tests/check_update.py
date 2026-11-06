@@ -153,7 +153,50 @@ def main():
     check('@media (max-width:640px)' in css and 'prefers-reduced-motion' in css,
           'スマホ幅・動きを減らす設定への配慮')
 
-    print('\nUPDATE STATIC CHECK OK — 全ファイル照合・3D 残存ゼロ・章/セーブ/UI 整合性')
+    print('== 7. ストーリータブ・ヒント・製作者ツール ==')
+    dt = open('js/data.js', encoding='utf-8').read()
+    check('育成素材を得たいならストーリーを進めよう' in dt and "id:'storyMaterials'" in dt,
+          'ヒントに「育成素材を得たいならストーリーを進めよう」を追加')
+    check('CPU対戦・ダンジョン・ストーリー・戦績' in dt, 'ギルドの説明にもストーリーを明記')
+    check('ftab-story-link' in ui and 'data-to="story"' in ui,
+          'ダンジョンの隣にストーリー専用の小タブを追加')
+    check("f.tabs.map((t,i)=>" in ui and 'tabButtons.splice(2, 0' in ui,
+          '既存タブの data-i 添字をずらさない挿入方法')
+    mn = open('js/main.js', encoding='utf-8').read()
+    check('initCreatorTools(' in mn and 'toggleCreator()' in mn and "ev.key.toLowerCase() !== 'c'" in mn,
+          'C キー入力と製作者ツールの初期化を main.js に配線')
+    check("CREATOR: { toggle:" in mn and 'syncCreatorTools()' in mn,
+          'CREATOR API と一覧自動同期を公開')
+    cjs = open('js/creatorTools.js', encoding='utf-8').read()
+    check("const PASSWORD = 'kiyo'" in cjs and 'value !== PASSWORD' in cjs,
+          'パスワードは半角小文字 kiyo との完全一致のみ')
+    check('全キャラクターのLR進化が完了しました！' in cjs and 'パスワードが間違っています' in cjs
+          and 'パスワードを入力してください' in cjs and 'CREATOR TOOLS' in cjs,
+          '認証文言・完了文言・専用タイトルを保持')
+    creator_actions = set(re.findall(r'data-creator-action="([a-zA-Z]+)"', cjs))
+    check(creator_actions == {'decide', 'close', 'done', 'evolve'},
+          f'ツールの 4 ボタンが揃っている: {sorted(creator_actions)}')
+    for a in creator_actions:
+        check(f"act === '{a}'" in cjs, f'ツールのボタン {a} にハンドラ')
+    check('creatorBulkEvolve(ctx.getState())' in cjs and 'await ctx.save(true)' in cjs,
+          '一括進化は同期適用→1 回の即時保存')
+    check('busy' in cjs and 'if (!ctx || busy) return false' in cjs,
+          '処理中は閉じず二重実行も防ぐ')
+    body = st[st.index('export function creatorBulkEvolve(state) {'):st.index('export function equipmentEvolvePreview')]
+    check('addCoins(' not in body and 'removeItem(' not in body and 'checkAchievements(' not in body,
+          '一括進化は通貨・素材を消費せず実績報酬も発生させない')
+    check('creatorLRTheory(state, c)' in body and 'maxEvolutionBonus' in body
+          and 'EVOLUTION_RULES' in body,
+          '通常進化 4 回分の理論値を不足分だけ適用')
+    check('creatorTool: { completed:false' in st and 'state.creatorTool = ' in body,
+          '完了状態は後方互換の追加フィールドに保存')
+    for cls in ('.creator-layer', '.creator-searchbar', '.creator-shell', '.creator-evolve-btn',
+                '.creator-scroll', '.creator-done-btn', '.ftab-story-link'):
+        check(cls in css, f'CSS ルール {cls}')
+    check(os.path.isfile('tests/check_story_hint.mjs') and os.path.isfile('tests/check_creator.mjs'),
+          'ストーリータブ / 製作者ツールの実動作テストが存在')
+
+    print('\nUPDATE STATIC CHECK OK — 全ファイル照合・3D 残存ゼロ・章/セーブ/UI 整合性・新機能')
     return 0
 
 

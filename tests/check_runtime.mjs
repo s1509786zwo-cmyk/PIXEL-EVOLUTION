@@ -27,6 +27,11 @@ assert(ASSETS.files.length === 180 && ASSETS.kinds.length === 36 && ASSETS.unrea
 assert(STORY.chapters.length === 5 && STORY.integrity().rewardCoversFullEvolution,
   '5 章とランクアップ報酬の整合性');
 assert(Array.isArray(app.backups) && !!app.loadIssue, '起動時にバックアップ一覧と読込レポートを保持');
+assert(!!O.CREATOR && O.CREATOR.report().open === false,
+  '製作者ツールは起動時点では非表示（通常プレイに影響しない）');
+assert(document.querySelectorAll('#creator-layer').length === 1 &&
+  document.getElementById('creator-layer').classList.contains('creator-hidden'),
+  '製作者ツールのオーバーレイは #app 外に 1 つだけ・非表示');
 O.state.settings.sfx = false;
 O.state.settings.animSpeed = 3;
 
@@ -134,7 +139,12 @@ const fxChar = S.createCharacter(fxState, { name:'FX', jobId:'warrior', weaponTy
 fxState.settings.animSpeed = 3;
 const fxBattle = new Battle({ state:fxState, char:fxChar, enemy:S.storyStageEnemy('ch1',0), mode:'cpu',
   onChange:()=>{}, onFx:o=>fxEvents.push(o), onEnd:()=>{} });
-await fxBattle.resolveAction(fxBattle.enemy, fxBattle.player, fxBattle.enemyMoveSkill);
+// 命中判定の乱数を固定して、まれな回避でテストが揺れないようにする（ゲーム側は無変更）
+const origRandom = Math.random;
+Math.random = () => 0.01;
+try {
+  await fxBattle.resolveAction(fxBattle.enemy, fxBattle.player, fxBattle.enemyMoveSkill);
+} finally { Math.random = origRandom; }
 assert(fxEvents.some(o => o.type === 'skill' && o.move && o.move.id), '専用技の発動で move 情報が FX に渡る');
 assert(fxBattle.logs.some(l => l.text.includes('専用技発動')), '専用技がバトルログに記録される');
 assert(fxBattle.player.hp < fxBattle.player.maxHp, '専用技が実際にダメージを与える');

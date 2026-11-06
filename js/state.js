@@ -446,6 +446,9 @@ export function defaultSaveFields() {
       floors:0, syntheses:0, questsClaimed:0, gachaLegendary:0, evolutions:0, equipEvolutions:0 },
     log: [],
     lastDaily: nowDate(),
+    // 製作者ツールの「完了・保存」状態。後方互換のため欠損時は updateExistingSave が補うだけ。
+    // 通常プレイの進行・所持品には一切影響しない、追加専用のフラグ。
+    creatorTool: { completed:false, lastRunAt:null, lastCount:0 },
   };
 }
 
@@ -1026,6 +1029,105 @@ export function evolveCharacter(state, c) {
   return { ok:true, msg:`${rule.from} → ${rule.to} 進化成功！ ${rule.gain}${extraLog?` / ${extraLog}`:''}`, rule,
     gains:p.gains, learnedSpecial, learnedUltimate,
     jobChangeOffer:{ reason:'rank', from:rule.from, to:rule.to } };
+}
+
+/* ============================================================
+   製作者専用ツール：全自作キャラの一括 LR 進化（隠し機能）
+   ------------------------------------------------------------
+   - 通常進化と同じ rankUpBonus() を R→SR→SSR→UR→LR の 4 回
+     順番に適用した「理論値」を、そのキャラの現在の育成状態から算出。
+   - 素材・コイン・アイテムは 1 個も消費しない（addCoins / removeItem を呼ばない）。
+   - レベル・EXP・名前・画像・職業・装備・習得済み技・戦績・
+     ストーリー・ガチャ・クエスト等は変更しない。
+   - 既に理論値以上なら加算せず、既に LR なら何も壊さない（冪等）。
+   - 実績判定 checkAchievements() は呼ばない（報酬で所持コインが増えないようにする）。
+   ============================================================ */
+/** そのキャラが通常育成で R から LR まで 4 回進化した場合の evolutionBonus 理論値 */
+export function creatorLRTheory(state, c) {
+  let bonus = emptyEvolutionBonus();
+  for (const rule of EVOLUTION_RULES) {
+    // 通常の evolveCharacter() は各段階で c.rarity = rule.from の状態から
+    // rankUpBonus() を計算する。まったく同じ順序で再現する。
+    const sim = { ...c, rarity: rule.from, evolutionBonus: bonus };
+    bonus = mergeEvolutionBonus(bonus, rankUpBonus(state, sim, rule.to));
+  }
+  return bonus;
+}
+/** 既存ボーナスを理論値まで「引き上げる」だけ。下げない・二重加算しない */
+function maxEvolutionBonus(cur, target) {
+  const zero = emptyEvolutionBonus();
+  const out = { ...zero, ...(cur || {}) };
+  for (const k of STAT_KEYS) out[k] = Math.max(Number(out[k]) || 0, Number(target[k]) || 0);
+  out.effects = { ...zero.effects, ...(out.effects || {}) };
+  for (const [k, v] of Object.entries(target.effects || {}))
+    out.effects[k] = Math.max(Number(out.effects[k]) || 0, Number(v) || 0);
+  return out;
+}
+const creatorBonusChanged = (a, b) =>
+  STAT_KEYS.some(k => (Number(a?.[k]) || 0) !== (Number(b?.[k]) || 0)) ||
+  ['crit','critDamage','ultimatePower'].some(k =>
+    (Number(a?.effects?.[k]) || 0) !== (Number(b?.effects?.[k]) || 0));
+
+/** 通常の learnSkillDirect と同じ付与を行うが、bump()→checkAchievements() の
+    報酬付与（コイン・アイテム増加）だけは起こさないツール専用版。
+    クエスト進行や実績報酬を勝手に動かさず、既に習得済みの技は触らない。 */
+function creatorGrantSkill(c, state, id) {
+  if (!SKILL[id] || hasSkill(c, id)) return false;
+  c.skills.push({ id, mastery:0, learnedAt:new Date().toISOString() });
+  if (c.equippedSkills.length < 8) c.equippedSkills.push(id);
+  if (SKILL[id].ultimate) {
+    c.ultimateSkills = Array.isArray(c.ultimateSkills) ? c.ultimateSkills : [];
+    if (!c.ultimateSkills.includes(id)) c.ultimateSkills.push(id);
+  }
+  addCatalog(state.catalog.skills, id);
+  state.stats.skillLearned = (state.stats.skillLearned || 0) + 1;
+  return true;
+}
+
+/**
+ * 現在のセーブに登録されている「自作キャラ全員」を LR の理論値へ一括進化する。
+ * 同期処理（await なし）なので、途中で画面を閉じても中途半端な状態にならない。
+ * 戻り値は UI / テスト用のレポートで、セーブ形式には新しい必須項目を増やさない。
+ */
+export function creatorBulkEvolve(state) {
+  const chars = Array.isArray(state.characters) ? state.characters : [];
+  const out = { total: chars.length, evolved: 0, alreadyMax: 0, characters: [] };
+  for (const c of chars) {
+    const from = c.rarity || 'R';
+    const missing = Math.max(0, 4 - charRankIndex(from));
+    const theory = creatorLRTheory(state, c);
+    const beforeBonus = clone(c.evolutionBonus || emptyEvolutionBonus());
+    const merged = maxEvolutionBonus(c.evolutionBonus, theory);
+    const bonusChanged = creatorBonusChanged(beforeBonus, merged);
+    const rankChanged = from !== 'LR';
+
+    /* 1) ランクと進化ボーナスだけを理論値へ。画像・名前・職業・装備は触らない */
+    c.rarity = 'LR';
+    c.evolutionBonus = merged;
+
+    /* 2) 通常進化と同じ付随効果を「不足分だけ」適用 */
+    if (missing > 0) c.statPoints = (Number(c.statPoints) || 0) + 6 * missing;
+    for (const rule of EVOLUTION_RULES) creatorGrantSkill(c, state, rule.skill);
+    const uidv = c.jobId === GOD_JOB_ID ? GOD_ULTIMATE_ID : JOB_ULTIMATE[c.jobId];
+    if (uidv) creatorGrantSkill(c, state, uidv);
+    if (c.specialKey && c.specialUltimateId) creatorGrantSkill(c, state, c.specialUltimateId);
+    c.ultimateSkills = Array.isArray(c.ultimateSkills) ? c.ultimateSkills : [];
+    for (const sk of c.skills)
+      if (ULTIMATE_IDS.has(sk.id) && !c.ultimateSkills.includes(sk.id)) c.ultimateSkills.push(sk.id);
+
+    /* 3) 通常進化と同じく HP/MP を最大まで戻し、装備スナップショットを更新 */
+    restoreFull(state, c);
+    syncEquipmentSnapshot(state, c);
+    if (missing > 0) state.stats.evolutions = (state.stats.evolutions || 0) + missing;
+    if (rankChanged || bonusChanged) out.evolved++; else out.alreadyMax++;
+    out.characters.push({ id:c.id, name:c.name, from, to:'LR', rankChanged, bonusChanged,
+      theory, applied:merged });
+    logEvent(state, `製作者ツール：「${c.name}」を ${from} → LR の理論値へ一括進化（素材・コイン消費なし）。`, 'evolution');
+  }
+  /* 完了状態は既存セーブに「追加するだけ」。古いセーブに creatorTool が無くても動く */
+  state.creatorTool = { ...(state.creatorTool || {}), completed:true,
+    lastRunAt:new Date().toISOString(), lastCount:chars.length };
+  return out;
 }
 
 /* ---------- 武器・装備のランク進化 ---------- */
@@ -1914,6 +2016,8 @@ export function hintState(state) {
   const skillLearned = state.stats?.skillLearned || 0;
   const storyChapter = state.story?.chapter || 1;
   const storySeen = (state.story?.seen || []).length;
+  const storyCleared = (state.story?.arc?.cleared || []).length;
+  const storyClaimed = (state.story?.arc?.claimed || []).length;
   const jobHistory = (c?.jobChangeHistory || []).length;
   const ultimates = (c?.ultimateSkills || []).length;
   const dungeonBest = state.dungeon?.best || 0;
@@ -1942,7 +2046,7 @@ export function hintState(state) {
     list.push(cond('育成の間「進化」からランクアップを実行する', false, 'まだ実行していません', HJ.evolve));
     return list;
   };
-  const evoActions = [HJ.evolve, HJ.gather, HJ.guild, HJ.quests, HJ.shop, HJ.training];
+  const evoActions = [HJ.evolve, HJ.gather, HJ.guild, HJ.quests, HJ.shop, HJ.training, HJ.story];
 
   /* --- 優先順位付きの「次にやるべきこと」。最初の未達成だけを出す --- */
   const goals = [];
@@ -1980,6 +2084,13 @@ export function hintState(state) {
     title:`キャラクターを ${evo?.rule?.to || 'SR'} に進化させよう！`,
     desc:'進化素材を集めて、キャラクターをランクアップさせましょう。ランクアップすると、すべての基本ステータスが大幅に上昇します。',
     conditions:evoConditions(), actions:evoActions });
+  goals.push({ id:'storyMaterials', category:'storyMaterials', done:storyCleared >= 1,
+    title:'育成素材を得たいならストーリーを進めよう！',
+    desc:'進化素材やコインが足りないときは、ストーリーの章をクリアして報酬をまとめて受け取りましょう。冒険者ギルドの小さいタブの「ストーリー」ボタン、または街の「ストーリー」から進めます。',
+    conditions:[
+      cond('ストーリーの章を 1 つ以上クリアする', storyCleared >= 1, `クリア ${storyCleared} / 5 章`, HJ.story),
+      cond('章クリア報酬を受け取って育成素材を手に入れる', storyClaimed >= 1, `受取済み ${storyClaimed} 章`, HJ.story),
+    ], actions:[HJ.story, HJ.gather, HJ.evolve] });
   goals.push({ id:'story', category:'story', done:storyChapter >= 2,
     title:'ストーリーを進めよう！',
     desc:'街の「ストーリー」から章を読み進めましょう。読んだ章はセーブされ、やりこみ要素の条件にも使われます。',
@@ -2044,7 +2155,7 @@ export function hintState(state) {
   const bannerKey = unlocks.length ? `unlock:${unlocks[0].id}` : `goal:${next.id}`;
   const bannerText = unlocks.length ? unlocks[0].text : `💡 次の目標：${next.title}`;
 
-  /* --- 12 カテゴリの現在値・具体的な目標 --- */
+  /* --- 13 カテゴリの現在値・具体的な目標 --- */
   const cat = {};
   cat.create = { status:hasChar ? `作成済み：${c.name}` : '未作成', goal:'キャラクターを作成する', met:hasChar,
     conditions:[cond('街のキャラクター作成で作成を完了する', hasChar, hasChar ? '' : '未作成', HJ.create)], actions:[HJ.create, HJ.character] };
@@ -2068,11 +2179,21 @@ export function hintState(state) {
     conditions:[cond('3 勝する', wins >= 3, `現在 ${wins} 勝 / あと ${Math.max(0,3-wins)} 勝`, HJ.guild),
       cond('勝利報酬でコイン・EXP・素材を得る', wins > 0, `現在 ${wins} 勝`, HJ.guild)],
     actions:[HJ.guild, HJ.training, HJ.dungeon] };
-  cat.materials = { status:`所持 ${matKinds} 種 / 進化素材は ${evo?.mats?.length || 0} 種必要`,
-    goal:'次のランク進化に必要な素材を揃える', met:!!evo?.ok,
-    conditions:(evo?.mats || []).map(m => cond(`${MATERIAL_BY_ID[m.id]?.name || m.id} ×${m.n}`, m.have >= m.n,
+  cat.materials = { status:`所持 ${matKinds} 種 / 進化素材は ${evo?.mats?.length || 0} 種必要 / 章クリア ${storyCleared} 章`,
+    goal:'育成素材を得たいならストーリーを進めよう（章クリア報酬でまとめて入手）', met:!!evo?.ok,
+    conditions:[...(evo?.mats || []).map(m => cond(`${MATERIAL_BY_ID[m.id]?.name || m.id} ×${m.n}`, m.have >= m.n,
       `現在 ${m.have} / ${m.n} 個${m.have < m.n ? ` / 不足 ${m.n - m.have} 個` : ''}`, HJ.gather)),
-    actions:[HJ.gather, HJ.guild, HJ.quests, HJ.shop] };
+      cond('育成素材を得たいならストーリーを進めよう（章クリア報酬）', storyCleared >= 1,
+        `クリア ${storyCleared} / 5 章`, HJ.story)],
+    actions:[HJ.story, HJ.gather, HJ.guild, HJ.quests, HJ.shop] };
+  cat.storyMaterials = { status:`章クリア ${storyCleared} / 5 章 / 報酬受取 ${storyClaimed} 章`,
+    goal:'育成素材を得たいならストーリーを進めよう', met:storyCleared >= 1,
+    conditions:[
+      cond('ストーリーの章をクリアする', storyCleared >= 1, `クリア ${storyCleared} / 5 章`, HJ.story),
+      cond('章クリア報酬を受け取ってコイン・育成素材を得る', storyClaimed >= 1, `受取済み ${storyClaimed} 章`, HJ.story),
+      cond('ギルドの「ストーリー」ボタンから章を開く', storySeen >= 1 || storyChapter >= 2,
+        `読了 ${storySeen} 章 / 第 ${storyChapter} 章`, HJ.story),
+    ], actions:[HJ.story, HJ.gather, HJ.evolve, HJ.character] };
   cat.evolution = { status:`${rarity}${evo?.rule ? ` → ${evo.rule.to}` : '（最終ランク）'}`,
     goal:`${evo?.rule?.to || 'LR'} へランクアップする`, met:!!evo?.ok,
     conditions:evoConditions(), actions:evoActions };
@@ -2091,10 +2212,11 @@ export function hintState(state) {
     conditions:[cond('技を 1 つ以上新しく習得する', skillLearned > 4, `習得済み ${skillLearned} 種`, HJ.skills),
       cond('奥義を習得する', ultimates > 0, `現在 ${ultimates} 種`, HJ.evolve)],
     actions:[HJ.skills, HJ.evolve, HJ.nurture] };
-  cat.story = { status:`第 ${storyChapter} 章 / 読了 ${storySeen} 章`,
-    goal:'ストーリーを読み進める', met:storyChapter >= 2,
-    conditions:[cond('第 1 章を読む', storySeen >= 1 || storyChapter >= 2, `読了 ${storySeen} 章`, HJ.story)],
-    actions:[HJ.story, HJ.endgame] };
+  cat.story = { status:`第 ${storyChapter} 章 / 読了 ${storySeen} 章 / クリア ${storyCleared} 章`,
+    goal:'ストーリーを進めて育成素材の報酬を受け取る', met:storyChapter >= 2,
+    conditions:[cond('第 1 章を読む', storySeen >= 1 || storyChapter >= 2, `読了 ${storySeen} 章`, HJ.story),
+      cond('章をクリアして育成素材・コインの報酬を得る', storyClaimed >= 1, `報酬受取 ${storyClaimed} 章`, HJ.story)],
+    actions:[HJ.story, HJ.gather, HJ.endgame] };
   cat.endgame = { status:`覚醒 ${c?.awakening || 0} / ダンジョン最高 ${dungeonBest} F / 実績 ${achCount}`,
     goal:'覚醒・ダンジョン・実績に挑戦する', met:dungeonBest >= 1 || (c?.awakening || 0) >= 1,
     conditions:[cond('覚醒段階を 1 つ上げる', (c?.awakening || 0) >= 1, `現在 覚醒 ${c?.awakening || 0}`, HJ.nurture),
@@ -2110,7 +2232,7 @@ export function hintState(state) {
     reward:{ claimed:h.rewardClaimed, coins:h.rewardCoins || hintRewardCoins(),
       amount:hintRewardCoins(), pulls:HINT_REWARD_PULLS, perPull:equipmentGachaCost() },
     summary:{ hasChar, level, rarity, rankIdx, equipped, slots:SLOTS.length, invEq, coins,
-      wins, battles, pulls, storyChapter, storySeen, matKinds, evoReady:!!evo?.ok,
+      wins, battles, pulls, storyChapter, storySeen, storyCleared, storyClaimed, matKinds, evoReady:!!evo?.ok,
       levelMax, awakening:c?.awakening || 0, rebirth:c?.rebirth || 0, ultimates, skillLearned },
   };
 }

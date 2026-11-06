@@ -1714,3 +1714,139 @@ button.job-card:disabled.locked{cursor:not-allowed}
   .enemy-art .enemy-art-img,.enemy-art.art-float .enemy-art-img,
   .enemy-art[class*="art-"] .enemy-art-img{animation:none !important}
 }
+
+/* ============================================================
+   製作者専用ツール（隠し機能） / CREATOR TOOLS
+   通常プレイの画面には一切影響しない独立オーバーレイ。
+   ============================================================ */
+.creator-layer{position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;
+  padding:24px;font-family:inherit;color:#eaf2ff}
+.creator-layer.creator-hidden{display:none !important}
+.creator-backdrop{position:absolute;inset:0;background:radial-gradient(circle at 50% 30%,rgba(22,34,62,.82),rgba(3,6,14,.94) 72%);
+  -webkit-backdrop-filter:blur(9px);backdrop-filter:blur(9px)}
+.creator-kicker{font-size:11px;letter-spacing:.22em;text-transform:uppercase;font-weight:700;color:#7fa8d8}
+
+/* ---- パスワード画面：Google 検索バーのような横長でシンプルな入力欄 ---- */
+.creator-password-card{position:relative;width:min(720px,100%);padding:44px 40px 36px;border-radius:22px;
+  background:linear-gradient(180deg,#ffffff,#f7f9fc);color:#202124;
+  border:1px solid rgba(255,255,255,.7);box-shadow:0 26px 80px rgba(0,0,0,.55),0 2px 10px rgba(0,0,0,.2)}
+.creator-password-card h2{margin:14px 0 26px;font-size:23px;font-weight:600;letter-spacing:.01em;color:#202124}
+.creator-password-card .creator-kicker{color:#80868b}
+.creator-searchbar{display:flex;align-items:center;gap:10px;width:100%;height:60px;padding:6px 7px 6px 22px;
+  border-radius:999px;background:#fff;border:1px solid rgba(32,33,36,.13);
+  box-shadow:0 1px 6px rgba(32,33,36,.28),0 10px 30px rgba(0,0,0,.08);transition:box-shadow .18s ease,border-color .18s ease}
+.creator-searchbar:focus-within{border-color:rgba(26,115,232,.55);
+  box-shadow:0 1px 6px rgba(32,33,36,.28),0 0 0 4px rgba(26,115,232,.14)}
+.creator-lock{flex:0 0 auto;font-size:17px;opacity:.62;line-height:1}
+.creator-password-input{flex:1 1 auto;min-width:0;height:100%;border:0;outline:0;background:transparent;
+  font:inherit;font-size:16px;color:#202124;letter-spacing:.04em}
+.creator-password-input::placeholder{color:#9aa0a6;letter-spacing:0}
+.creator-decide{flex:0 0 auto;height:48px;padding:0 30px;border:0;border-radius:999px;cursor:pointer;
+  background:#1a73e8;color:#fff;font:inherit;font-size:15px;font-weight:700;letter-spacing:.04em;
+  box-shadow:0 2px 8px rgba(26,115,232,.35);transition:background .16s ease,transform .16s ease}
+.creator-decide:hover{background:#1765cc;transform:translateY(-1px)}
+.creator-decide:active{transform:translateY(0)}
+.creator-error{margin:18px 2px 0;font-size:14px;font-weight:600;color:#d93025}
+.creator-footnote{margin:26px 2px 0;font-size:12px;color:#80868b;text-align:right}
+
+/* ---- ツール本体：通常ゲームと明確に区別できる管理画面 ---- */
+.creator-shell{position:relative;width:min(1180px,100%);max-height:min(92vh,940px);display:flex;flex-direction:column;
+  overflow:hidden;border-radius:20px;border:1px solid rgba(126,188,255,.24);
+  background:linear-gradient(158deg,#0d1526 0%,#111c31 52%,#0a1120 100%);
+  box-shadow:0 30px 100px rgba(0,0,0,.7),inset 0 1px 0 rgba(255,255,255,.06)}
+.creator-shell::before{content:'';position:absolute;inset:0 0 auto;height:3px;
+  background:linear-gradient(90deg,#65d9ff,#b98bff,#ffd77a,#ff6b6b)}
+.creator-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;
+  padding:26px 30px 20px;border-bottom:1px solid rgba(140,180,255,.14)}
+.creator-head h1{margin:8px 0 6px;font-size:27px;letter-spacing:.06em;font-weight:800;color:#f4f8ff}
+.creator-head h1 span{font-size:16px;font-weight:600;color:#8fb4e6;letter-spacing:.02em}
+.creator-sub{margin:0;font-size:12px;color:#8fa6c6}
+.creator-x{flex:0 0 auto;width:38px;height:38px;border-radius:10px;cursor:pointer;
+  border:1px solid rgba(160,190,240,.25);background:rgba(255,255,255,.05);color:#cfe0f7;font-size:22px;line-height:1}
+.creator-x:hover{background:rgba(255,255,255,.12)}
+
+.creator-action{display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap;
+  margin:22px 30px 8px;padding:20px 22px;border-radius:16px;
+  border:1px solid rgba(255,199,92,.3);background:linear-gradient(110deg,rgba(255,183,77,.10),rgba(255,107,107,.07));
+  box-shadow:0 0 34px rgba(255,170,60,.08)}
+.creator-action-copy{flex:1 1 340px;min-width:0}
+.creator-action-copy h2{margin:0 0 8px;font-size:20px;color:#ffd98a;letter-spacing:.02em}
+.creator-action-copy p{margin:0;font-size:13px;line-height:1.65;color:#cfdcf0}
+.creator-action-copy strong{color:#fff2d2}
+.creator-action-note{margin-top:6px !important;font-size:12px;color:#94accd}
+.creator-evolve-btn{flex:0 0 auto;min-width:230px;min-height:88px;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:3px;padding:12px 26px;cursor:pointer;
+  border-radius:16px;border:1px solid #ffe1a0;color:#241705;
+  background:linear-gradient(160deg,#ffe07a,#ffb43e 62%,#ff8a3d);
+  box-shadow:0 8px 0 #a45a10,0 14px 34px rgba(255,160,40,.4);
+  font:inherit;transition:transform .14s ease,box-shadow .14s ease,filter .14s ease}
+.creator-evolve-btn:hover:not(:disabled){transform:translateY(-3px);filter:brightness(1.06);
+  box-shadow:0 11px 0 #a45a10,0 20px 42px rgba(255,160,40,.5)}
+.creator-evolve-btn:active:not(:disabled){transform:translateY(4px);box-shadow:0 4px 0 #a45a10,0 10px 24px rgba(255,160,40,.35)}
+.creator-evolve-btn:disabled{opacity:.6;cursor:not-allowed;filter:grayscale(.35)}
+.creator-evolve-icon{font-size:24px;line-height:1}
+.creator-evolve-label{font-size:21px;font-weight:900;letter-spacing:.06em}
+.creator-evolve-btn small{font-size:11px;font-weight:700;opacity:.8}
+.creator-busy,.creator-done-msg{margin:10px 30px 0;padding:11px 16px;border-radius:10px;font-size:13px;font-weight:700}
+.creator-busy{color:#ffe2a8;background:rgba(255,180,60,.1);border:1px solid rgba(255,180,60,.3)}
+.creator-done-msg{color:#b9f6ca;background:rgba(46,204,113,.11);border:1px solid rgba(80,230,150,.34)}
+
+.creator-list{display:flex;flex-direction:column;min-height:0;margin:16px 30px 0}
+.creator-list-head{display:flex;align-items:baseline;justify-content:space-between;gap:14px;margin-bottom:10px}
+.creator-list-head h3{margin:0;font-size:15px;letter-spacing:.04em;color:#dce9ff}
+.creator-count{font-size:11px;color:#839fbf}
+.creator-scroll{min-height:120px;max-height:min(46vh,520px);overflow-y:auto;overflow-x:hidden;
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(186px,1fr));gap:12px;padding:4px 8px 12px 4px;
+  scrollbar-color:rgba(140,180,255,.45) rgba(255,255,255,.04);scrollbar-width:thin}
+.creator-scroll::-webkit-scrollbar{width:10px}
+.creator-scroll::-webkit-scrollbar-thumb{background:rgba(140,180,255,.4);border-radius:8px}
+.creator-empty{grid-column:1/-1;padding:36px;text-align:center;font-size:13px;color:#8fa6c6}
+.creator-char{display:flex;flex-direction:column;gap:8px;padding:10px;border-radius:14px;
+  border:1px solid rgba(140,180,255,.18);background:rgba(255,255,255,.035);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.04)}
+.creator-portrait{width:100%;height:126px;border-radius:10px;overflow:hidden;background:rgba(6,10,24,.55)}
+.creator-portrait .char-stage.creator-art{width:100%;height:100%;border-radius:10px}
+.creator-portrait .rank-fx.rank-particles{display:none}
+.creator-char-meta{min-width:0}
+.creator-char-name{font-size:14px;font-weight:800;color:#f2f7ff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.creator-char-row{display:flex;align-items:center;gap:8px;margin-top:5px}
+.creator-char-lv{font-size:11px;color:#9fb6d6}
+.creator-char-job{margin-top:4px;font-size:11px;color:#8fa6c6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+.creator-footer{display:flex;align-items:center;justify-content:space-between;gap:16px;
+  margin-top:auto;padding:16px 30px 22px;border-top:1px solid rgba(140,180,255,.14)}
+.creator-footer-note{font-size:11px;color:#7e98b9}
+.creator-done-btn{min-width:170px;height:50px;border-radius:12px;cursor:pointer;font:inherit;font-size:16px;font-weight:800;
+  letter-spacing:.08em;color:#06121f;border:1px solid #9fe4ff;
+  background:linear-gradient(160deg,#b7ecff,#65d9ff);box-shadow:0 6px 0 #1b6b8c,0 12px 26px rgba(80,200,255,.28);
+  transition:transform .14s ease,box-shadow .14s ease}
+.creator-done-btn:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 8px 0 #1b6b8c,0 16px 30px rgba(80,200,255,.36)}
+.creator-done-btn:active:not(:disabled){transform:translateY(3px);box-shadow:0 3px 0 #1b6b8c}
+.creator-done-btn:disabled{opacity:.55;cursor:not-allowed}
+
+/* ---- ギルドの「ストーリー」導線：既存タブと同じ小さいボタン ---- */
+.ftab.ftab-story-link{border-color:rgba(255,215,122,.55);color:#ffe6a8;
+  background:linear-gradient(160deg,rgba(255,199,92,.16),rgba(255,123,80,.10))}
+.ftab.ftab-story-link:hover{border-color:#ffd77a;background:rgba(255,199,92,.24)}
+
+@media (max-width:720px){
+  .creator-layer{padding:12px}
+  .creator-password-card{padding:30px 20px 26px}
+  .creator-password-card h2{font-size:19px}
+  .creator-decide{padding:0 20px}
+  .creator-shell{max-height:96vh}
+  .creator-head{padding:18px 18px 14px}
+  .creator-head h1{font-size:20px}
+  .creator-action{margin:14px 16px 6px;padding:14px;gap:14px}
+  .creator-evolve-btn{width:100%;min-height:76px}
+  .creator-busy,.creator-done-msg{margin:8px 16px 0}
+  .creator-list{margin:12px 16px 0}
+  .creator-scroll{grid-template-columns:repeat(auto-fill,minmax(140px,1fr));max-height:40vh}
+  .creator-portrait{height:104px}
+  .creator-footer{padding:12px 16px 16px;flex-wrap:wrap}
+  .creator-done-btn{width:100%}
+}
+@media (prefers-reduced-motion: reduce){
+  .creator-decide,.creator-evolve-btn,.creator-done-btn,.creator-searchbar{transition:none !important}
+  .creator-evolve-btn:hover:not(:disabled),.creator-done-btn:hover:not(:disabled){transform:none}
+}

@@ -9,6 +9,8 @@ import { renderScreen, imageFilter, imageTransform, e, charImage, rankVisualStyl
 import * as EA from './enemyArt.js?v=2';
 import { STORY_CHAPTERS, storyIntegrity } from './story.js?v=2';
 import { ASSET_FILES, ENEMY_KINDS, UNREADABLE_FILES } from './enemyAssets.js?v=2';
+import { initCreatorTools, toggleCreator, syncCreatorTools, creatorReport,
+  openCreator, closeCreator, authenticateCreator, evolveAllCreator } from './creatorTools.js?v=2';
 
 const app = {
   screen: 'title', params: {}, tabs: {}, draft: null, look: null, compare: false,
@@ -21,6 +23,7 @@ const app = {
   jobChangeOffer: null, hintCategory: 'next', evoFxPlaying: false,
   storyChapter: null, storyBattle: null, assetEnemy: null, assetPage: 0,
   enemyVariant: 0, backups: [], loadIssue: {},
+  creator: { open:false, mode:'closed' },   // 製作者ツールの表示状態（セーブ対象外・通常プレイ無影響）
 };
 let state = S.newState();
 let toastTimer = null, regenTimer = null;
@@ -32,6 +35,7 @@ function render() {
   $('app').innerHTML = renderScreen(app, state);
   initAfterRender();
   consumeLevelUp();
+  syncCreatorTools();   // オーバーレイは #app の外。表示中にキャラが増えても一覧へ反映
 }
 function save(immediate = false) { S.saveState(state, immediate); }
 function toast(msg, kind = 'info') {
@@ -1121,10 +1125,32 @@ window.addEventListener('resize', () => {
   if (app.screen === 'appearance') updateImagePreview('look');
 });
 
+/* ---------------- 製作者ツール（隠し C キー） ----------------
+   PC キーボード最優先。入力欄・IME変換中・修飾キー・キー連打(repeat)は
+   すべて無視し、通常操作中や文字入力中に誤爆しない。オーバーレイは常に 1 つ。 */
+window.addEventListener('keydown', ev => {
+  if (ev.defaultPrevented || ev.repeat || ev.isComposing) return;
+  if (ev.ctrlKey || ev.altKey || ev.metaKey) return;         // Ctrl+C などは無視
+  if (typeof ev.key !== 'string' || ev.key.toLowerCase() !== 'c') return;
+  const t = ev.target;
+  const tag = t && t.tagName ? String(t.tagName).toUpperCase() : '';
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || t?.isContentEditable) return;
+  toggleCreator();
+}, false);
+
+initCreatorTools({
+  app,
+  getState: () => state,
+  save: (immediate) => S.saveState(state, immediate),
+  refresh: () => render(),
+});
+
 /* デバッグ・自動テスト用（ゲーム進行には影響しません） */
 window.__OCF = { app, get state() { return state; }, S, D, P, navigate, handleAction,
   EA, STORY: { chapters: STORY_CHAPTERS, integrity: storyIntegrity },
-  ASSETS: { files: ASSET_FILES, kinds: ENEMY_KINDS, unreadable: UNREADABLE_FILES } };
+  ASSETS: { files: ASSET_FILES, kinds: ENEMY_KINDS, unreadable: UNREADABLE_FILES },
+  CREATOR: { toggle: toggleCreator, open: openCreator, close: closeCreator,
+    authenticate: authenticateCreator, evolveAll: evolveAllCreator, report: creatorReport } };
 
 /* ---------------- 起動 ---------------- */
 (async function boot() {

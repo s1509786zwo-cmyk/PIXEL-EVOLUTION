@@ -597,6 +597,11 @@ function facilityScreen(app, s) {
   const tab = app.tabs[f.id] ?? 0;
   app.tabs[f.id] = tab;
   const tabName = f.tabs[tab];
+  /* ギルドの小さいタブ：「ダンジョン」の右隣に、ストーリー専用の導線を 1 つだけ足す。
+     既存タブの data-i 添字は一切ずらさないので、クエスト/戦績への既存リンクはそのまま。 */
+  const tabButtons = f.tabs.map((t,i)=>`<button class="ftab ${i===tab?'on':''}" data-action="tab" data-facility="${f.id}" data-i="${i}">${e(t)}</button>`);
+  if (f.id === 'guild') tabButtons.splice(2, 0,
+    `<button class="ftab ftab-story-link" data-action="nav" data-to="story" title="ストーリーを開く">📖 ストーリー ↗</button>`);
   let content = '';
   if (f.id === 'nurture') content = nurtureTab(tab, app, s);
   if (f.id === 'forge') content = forgeTab(tab, app, s);
@@ -610,7 +615,7 @@ function facilityScreen(app, s) {
     <main class="facility-shell">
       <div class="facility-head"><div><div class="eyebrow">FACILITY ・ ${String(FACILITIES.indexOf(f)+1).padStart(2,'0')}</div><h2>${f.icon} ${e(f.name)}</h2><p>${e(f.sub)}</p></div><button class="btn btn-glass" data-action="nav" data-to="town">🏰 街へ戻る</button></div>
       <div class="facility-switch">${FACILITIES.map(x=>`<button class="fswitch ${x.id===f.id?'on':''}" data-action="nav" data-to="facility" data-facility="${x.id}" style="--accent:${x.color}">${x.icon} ${e(x.name)}</button>`).join('')}</div>
-      <div class="facility-tabs">${f.tabs.map((t,i)=>`<button class="ftab ${i===tab?'on':''}" data-action="tab" data-facility="${f.id}" data-i="${i}">${e(t)}</button>`).join('')}</div>
+      <div class="facility-tabs">${tabButtons.join('')}</div>
       <section class="facility-panel"><h3 class="tab-title">${e(tabName)}</h3>${content}</section>
     </main>
   </div>${toastArea(app)}`;

@@ -685,7 +685,7 @@ export const ENEMIES = buildEnemies();
 export const ENEMY = Object.fromEntries(ENEMIES.map(e => [e.id, e]));
 
 /* -----------------------------------------------------------
-   ゲームのヒント：12 カテゴリ（静的な解説文）
+   ゲームのヒント：13 カテゴリ（静的な解説文）
    進行状況に応じた「現在値・次の目標・不足条件」は state.js の
    hintState() が実ゲームの判定関数から組み立てる。
    ----------------------------------------------------------- */
@@ -701,7 +701,9 @@ export const HINT_CATEGORIES = [
   { id:'battle', icon:'🏛', name:'CPU対戦',
     text:'ターン制コマンドバトル。通常攻撃は MP 不要、技や奥義は MP を消費します。勝利でコイン・EXP・BP・素材を獲得します。' },
   { id:'materials', icon:'💠', name:'素材集め',
-    text:'進化素材は CPU対戦・ダンジョン・クエスト・ガチャ10連・道具屋・素材合成で入手できます。8 種類 × 5 ランク = 40 種。' },
+    text:'進化素材は CPU対戦・ダンジョン・クエスト・ガチャ10連・道具屋・素材合成で入手できます。8 種類 × 5 ランク = 40 種。まとめて集めたいときはストーリーの章クリア報酬も確認しましょう。' },
+  { id:'storyMaterials', icon:'📖', name:'育成素材とストーリー',
+    text:'育成素材を得たいならストーリーを進めよう。各章をクリアすると、その章のランク進化に必要なコインと育成素材がまとめて報酬として手に入ります。ギルドの小さいタブの「ストーリー」ボタン、または街の「ストーリー」から開けます。' },
   { id:'evolution', icon:'✦', name:'ランク進化',
     text:'R → SR → SSR → UR → LR。レベル・コイン・素材が必要で、HP・攻撃力・防御力・MP すべてが大幅に上昇します。レベルや画像・職業・装備は維持されます。' },
   { id:'job', icon:'🔀', name:'役職変更',
@@ -711,7 +713,7 @@ export const HINT_CATEGORIES = [
   { id:'skills', icon:'✵', name:'技と奥義',
     text:'育成の間で技を習得・付け替えできます。LR 進化で各職業の専用奥義、R → SR 進化で指定名の特殊奥義を習得。専用ゲージが溜まると使用可能です。' },
   { id:'story', icon:'📜', name:'ストーリー',
-    text:'街から「ストーリー」を開いて章を読むと進行します。読んだ章とクリア状況はセーブされ、やりこみ要素の解放条件にも使われます。' },
+    text:'街、または冒険者ギルドの「ストーリー」ボタンから章を読むと進行します。章をクリアすると育成素材とコインの報酬がもらえます。読んだ章とクリア状況はセーブされ、やりこみ要素の解放条件にも使われます。' },
   { id:'endgame', icon:'🏆', name:'やりこみ要素',
     text:'覚醒・ダンジョン・隠しボス・図鑑コンプ・実績・称号・クエストなど、ランク進化の先にある目標です。' },
 ];
@@ -814,7 +816,7 @@ export const FACILITIES = [
   { id:'nurture', name:'育成の間', sub:'レベル・職業・技・覚醒', img:'assets/facility_nurture.jpg', icon:'✦', color:'#5ec8ff', tabs:['ステータス','職業','技','覚醒','進化'] },
   { id:'forge', name:'武器・装備工房', sub:'ガチャ・装備・強化・合成', img:'assets/facility_forge.jpg', icon:'⚒', color:'#ffb45e', tabs:['装備','ガチャ','強化','合成','ランク進化'] },
   { id:'training', name:'修行場', sub:'トレーニング・練習・クエスト', img:'assets/facility_training.jpg', icon:'⚔', color:'#8ce6a8', tabs:['トレーニング','技の練習','修行クエスト'] },
-  { id:'guild', name:'冒険者ギルド', sub:'CPU対戦・ダンジョン・戦績', img:'assets/facility_guild.jpg', icon:'🏛', color:'#ffd77a', tabs:['CPU対戦','ダンジョン','クエスト','戦績・交換'] },
+  { id:'guild', name:'冒険者ギルド', sub:'CPU対戦・ダンジョン・ストーリー・戦績', img:'assets/facility_guild.jpg', icon:'🏛', color:'#ffd77a', tabs:['CPU対戦','ダンジョン','クエスト','戦績・交換'] },
   { id:'shop', name:'道具屋', sub:'回復・素材・売却', img:'assets/facility_shop.jpg', icon:'🛒', color:'#e7a8ff', tabs:['購入','売却','素材'] },
 ];
 

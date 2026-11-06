@@ -54,7 +54,7 @@ def main():
         print('== 1. no-store と内容ハッシュ ==')
         for path in ('/', '/index.html', '/js/main.js', '/js/state.js', '/js/ui.js',
                      '/js/enemyAssets.js', '/js/enemyArt.js', '/js/story.js',
-                     '/js/saveBackup.js', '/css/style.css'):
+                     '/js/saveBackup.js', '/js/creatorTools.js', '/css/style.css'):
             status, h, _ = request(port, path)
             cc = h.get('Cache-Control', '')
             check(status == 200 and 'no-store' in cc and 'max-age=0' in cc,
@@ -74,7 +74,8 @@ def main():
         _, _, js = request(port, '/js/main.js?h=x')
         t = js.decode('utf-8')
         check("from './data.js?h=" in t and "from './enemyArt.js?h=" in t
-              and "from './story.js?h=" in t, 'ES Module の import も内容ハッシュ付き')
+              and "from './story.js?h=" in t and "from './creatorTools.js?h=" in t,
+              'ES Module の import も内容ハッシュ付き（製作者ツールを含む）')
 
         print('== 2. 更新内容が配信されている ==')
         check('updateExistingSave' not in t and 'enemyArtHost' not in t, 'main.js は UI 生成を持たない（責務分離）')
@@ -95,6 +96,18 @@ def main():
         cs = css.decode('utf-8')
         check('.enemy-art' in cs and '.enemy-move-fx' in cs and '.story-chapter' in cs,
               '2D 表示・専用技・ストーリーの CSS が配信される')
+        check('.creator-layer' in cs and '.creator-searchbar' in cs and '.creator-evolve-btn' in cs
+              and '.ftab-story-link' in cs, '製作者ツール / ストーリータブの CSS が配信される')
+        _, _, creator_js = request(port, '/js/creatorTools.js?h=x')
+        cj = creator_js.decode('utf-8')
+        check('creatorBulkEvolve' in cj and "const PASSWORD = 'kiyo'" in cj
+              and '全キャラクターのLR進化が完了しました！' in cj,
+              '製作者ツール本体（認証・一括進化・完了文言）が配信される')
+        check("from './state.js?h=" in cj and "from './ui.js?h=" in cj,
+              '製作者ツールの import も内容ハッシュ付き')
+        _, _, data_js = request(port, '/js/data.js?h=x')
+        check('育成素材を得たいならストーリーを進めよう' in data_js.decode('utf-8'),
+              '新しいヒントが配信される')
 
         print('== 3. 敵 PNG の配信 ==')
         pngs = sorted(f for f in os.listdir(os.path.join(ROOT, 'assets', 'enemies')) if f.endswith('.png'))
