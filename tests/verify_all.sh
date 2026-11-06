@@ -5,8 +5,14 @@
 #
 # 1 つでも失敗したら「その変更は適用しない」。直前の正常な状態へ戻すこと。
 # 保護テスト (check_data_guard.mjs) は最初に実行する。
+#
+#   bash tests/verify_all.sh            失敗を報告して適用禁止（作業は保持）
+#   bash tests/verify_all.sh --revert  失敗時に git stash -u で直前の正常状態へ自動復帰
+#                                      （退避した変更は stash に残り、データは消えない）
 # ===========================================================
 set -u
+AUTO_REVERT=0
+[ "${1:-}" = "--revert" ] && AUTO_REVERT=1
 cd "$(dirname "$0")/.." || exit 1
 ROOT=$(pwd)
 LOG=$(mktemp /tmp/ocf_verify_XXXXXX.log)
@@ -73,8 +79,17 @@ if [ "$FAIL" -ne 0 ]; then
   printf '  - %s\n' "${FAILED[@]}"
   echo
   echo "⚠ この変更は適用しないでください。データを守れないアップデートは実行しません。"
-  echo "  直前の正常な状態へ戻す手順: git diff --stat で差分を確認し、"
-  echo "  git stash push -u -m 'revert-failed-change' または git restore <file> で戻す。"
+  if [ "$AUTO_REVERT" -eq 1 ]; then
+    echo "  --revert 指定のため、直前の正常な状態へ自動で戻します。"
+    if git stash push -u -m "ocf-protection-gate-failed-$(date +%Y%m%d%H%M%S)"; then
+      echo "  ✅ 直前の状態に戻しました。失敗した変更は git stash に保管され、データは消えていません。"
+    else
+      echo "  ❌ git stash に失敗。手動で git restore <file> / git stash を実行してください。"
+    fi
+  else
+    echo "  直前の正常な状態へ戻す: bash tests/verify_all.sh --revert"
+    echo "  （または git diff --stat → git stash push -u -m 'revert-failed-change' / git restore <file>）"
+  fi
   echo "  戻した後、必ず再度 bash tests/verify_all.sh を実行して合格を確認すること。"
   echo "  詳細ログ: $LOG"
   exit 1

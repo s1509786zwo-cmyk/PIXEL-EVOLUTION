@@ -367,8 +367,9 @@ def main():
     check('check_data_guard.mjs' in gate and 'check_idb.mjs' in gate
           and 'check_save.mjs' in gate
           and 'check_runtime.mjs' in gate and 'check_served.py' in gate
-          and 'PROTECTION GATE FAILED' in gate and 'git stash push -u' in gate,
-          '全変更で実行する保護ゲートと、失敗時に適用せず戻す手順')
+          and 'PROTECTION GATE FAILED' in gate and 'git stash push -u' in gate
+          and '--revert' in gate and 'AUTO_REVERT' in gate,
+          '全変更で実行する保護ゲートと、失敗時に適用せず直前へ戻す --revert')
     check('機能の追加よりも既存データの保護を優先' in rule
           and 'データを守れないアップデートは実行しない' in rule
           and '過去のキャラクターの復旧は行いません' in rule,

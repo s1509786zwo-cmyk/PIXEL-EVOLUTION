@@ -24,10 +24,17 @@ bash tests/verify_all.sh
   - 二重バックアップ・保存成功確認・保存失敗時の保護・読込失敗時の自動復元が動くこと
 - 1 つでも失敗したら **その変更を適用せず、直前の正常な状態に戻す**。
   ```
+  bash tests/verify_all.sh --revert           # 失敗時に git stash -u で自動復帰（推奨）
+  bash tests/verify_all.sh                    # 戻した状態で再度合格を確認
+  ```
+  自動復帰は `git stash push -u` なので、**退避した変更は stash に残り、作業中のデータは消えません**。
+  手動で戻す場合も同じです。
+  ```
   git diff --stat                              # 差分を確認
   git stash push -u -m 'revert-failed-change'  # または git restore <file>
   bash tests/verify_all.sh                     # 戻した状態で再度合格を確認
   ```
+  ※ 開発中に何度もゲートを走らせるときは `--revert` を付けないでください（毎回 stash されるのを防ぐため）。**コミット・プッシュなど「変更を適用する」直前**に、失敗したら `--revert` で戻します。
 - 「テストを追加しただけ」「バックアップを作っただけ」では完了ではありません。
 
 ---

@@ -17,6 +17,7 @@ PC / スマートフォン両対応、インストール不要のブラウザゲ
 
 ```bash
 bash tests/verify_all.sh       # 保護テストを先頭に、全 14 スイート＋構文・配信検証
+bash tests/verify_all.sh --revert  # 失敗時に直前の正常な状態へ自動復帰（変更は stash に保管）
 node tests/check_data_guard.mjs  # 単体でも実行可
 ```
 
