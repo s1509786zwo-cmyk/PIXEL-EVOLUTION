@@ -56,6 +56,12 @@ function commit(msg, ok = true) {
 }
 async function navigate(screen, params = {}) {
   if (screen === 'appearance') await prepareLook();
+  // 作成画面から離れたら、編集中の入力データだけを破棄する（キャンセル相当）。
+  // state.characters / 装備 / 技 / 育成 / セーブ本体には一切触れない。
+  if (app.screen === 'create' && screen !== 'create') app.draft = null;
+  // 作成画面は開くたびに必ず「完全に空の新規下書き」から始める。
+  // 前回の入力・画像・設定・保存済み下書きは一切引き継がない。
+  if (screen === 'create') initDraft();
   app.screen = screen;
   app.params = { ...params };
   if (params.facility) app.params.facility = params.facility;
@@ -65,23 +71,22 @@ async function navigate(screen, params = {}) {
   window.scrollTo({ top: 0, behavior: 'instant' });
 }
 
+let draftSessionSeq = 0;   // 新規作成セッションの単調カウンタ（開くたびに必ず変わる）
 function initDraft() {
-  const saved = state.draftSave;
+  // 旧バージョンが「作成完了 / 見た目保存」時に書き込んだ、保存済みキャラ由来の
+  // 一時データは新規作成画面へ混ぜない。触るのは下書き用の一時フィールドだけで、
+  // state.characters / 装備 / 技 / 育成 / セーブ本体は一切変更しない。
+  // 明示的に「💾 保存」した下書き (kind:'draft') だけを残す。
+  if (state.draftSave && state.draftSave.kind !== 'draft') state.draftSave = null;
   app.draft = {
+    // 保存済みキャラクターの ID とは無関係な、この入力セッション固有の識別子。
+    sessionId: `draft_${++draftSessionSeq}_${S.uid()}`,
     step: 1, image: null, original: '', sprite: '', meta: null, width: 0, height: 0,
     settings: S.defaultImageSettings(), transparentData: '',
     name: '', jobId: 'warrior', weaponType: '剣', styleId: 'balanced', frame: 'gold',
   };
-  if (saved?.original) {
-    Object.assign(app.draft, {
-      original:saved.original, sprite:saved.original, name:saved.name || '',
-      settings:{ ...S.defaultImageSettings(), ...(saved.imageSettings||{}) },
-      transparentData:saved.transparentData || '', jobId:saved.jobId||'warrior',
-      weaponType:saved.weaponType||'剣', styleId:saved.styleId||'balanced', frame:saved.frame||'gold',
-      width:saved.width||0, height:saved.height||0, meta:{ name:'保存済みの下書き' },
-    });
-  }
   app.compare = false;
+  app.charName = '';
 }
 async function prepareLook() {
   const c = S.activeChar(state);
@@ -649,14 +654,14 @@ async function handleAction(action, ds, el) {
       state.home = { ...(state.home||{}), started:true, lastVisit:new Date().toISOString() };
       save(true); sfx('ok');
       if (state.characters.length) toast('セーブデータを読み込みました。街から再開します');
-      else if (state.draftSave?.original) toast('保存済みの下書きがあります。街からキャラクター作成を開けます');
+      else if (state.draftSave?.kind === 'draft' && state.draftSave?.original) toast('保存済みの下書きがあります。街からキャラクター作成を開けます');
       else toast('街のホーム画面から始めましょう');
       return navigate('town');
     }
     case 'titleCreate': initDraft(); return navigate('town');
     case 'titleCodex': return navigate('codex');
     case 'titleSettings': return navigate('settings');
-    case 'newChar': initDraft(); return navigate('create');   // 街のホーム画面から作成へ
+    case 'newChar': return navigate('create');   // navigate() が毎回、完全に空の下書きを作る
     case 'tab': app.tabs[ds.facility] = Number(ds.i); return render();
     case 'codexTab': app.codexTab = Number(ds.i); return render();
     case 'enemyGroup': app.enemyGroup = ds.group; return render();
@@ -692,6 +697,7 @@ async function handleAction(action, ds, el) {
       const nameEl = document.querySelector('[data-draft="name"]');
       if (nameEl) d.name = nameEl.value;
       state.draftSave = {
+        kind:'draft',   // 保存済みキャラ由来のデータと区別するための印
         name:d.name || '', original:d.original, sprite:d.original,
         imageSettings:{ ...S.defaultImageSettings(), ...d.settings },
         transparentData:d.transparentData || '', jobId:d.jobId, weaponType:d.weaponType,
@@ -702,7 +708,8 @@ async function handleAction(action, ds, el) {
     }
     case 'loadDraft': {
       const dsave = state.draftSave;
-      if (!dsave?.original) return toast('保存済みの下書きがありません', 'error');
+      if (dsave?.kind !== 'draft' || !dsave?.original)
+        return toast('保存済みの下書きがありません', 'error');
       if (!app.draft) initDraft();
       const d = app.draft;
       Object.assign(d, {
@@ -753,12 +760,10 @@ async function handleAction(action, ds, el) {
         imageSettings:{ ...S.defaultImageSettings(), ...d.settings },
         transparentData:d.transparentData || '',
       });
-      state.draftSave = {
-        name, original:d.original, sprite:d.original,
-        imageSettings:{ ...ch.imageSettings }, transparentData:ch.transparentData || '',
-        jobId:d.jobId, weaponType:d.weaponType, styleId:d.styleId, frame:d.frame,
-        width:d.width, height:d.height,
-      };
+      // 作成完了＝下書きは役目を終えたので破棄する。保存済みキャラクターの
+      // 画像・名前を一時データへ書き戻さない（次回の新規作成に混ざらせない）。
+      // state.characters は createCharacter() が「追加」するだけ。上書き・削除はしない。
+      state.draftSave = null;
       state.home = { ...(state.home||{}), started:true, lastVisit:new Date().toISOString() };
       save(true);
       sfx('win');
@@ -775,12 +780,8 @@ async function handleAction(action, ds, el) {
       ch.sprite = ch.original;
       ch.imageSettings = { ...S.defaultImageSettings(), ...L.settings };
       ch.transparentData = L.transparentData || '';
-      state.draftSave = {
-        name:ch.name, original:ch.original, sprite:ch.original,
-        imageSettings:{ ...ch.imageSettings }, transparentData:ch.transparentData,
-        jobId:ch.jobId, weaponType:'剣', styleId:ch.styleId, frame:ch.frame,
-        width:L.width||0, height:L.height||0,
-      };
+      // 見た目の保存は既存キャラクターの画像・設定だけを更新する。
+      // 下書き (state.draftSave) には一切書き込まない（新規作成画面へ混ぜない）。
       S.logEvent(state, `${ch.name}の画像・表示設定を変更した（育成データは保持）。`, 'look');
       app.look = null;
       save(true); toast('元画像と表示設定を保存しました。育成データは保持されています');

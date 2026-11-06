@@ -457,7 +457,11 @@ export function createCharacter(state, opts) {
   const job = JOB[opts.jobId] || JOB.warrior;
   const style = STYLES.find(s => s.id === opts.styleId) || STYLES[0];
   const c = blankCharacter();
-  c.id = uid(); c.name = (opts.name || '名無し').slice(0, 16); c.createdAt = new Date().toISOString();
+  // 必ず新しい ID を発行する。既存キャラクターの ID は 1 つも再利用しない。
+  const usedIds = new Set((state.characters || []).map(x => x.id));
+  let newId = uid();
+  while (usedIds.has(newId)) newId = uid();
+  c.id = newId; c.name = (opts.name || '名無し').slice(0, 16); c.createdAt = new Date().toISOString();
   c.original = opts.original || '';
   c.sprite = opts.sprite || opts.original || '';   // ドット絵変換せず元画像をそのまま使用
   c.transparentData = opts.transparentData || '';

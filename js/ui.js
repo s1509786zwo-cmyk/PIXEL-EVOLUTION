@@ -204,7 +204,7 @@ function navBar(app, s) {
       <span title="連勝">🔥 ${s.winStreak}</span>
     </div>
     <nav class="topbar-nav">${links.map(([to,ic,label]) => `<button class="nav-btn ${app.screen===to?'on':''}" data-action="nav" data-to="${to}"><span>${ic}</span>${label}</button>`).join('')}</nav>
-    ${c ? `<div class="topbar-char" data-action="nav" data-to="character">${charImage(c,'tiny')}<span>${e(c.name)}<small>Lv.${c.level}</small></span></div>` : ''}
+    ${c && app.screen !== 'create' ? `<div class="topbar-char" data-action="nav" data-to="character">${charImage(c,'tiny')}<span>${e(c.name)}<small>Lv.${c.level}</small></span></div>` : ''}
   </header>`;
 }
 

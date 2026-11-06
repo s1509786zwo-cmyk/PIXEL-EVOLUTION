@@ -124,6 +124,13 @@ def main():
         _, _, data_js = request(port, '/js/data.js?h=x')
         check('育成素材を得たいならストーリーを進めよう' in data_js.decode('utf-8'),
               '新しいヒントが配信される')
+        check("if (screen === 'create') initDraft();" in t and "kind:'draft'" in t
+              and 'state.draftSave = null;' in t and 'const saved = state.draftSave;' not in t,
+              '新規作成画面の毎回初期化・下書き自動復元の撤廃・完全分離が配信される')
+        check('const usedIds = new Set(' in st and 'state.characters.push(c)' in st,
+              '新しい ID 発行と「追加のみ」の保存処理が配信される')
+        check("app.screen !== 'create'" in ui,
+              '作成画面に過去キャラの名前・画像を出さない UI が配信される')
 
         print('== 3. 敵 PNG の配信 ==')
         pngs = sorted(f for f in os.listdir(os.path.join(ROOT, 'assets', 'enemies')) if f.endswith('.png'))

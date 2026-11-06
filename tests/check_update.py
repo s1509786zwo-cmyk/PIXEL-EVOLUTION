@@ -254,6 +254,34 @@ def main():
     check(os.path.isfile('tests/check_skill_info.mjs'),
           '全技選択画面の実動作テストが存在')
 
+    print('== 9. 新規作成画面の初期化と既存キャラの完全分離 ==')
+    check("if (screen === 'create') initDraft();" in mn,
+          '作成画面への全導線で initDraft() を必ず実行（開くたびにリセット）')
+    check("if (app.screen === 'create' && screen !== 'create') app.draft = null;" in mn,
+          '作成画面を離れたら一時入力だけ破棄（キャンセルの安全性）')
+    check('const saved = state.draftSave;' not in mn and 'Object.assign(app.draft, {' not in mn
+          and 'if (saved?.original)' not in mn,
+          'initDraft() は保存済み下書きを自動復元しない')
+    check("kind:'draft'" in mn and "state.draftSave.kind !== 'draft'" in mn
+          and "dsave?.kind !== 'draft'" in mn,
+          '純粋な下書きだけを識別し、保存済みキャラ由来の残留下書きを分離')
+    check('state.draftSave = null;' in mn and mn.count('state.draftSave = {') == 1,
+          '作成完了・見た目保存では既存キャラ情報を下書きへ書き戻さない')
+    check("case 'newChar': return navigate('create');" in mn
+          and 'state.draftSave && state.draftSave.kind' in mn,
+          '「新規作成」は毎回まっさらな下書きと古い一時データの整理から始まる')
+    check("app.screen !== 'create'" in ui,
+          '作成画面の上部ナビに過去キャラの名前・画像を出さない')
+    check('const usedIds = new Set(' in st and 'while (usedIds.has(newId)) newId = uid();' in st,
+          'createCharacter() は既存 ID と衝突しない新 ID を必ず発行')
+    check('state.characters.push(c)' in st and 'state.characters =' not in st
+          and 'state.characters.splice' not in st and 'delete state.characters' not in st,
+          '過去キャラの配列を初期化・置換・削除せず、新キャラを push するだけ')
+    nct = open('tests/check_new_char.mjs', encoding='utf-8').read()
+    check(os.path.isfile('tests/check_new_char.mjs') and 'NEW CHARACTER CHECK OK' in nct
+          and 'assertOldCharsIntact' in nct and "?newchar=2" in nct,
+          '指定 1〜8 の実動作テスト（既存キャラ維持・再起動）が存在')
+
     print('\nUPDATE STATIC CHECK OK — 全ファイル照合・3D 残存ゼロ・章/セーブ/UI 整合性・新機能')
     return 0
 
