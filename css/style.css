@@ -1765,28 +1765,23 @@ button.job-card:disabled.locked{cursor:not-allowed}
   border:1px solid rgba(160,190,240,.25);background:rgba(255,255,255,.05);color:#cfe0f7;font-size:22px;line-height:1}
 .creator-x:hover{background:rgba(255,255,255,.12)}
 
-.creator-action{display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap;
-  margin:22px 30px 8px;padding:20px 22px;border-radius:16px;
-  border:1px solid rgba(255,199,92,.3);background:linear-gradient(110deg,rgba(255,183,77,.10),rgba(255,107,107,.07));
-  box-shadow:0 0 34px rgba(255,170,60,.08)}
-.creator-action-copy{flex:1 1 340px;min-width:0}
-.creator-action-copy h2{margin:0 0 8px;font-size:20px;color:#ffd98a;letter-spacing:.02em}
-.creator-action-copy p{margin:0;font-size:13px;line-height:1.65;color:#cfdcf0}
-.creator-action-copy strong{color:#fff2d2}
-.creator-action-note{margin-top:6px !important;font-size:12px;color:#94accd}
-.creator-evolve-btn{flex:0 0 auto;min-width:230px;min-height:88px;display:flex;flex-direction:column;
-  align-items:center;justify-content:center;gap:3px;padding:12px 26px;cursor:pointer;
-  border-radius:16px;border:1px solid #ffe1a0;color:#241705;
-  background:linear-gradient(160deg,#ffe07a,#ffb43e 62%,#ff8a3d);
-  box-shadow:0 8px 0 #a45a10,0 14px 34px rgba(255,160,40,.4);
-  font:inherit;transition:transform .14s ease,box-shadow .14s ease,filter .14s ease}
-.creator-evolve-btn:hover:not(:disabled){transform:translateY(-3px);filter:brightness(1.06);
-  box-shadow:0 11px 0 #a45a10,0 20px 42px rgba(255,160,40,.5)}
-.creator-evolve-btn:active:not(:disabled){transform:translateY(4px);box-shadow:0 4px 0 #a45a10,0 10px 24px rgba(255,160,40,.35)}
-.creator-evolve-btn:disabled{opacity:.6;cursor:not-allowed;filter:grayscale(.35)}
-.creator-evolve-icon{font-size:24px;line-height:1}
-.creator-evolve-label{font-size:21px;font-weight:900;letter-spacing:.06em}
-.creator-evolve-btn small{font-size:11px;font-weight:700;opacity:.8}
+/* ---- 操作方法の説明（大きな一括ボタンは置かない） ---- */
+.creator-note{margin:16px 30px 0;padding:11px 15px;border-radius:12px;font-size:12px;line-height:1.7;
+  color:#c9daf0;border:1px solid rgba(126,188,255,.22);background:rgba(80,140,220,.09)}
+.creator-note b{color:#ffd98a}
+.creator-note strong{color:#fff3d4}
+
+/* ---- キャラカード内の「一括進化」：視界を塞がない小さいボタン ---- */
+.creator-evolve-one{width:100%;min-height:32px;padding:5px 8px;border-radius:8px;cursor:pointer;
+  font:inherit;font-size:11.5px;font-weight:800;letter-spacing:.02em;white-space:nowrap;
+  color:#2b1a02;border:1px solid #ffdf9a;
+  background:linear-gradient(160deg,#ffe6a0,#ffbd52);
+  box-shadow:0 2px 0 #a4660f;transition:transform .13s ease,filter .13s ease}
+.creator-evolve-one:hover:not(:disabled){filter:brightness(1.07);transform:translateY(-1px)}
+.creator-evolve-one:active:not(:disabled){transform:translateY(2px);box-shadow:0 0 0 #a4660f}
+.creator-evolve-one:disabled{opacity:.55;cursor:not-allowed;filter:grayscale(.35)}
+.creator-char[data-creator-done="1"] .creator-evolve-one{color:#c8f6d8;border-color:rgba(80,230,150,.45);
+  background:rgba(46,204,113,.14);box-shadow:none}
 .creator-busy,.creator-done-msg{margin:10px 30px 0;padding:11px 16px;border-radius:10px;font-size:13px;font-weight:700}
 .creator-busy{color:#ffe2a8;background:rgba(255,180,60,.1);border:1px solid rgba(255,180,60,.3)}
 .creator-done-msg{color:#b9f6ca;background:rgba(46,204,113,.11);border:1px solid rgba(80,230,150,.34)}
@@ -1837,8 +1832,8 @@ button.job-card:disabled.locked{cursor:not-allowed}
   .creator-shell{max-height:96vh}
   .creator-head{padding:18px 18px 14px}
   .creator-head h1{font-size:20px}
-  .creator-action{margin:14px 16px 6px;padding:14px;gap:14px}
-  .creator-evolve-btn{width:100%;min-height:76px}
+  .creator-note{margin:12px 16px 0;padding:10px 12px;font-size:11px}
+  .creator-evolve-one{font-size:11px;min-height:30px}
   .creator-busy,.creator-done-msg{margin:8px 16px 0}
   .creator-list{margin:12px 16px 0}
   .creator-scroll{grid-template-columns:repeat(auto-fill,minmax(140px,1fr));max-height:40vh}
@@ -1847,6 +1842,117 @@ button.job-card:disabled.locked{cursor:not-allowed}
   .creator-done-btn{width:100%}
 }
 @media (prefers-reduced-motion: reduce){
-  .creator-decide,.creator-evolve-btn,.creator-done-btn,.creator-searchbar{transition:none !important}
-  .creator-evolve-btn:hover:not(:disabled),.creator-done-btn:hover:not(:disabled){transform:none}
+  .creator-decide,.creator-evolve-one,.creator-done-btn,.creator-searchbar{transition:none !important}
+  .creator-evolve-one:hover:not(:disabled),.creator-done-btn:hover:not(:disabled){transform:none}
+}
+
+/* ============================================================
+   技情報の共通表示 / SKILL INFO（js/skillInfo.js が唯一のデータ源）
+   ・技名のすぐ横に 攻撃力 / MP を小さく並べる
+   ・色とアイコンで 攻撃 / 回復 / 補助 / MP を区別
+   ・折り返しても説明文と重ならず、スマホ幅でも切れない
+   ============================================================ */
+.sk-head{display:flex;flex-wrap:wrap;align-items:center;gap:3px 6px;min-width:0}
+.sk-name{min-width:0;overflow-wrap:anywhere;color:#fff}
+.sk-info-btn{flex:0 0 auto;width:20px;height:20px;padding:0;border-radius:6px;cursor:pointer;
+  font:inherit;font-size:12px;line-height:1;color:#bcd9ff;border:1px solid rgba(140,190,255,.4);
+  background:rgba(80,150,230,.14);transition:background .15s ease,border-color .15s ease}
+.sk-info-btn:hover{background:rgba(80,150,230,.3);border-color:#8cc6ff}
+.skill-metrics{display:inline-flex;flex-wrap:wrap;align-items:center;gap:3px 5px;min-width:0;vertical-align:middle}
+.sk-metric{display:inline-flex;align-items:center;gap:2px;white-space:nowrap;line-height:1.3;
+  font-size:10.5px;font-weight:700;letter-spacing:.01em;padding:1px 5px;border-radius:5px;
+  border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.045)}
+.sk-metric b{font-size:11px;font-weight:900;color:inherit}
+.sk-metric em{font-style:normal;font-size:9.5px;font-weight:600;opacity:.8}
+.sk-ico{font-size:10px;line-height:1;opacity:.95}
+.sk-power{color:#ffbda6;border-color:rgba(255,120,90,.34);background:rgba(255,110,80,.11)}
+.sk-heal{color:#adf0c6;border-color:rgba(70,220,140,.34);background:rgba(60,210,130,.1)}
+.sk-effect{color:#ffe0a4;border-color:rgba(255,200,100,.34);background:rgba(255,190,80,.1)}
+.sk-mp{color:#a9d9ff;border-color:rgba(90,170,255,.36);background:rgba(70,150,255,.12)}
+.sk-cd{color:#c9b9ff;border-color:rgba(170,140,255,.32);background:rgba(150,120,255,.1)}
+.sk-forecast{display:inline-flex;flex-wrap:wrap;align-items:baseline;gap:3px;font-size:10px;
+  color:#cfe4ff;line-height:1.3}
+.sk-forecast b{color:#ffe0a4;font-size:11px}
+.sk-forecast small{font-size:9px;color:var(--muted)}
+
+/* 技名＋バッジを入れても説明と重ならないように */
+.skill-line>div,.ex-line>div,.codex-skill,.enemy-info,.combat-info{min-width:0}
+.skill-line .sk-head,.ex-line .sk-head,.codex-skill .sk-head{width:100%}
+.skill-line .sk-head+.small,.skill-line .sk-head+small{display:block;clear:both;margin-top:2px}
+.skill-line .skill-metrics,.ex-line .skill-metrics,.enemy-move .skill-metrics,
+.enemy-skills .skill-metrics,.combat-move .skill-metrics{font-size:10px}
+.skill-line .sk-metric,.ex-line .sk-metric{font-size:9.5px;padding:1px 4px}
+.skill-line .sk-metric b,.ex-line .sk-metric b{font-size:10px}
+.chip.skill-chip,.enemy-skill-chip{display:inline-flex;flex-wrap:wrap;align-items:center;gap:3px 5px;
+  max-width:100%;text-align:left;height:auto;cursor:pointer;font:inherit}
+.enemy-skill-chip{font-size:9px;padding:2px 5px;border-radius:4px;color:var(--muted);
+  border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06)}
+.enemy-skill-chip:hover{border-color:rgba(140,190,255,.5);color:#dbeaff}
+.enemy-skill-chip .sk-metric{font-size:9px;padding:0 3px}
+.enemy-skill-chip .sk-metric b{font-size:9.5px}
+.enemy-move .sk-head,.combat-move .sk-head{margin-bottom:2px}
+.evo-facts .skill-metrics,.list-line .skill-metrics{margin-left:4px}
+.list-line>span{min-width:0}
+
+/* 技詳細・AUTO確認・戦闘前確認のリスト */
+.skill-info-list{display:flex;flex-direction:column;gap:6px;margin:8px 0}
+.skill-info-line{padding:8px 10px;border-radius:9px;border:1px solid var(--line);
+  background:rgba(255,255,255,.035);font-size:12px}
+.skill-info-line .sk-head{margin-bottom:3px}
+.skill-info-line small{display:block;color:var(--muted);line-height:1.45;font-size:10.5px;
+  overflow-wrap:anywhere}
+.skill-info-line .sk-forecast{display:flex;margin-top:4px}
+.skill-info-list.compact .skill-info-line{padding:6px 8px}
+.battle-skill-details .callout{font-size:11.5px;line-height:1.6}
+.battle-skill-details .skill-info-list{max-height:min(46vh,420px);overflow:auto;padding-right:4px}
+.skill-check-page .skill-info-list .skill-metrics{font-size:10.5px}
+
+/* クリック／タップで開く詳細モーダル */
+.skill-detail-modal{width:min(560px,100%)}
+.sd-kicker{font-size:10px;letter-spacing:.18em;color:#8fb4e6;font-weight:700;text-transform:uppercase}
+.sd-title h3{margin:6px 0 8px;font-family:var(--serif);font-size:22px;color:#fff;line-height:1.3}
+.sd-title .skill-metrics{margin-bottom:14px}
+.sd-grid{display:flex;flex-direction:column;gap:0;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.sd-row{display:flex;align-items:flex-start;gap:12px;padding:8px 11px;font-size:12px;
+  background:rgba(255,255,255,.028);border-bottom:1px solid var(--line)}
+.sd-row:last-child{border-bottom:0}
+.sd-row>span{flex:0 0 104px;color:var(--muted);font-size:11px;padding-top:2px}
+.sd-row>div{flex:1;min-width:0;overflow-wrap:anywhere;line-height:1.5}
+.sd-row b{color:#fff;font-size:12.5px}
+.sd-row small{color:var(--muted);font-size:10px}
+.sd-name{font-family:var(--serif);font-size:15px !important}
+.sd-mp{color:#a9d9ff !important}
+.sd-forecast{color:#ffe0a4 !important}
+.sd-element{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:5px;font-size:10px;
+  border:1px solid var(--sdc,#9bb4d8);color:var(--sdc,#9bb4d8);background:rgba(255,255,255,.04)}
+.skill-detail h4{margin:16px 0 6px;font-size:13px;color:#f2e2b5}
+.sd-desc{margin:0;font-size:12px;line-height:1.65;color:#dbe6f7;overflow-wrap:anywhere}
+.sd-list{margin:0;padding-left:20px;font-size:11.5px;line-height:1.7;color:#cfdcf0}
+.sd-list.sd-extra li{color:#ffe0a4}
+.sd-none{margin:0;font-size:11.5px;color:var(--muted)}
+.sd-note{margin-top:16px;font-size:11px;line-height:1.65}
+
+/* 戦闘ボタン内でもバッジがはみ出さない */
+.action-btn .skill-metrics,.ultimate-btn .skill-metrics{margin:1px 0;font-size:10px}
+.action-btn .sk-metric,.ultimate-btn .sk-metric{font-size:9.5px;padding:1px 4px}
+.action-btn .sk-metric b,.ultimate-btn .sk-metric b{font-size:10px}
+.action-btn .sk-forecast,.ultimate-btn .sk-forecast{font-size:9.5px}
+.action-btn .sk-forecast b,.ultimate-btn .sk-forecast b{font-size:10px}
+.item-actions .action-btn .skill-metrics{margin:0}
+
+@media (max-width:640px){
+  .sk-metric{font-size:9.5px;padding:1px 4px}
+  .sk-metric b{font-size:10px}
+  .sk-metric em{font-size:9px}
+  .sk-ico{font-size:9px}
+  .skill-metrics{gap:2px 4px}
+  .sk-head{gap:2px 4px}
+  .skill-line .sk-metric,.ex-line .sk-metric{font-size:9px}
+  .skill-line .sk-metric b,.ex-line .sk-metric b{font-size:9.5px}
+  .action-btn .sk-metric,.ultimate-btn .sk-metric{font-size:9px;padding:1px 3px}
+  .action-btn .sk-metric b,.ultimate-btn .sk-metric b{font-size:9.5px}
+  .sd-row>span{flex:0 0 84px}
+  .sd-row>div,.skill-info-line small{font-size:11px}
+  .skill-detail-modal{padding-right:14px;padding-left:14px}
+  .enemy-skill-chip .sk-metric{font-size:8.5px}
 }

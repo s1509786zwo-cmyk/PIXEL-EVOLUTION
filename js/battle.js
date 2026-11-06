@@ -573,7 +573,7 @@ export class Battle {
 }
 
 /** 敵 1 種類の move 定義を、戦闘エンジンが実際に解決できる技へ変換する */
-function buildEnemyMoveSkill(mv) {
+export function buildEnemyMoveSkill(mv) {
   if (!mv || !mv.id) return null;
   const parts = [{
     op:'damage', power: mv.power || 100, scale:'atk', hits: mv.hits || 1,

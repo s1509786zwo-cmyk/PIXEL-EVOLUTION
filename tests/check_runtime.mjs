@@ -59,7 +59,7 @@ for (const f of D.FACILITIES) for (let t = 0; t < f.tabs.length; t++) {
   screens.push(['facility', { params:{ facility:f.id }, tabs:{ [f.id]:t } }]);
 }
 for (let t = 0; t <= 7; t++) screens.push(['codex', { codexTab:t }]);
-for (const scr of ['town','story','gather','help','hints','character','endgame','settings']) screens.push([scr, {}]);
+for (const scr of ['town','story','gather','help','hints','character','skillCheck','endgame','settings']) screens.push([scr, {}]);
 screens.push(['story', { storyChapter:'ch1' }], ['story', { storyChapter:'ch3' }]);
 screens.push(['create', { draft }], ['appearance', { look }]);
 screens.push(['battle', { battle }], ['result', { result }]);
@@ -77,6 +77,10 @@ const mainSrc = fs.readFileSync(ROOT + '/js/main.js', 'utf8');
 const cases = new Set([...mainSrc.matchAll(/case '([A-Za-z0-9_]+)':/g)].map(m => m[1]));
 const missing = [...allActions].filter(a => !cases.has(a));
 assert(missing.length === 0, `描画された ${allActions.size} アクションすべてにハンドラ（欠落 ${JSON.stringify(missing)}）`);
+const skillHtml = U.renderScreen({ ...app, screen:'skillCheck', skillDetail:'sk_fire_slash' }, st);
+assert(skillHtml.includes('攻撃力：') && skillHtml.includes('MP：') &&
+  skillHtml.includes('skill-detail-modal') && skillHtml.includes('AUTO 戦闘で使用する技'),
+  '技確認画面・詳細モーダルが共通の攻撃力 / MP を描画');
 
 console.log('== 3. Drive PNG の表示ホストと正直なレポート ==');
 Object.assign(app, { screen:'facility', params:{ facility:'guild' }, tabs:{ guild:0 }, battle:null, result:null, storyChapter:null });

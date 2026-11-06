@@ -170,31 +170,89 @@ def main():
     cjs = open('js/creatorTools.js', encoding='utf-8').read()
     check("const PASSWORD = 'kiyo'" in cjs and 'value !== PASSWORD' in cjs,
           'パスワードは半角小文字 kiyo との完全一致のみ')
-    check('全キャラクターのLR進化が完了しました！' in cjs and 'パスワードが間違っています' in cjs
+    check('のLR進化が完了しました！' in cjs and 'パスワードが間違っています' in cjs
           and 'パスワードを入力してください' in cjs and 'CREATOR TOOLS' in cjs,
           '認証文言・完了文言・専用タイトルを保持')
+    check('全キャラクターのLR進化が完了しました！' not in cjs and 'creatorBulkEvolve' not in cjs,
+          '全キャラ一括の文言・経路は廃止')
     creator_actions = set(re.findall(r'data-creator-action="([a-zA-Z]+)"', cjs))
-    check(creator_actions == {'decide', 'close', 'done', 'evolve'},
+    check(creator_actions == {'decide', 'close', 'done', 'evolveOne'},
           f'ツールの 4 ボタンが揃っている: {sorted(creator_actions)}')
     for a in creator_actions:
         check(f"act === '{a}'" in cjs, f'ツールのボタン {a} にハンドラ')
-    check('creatorBulkEvolve(ctx.getState())' in cjs and 'await ctx.save(true)' in cjs,
-          '一括進化は同期適用→1 回の即時保存')
+    check('data-creator-action="evolveOne"' in cjs and 'creator-evolve-one' in cjs
+          and 'data-creator-id=' in cjs,
+          '各キャラのカードに ID 付きの小さい「一括進化」ボタン')
+    check('.creator-evolve-btn' not in cjs and '.creator-action' not in cjs,
+          '的巨大な全件一括ボタンのマークアップは存在しない')
+    check('creatorEvolveOne(ctx.getState(), charId)' in cjs and 'await ctx.save(true)' in cjs,
+          '1 体だけを同期適用→1 回の即時保存')
     check('busy' in cjs and 'if (!ctx || busy) return false' in cjs,
           '処理中は閉じず二重実行も防ぐ')
-    body = st[st.index('export function creatorBulkEvolve(state) {'):st.index('export function equipmentEvolvePreview')]
+    body = st[st.index('export function creatorEvolveOne(state, charId) {'):st.index('export function equipmentEvolvePreview')]
     check('addCoins(' not in body and 'removeItem(' not in body and 'checkAchievements(' not in body,
           '一括進化は通貨・素材を消費せず実績報酬も発生させない')
-    check('creatorLRTheory(state, c)' in body and 'maxEvolutionBonus' in body
-          and 'EVOLUTION_RULES' in body,
-          '通常進化 4 回分の理論値を不足分だけ適用')
+    check('creatorLRTheory(state, c)' in st and 'maxEvolutionBonus' in st
+          and 'EVOLUTION_RULES' in st and 'chars.find(x => x.id === charId)' in body,
+          '通常進化 4 回分の理論値を、指定された 1 体だけに適用')
+    check('export function creatorBulkEvolve' not in st and '全員' not in body,
+          '全キャラを一気に進化させる関数は存在しない')
     check('creatorTool: { completed:false' in st and 'state.creatorTool = ' in body,
           '完了状態は後方互換の追加フィールドに保存')
-    for cls in ('.creator-layer', '.creator-searchbar', '.creator-shell', '.creator-evolve-btn',
-                '.creator-scroll', '.creator-done-btn', '.ftab-story-link'):
+    for cls in ('.creator-layer', '.creator-searchbar', '.creator-shell', '.creator-evolve-one',
+                '.creator-note', '.creator-scroll', '.creator-done-btn', '.ftab-story-link'):
         check(cls in css, f'CSS ルール {cls}')
+    check('.creator-evolve-btn' not in css and '.creator-action{' not in css,
+          '巨大ボタン用の CSS は撤去済み（視界を塞がない）')
+    check('.creator-evolve-one{width:100%;min-height:32px' in css,
+          '各カードのボタンは 32px の小ささ')
     check(os.path.isfile('tests/check_story_hint.mjs') and os.path.isfile('tests/check_creator.mjs'),
           'ストーリータブ / 製作者ツールの実動作テストが存在')
+
+    print('== 8. 技情報の一元管理と全画面表示 ==')
+    si = open('js/skillInfo.js', encoding='utf-8').read()
+    check(os.path.isfile('js/skillInfo.js') and 'export function skillInfo(' in si
+          and 'export function skillBadge(' in si and 'export function skillDetailHTML(' in si
+          and 'export function skillDetailModal(' in si,
+          '技情報の唯一の算出・描画モジュールが揃っている')
+    check("from './data.js?v=2'" in si and "from './state.js?v=2'" in si
+          and "from './enemyAssets.js?v=2'" in si and "from './battle.js?v=2'" in si,
+          'SKILL / parts / 敵専用技の生成器を実際のゲームデータから参照')
+    check('s.parts' in si and 'Number(p.power)' in si and 'Number(s.mp) || 0' in si
+          and 'buildEnemyMoveSkill' in si,
+          '威力は parts・MP は sk.mp・敵技は戦闘と同じ生成器から導出')
+    check('攻撃力：' in si and '回復量：' in si and '効果：' in si and 'MP：' in si,
+          '攻撃 / 回復 / 補助 / MP の書式を一元定義')
+    check('export function predictDamage(' in si and '技に固有の威力' in si,
+          '技固有の威力と予測ダメージを区別')
+    check("from './skillInfo.js?v=2'" in ui and 'SI.skillDetailModal(app, s)' in ui,
+          'ui.js は一元モジュールを import して詳細モーダルを描画')
+    check(ui.count('SI.skillBadge(') >= 10 and ui.count('SI.skillHead(') >= 4
+          and ui.count('SI.skillInfoLine(') >= 3,
+          '技一覧・習得・練習・詳細・戦闘・図鑑など全画面が共通関数を参照')
+    check('威力${sk.power' not in ui and 'MP${sk.mp' not in ui
+          and '威力 ${sk.power' not in ui and 'MP ${sk.mp' not in ui,
+          '画面側に威力 / MP の数値直書きが残っていない')
+    for spot in ('SI.skillHead(sk)', 'SI.skillBadge(sk,{cd:false})',
+                 "case 'skillCheck': return skillCheckScreen(app,s);",
+                 "tab==='details'", 'SI.skillInfoLine('):
+        check(spot in ui, f'画面に技情報を表示: {spot}')
+    check("case 'skillInfo':" in mn and "case 'skillInfoClose':" in mn
+          and "key === 'skillCheckEnemy'" in mn,
+          '詳細モーダル・技確認画面のハンドラを配線')
+    bt = open('js/battle.js', encoding='utf-8').read()
+    check('actor.mp -= (skill.mp||0)' in bt and '(part.power || 100)' in bt
+          and "skill.parts || [{op:'damage',power:skill.power||100" in bt,
+          '戦闘計算・MP 消費・AUTO のロジックは変更していない')
+    dt = open('js/data.js', encoding='utf-8').read()
+    check('export const SKILLS' in dt and 'export const VERSION = 8' in dt,
+          '技データ・バージョンは据え置き（表示専用の改善）')
+    for cls in ('.skill-metrics', '.sk-metric', '.sk-power', '.sk-heal', '.sk-effect',
+                '.sk-mp', '.sk-info-btn', '.skill-info-list', '.skill-detail-modal',
+                '.sk-forecast', '.enemy-skill-chip'):
+        check(cls in css, f'技情報の CSS ルール {cls}')
+    check(os.path.isfile('tests/check_skill_info.mjs'),
+          '全技選択画面の実動作テストが存在')
 
     print('\nUPDATE STATIC CHECK OK — 全ファイル照合・3D 残存ゼロ・章/セーブ/UI 整合性・新機能')
     return 0

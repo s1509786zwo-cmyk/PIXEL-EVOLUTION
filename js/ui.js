@@ -37,6 +37,7 @@ import {
   GACHA_BANNERS, currentBanner, bannerRates, rateTotals, featuredDefs,
   hiddenSummary, weaponSummary, PICKUP_PERIOD_DAYS, PICKUP_SHARE, EFFECT_LABELS,
 } from './gacha.js?v=2';
+import * as SI from './skillInfo.js?v=2';
 
 export const e = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const pct = (a,b) => b ? Math.max(0, Math.min(100, a/b*100)) : 0;
@@ -191,7 +192,7 @@ function navBar(app, s) {
   const c = activeChar(s);
   const r = rankInfo(s);
   const links = [
-    ['town','🏰','街'],['character','🧙','キャラ'],['codex','📖','図鑑'],['endgame','🏆','やり込み'],['settings','⚙','設定'],
+    ['town','🏰','街'],['character','🧙','キャラ'],['skillCheck','⚔','技確認'],['codex','📖','図鑑'],['endgame','🏆','やり込み'],['settings','⚙','設定'],
   ];
   return `
   <header class="topbar">
@@ -341,7 +342,7 @@ function storyChapterDetail(app, s, ch, arc) {
         <div class="stage-art">${storyArt(st.enemyId)}</div>
         <div class="stage-body"><span class="pill ${done ? 'on' : current ? '' : 'off'}">${done ? '突破済' : current ? '挑戦可能' : '未到達'}</span>
           <b>Stage ${i + 1}・${e(st.label)}${st.boss ? ' 👑' : ''}</b>
-          <small>${e(k.name || st.enemyId)} / Lv.${st.level} / 専用技「${e(k.move?.name || '—')}」</small>
+          <small>${e(k.name || st.enemyId)} / Lv.${st.level} / 専用技「${e(k.move?.name || '—')}」${k.move?SI.skillBadge(SI.resolveSkill(k.move.id),{cd:false}):''}</small>
           <p>${e(done ? st.outro : current ? st.intro : '—')}</p>
           ${current ? `<button class="btn btn-primary" data-action="storyStage" data-id="${e(ch.id)}" data-stage="${i}">⚔ 戦う</button>` : ''}
         </div></div>`;
@@ -566,6 +567,7 @@ function townScreen(app, s) {
         ${!c ? `<button class="btn btn-primary btn-lg home-create" data-action="newChar">🎨 キャラクターを作成する</button>` : ''}
         <button class="btn btn-primary" data-action="nav" data-to="facility" data-facility="guild" data-tab="0">⚔ CPU対戦へ</button>
         <button class="btn btn-glass" data-action="nav" data-to="character">🧙 キャラクター</button>
+        <button class="btn btn-glass" data-action="nav" data-to="skillCheck">⚔ 技確認・AUTO使用技</button>
         <button class="btn btn-glass" data-action="nav" data-to="codex">📖 図鑑</button>
         <button class="btn btn-primary" data-action="nav" data-to="hints">💡 ゲームのヒント</button>
         <button class="btn btn-glass" data-action="nav" data-to="help">📖 遊び方</button>
@@ -587,6 +589,51 @@ function townScreen(app, s) {
       <div class="panel mini-panel"><h4>📜 進行中のクエスト</h4>${QUESTS.filter(q=>!questClaimed(s,q)).slice(0,3).map(q=>`<div class="list-line"><span>${e(q.name)}</span><b>${Math.min(q.need,questProgress(s,q))} / ${q.need}</b></div>`).join('')}<button class="btn btn-ghost full" data-action="nav" data-to="facility" data-facility="guild" data-tab="2">クエスト一覧</button></div>
       <div class="panel mini-panel"><h4>🏆 最近の育成記録</h4>${s.log.slice(0,4).map(l=>`<div class="log-line"><span>${new Date(l.t).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})}</span> ${e(l.text)}</div>`).join('') || '<p class="muted">まだ記録がありません</p>'}<button class="btn btn-ghost full" data-action="nav" data-to="endgame">全記録を見る</button></div>
       <div class="panel mini-panel"><h4>💠 所持ポイント</h4><div class="list-line"><span>🪙 コイン</span><b>${fmt(s.coins)}</b></div><div class="list-line"><span>🔷 対戦ポイント</span><b>${fmt(s.bp)}</b></div><div class="list-line"><span>🏅 ランクP</span><b>${fmt(s.rankPoints)}</b></div><button class="btn btn-ghost full" data-action="nav" data-to="facility" data-facility="guild" data-tab="3">交換所へ</button></div>
+    </div>
+  </main>${toastArea(app)}`;
+}
+
+
+/* ============================ 技確認 / AUTO 使用技 ============================
+   戦闘前に「技名・攻撃力・消費MP」を確認する専用画面。
+   数値は js/skillInfo.js の skillInfo() だけが算出し、ここでは 1 つも直書きしない。
+   ========================================================================== */
+function skillCheckScreen(app, s) {
+  const data = SI.skillCheckScreenData(app, s);
+  if (!data) return `${navBar(app, s)}<main class="page">${noChar()}</main>${toastArea(app)}`;
+  const { c, ctx, all, equipped, auto } = data;
+  const opts = { ctx };
+  const enemyOptions = ENEMIES.map(en =>
+    `<option value="${e(en.id)}" ${ctx.enemy?.id === en.id ? 'selected' : ''}>${e(en.name)} / Lv.${en.level} / 防御 ${fmt(buildEnemyCombatant(en).def || 0)}</option>`).join('');
+  return `${navBar(app, s)}<main class="page skill-check-page">
+    <div class="page-head"><div>
+      <h2>⚔ 技確認 / AUTO 使用技</h2>
+      <p>戦闘前に、全ての技の <b>技の名前・攻撃力・消費MP</b> を同じ書式で確認できます。ⓘ を押すと効果・対象・追加効果も表示されます。</p>
+    </div><button class="btn btn-ghost" data-action="nav" data-to="town">🏰 街へ戻る</button></div>
+    <div class="callout gold">💡 <b>表示は確認用です。</b>技の威力・消費MP・習得条件・戦闘計算は 1 つも変わりません。「攻撃力」は技固有の威力で、実際のダメージは攻撃力・相手の防御力・属性・熟練度・会心で変動します。回復技は「回復量」、補助技は「効果」と表示します。</div>
+
+    <div class="two-col">
+      <div class="panel soft"><h4>🔍 予測ダメージの比較相手</h4>
+        <label class="field"><span>CPU を選ぶ（防御力が予測に反映されます）</span><select data-change="skillCheckEnemy">${enemyOptions}</select></label>
+        <div class="list-line"><span>${e(c.name)} の攻撃力</span><b>${fmt(ctx.atk)}</b></div>
+        <div class="list-line"><span>相手の防御力</span><b>${fmt(ctx.def)}</b></div>
+        <div class="hint-box small">予測ダメージ ＝ 攻撃力 × 技の威力 ÷ 100 × 防御軽減。乱数・会心・属性相性・バフは含まない目安です。</div>
+      </div>
+      <div class="panel soft"><h4>🤖 AUTO 戦闘で使用する技</h4>
+        <p class="muted small">AUTO は装備中の技（攻撃・回復・補助・奥義）から MP と威力を見て自動選択します。奥義は「AUTOで奥義を使う」設定時のみ、回復技は HP が減ったときに優先されます。</p>
+        <div class="skill-info-list compact">${auto.map(sk => SI.skillInfoLine(sk, opts)).join('') || '<p class="muted">攻撃技が装備されていません。通常攻撃のみ使用します。</p>'}</div>
+        <div class="hint-box small">通常攻撃は <b>${fmt(SI.skillInfo(SI.BASIC_ATTACK).power)} の攻撃力 / MP：0</b> で、AUTO でも常に使えます。</div>
+      </div>
+    </div>
+
+    <div class="panel soft mt"><h4>📋 戦闘前に確認できる技一覧 <span class="pill">装備中 ${equipped.length} / 8</span></h4>
+      <div class="callout violet">書式：<b>技の名前　⚔ 攻撃力：○○　✦ MP：○○</b>（回復技は ✚ 回復量、補助技は ✧ 効果）</div>
+      <div class="skill-info-list">${all.map(sk => SI.skillInfoLine(sk, opts)).join('')}</div>
+    </div>
+    <div class="row-btns mt">
+      <button class="btn btn-primary" data-action="nav" data-to="facility" data-facility="nurture" data-tab="2">🪶 技を習得・装備する</button>
+      <button class="btn btn-glass" data-action="nav" data-to="facility" data-facility="guild" data-tab="0">⚔ CPU対戦へ</button>
+      <button class="btn btn-glass" data-action="nav" data-to="codex" data-codex-tab="1">📖 技図鑑</button>
     </div>
   </main>${toastArea(app)}`;
 }
@@ -674,7 +721,7 @@ function evolutionScreen(app, s) {
   return `<div class="evo-screen">
     ${res ? `<div class="callout gold evo-result"><b>✨ ${e(res.rule.from)} → ${e(res.rule.to)} 進化完了</b>
       <div>上昇ステータス：${res.gains.map(g=>`${e(STAT_NAMES[g.key]||g.key)} +${g.value}`).join(' / ') || '—'}</div>
-      <div>解放された技：<b>${e(res.skill?.name||'')}</b> ／ ${e(res.rule.gain)} ／ レベル・名前・元画像・職業・技・装備・戦績は維持</div>
+      <div>解放された技：${res.skill?`<span class="sk-head"><b>${e(res.skill.name)}</b>${SI.skillBadge(res.skill,{cd:false})}</span>`:'—'} ／ ${e(res.rule.gain)} ／ レベル・名前・元画像・職業・技・装備・戦績は維持</div>
       <button class="btn btn-mini ghost" data-action="evoResultClose">閉じる</button></div>` : ''}
     <div class="callout violet">🔰 <b>レベルとレアリティは別管理</b>です。レベルアップでレアリティは上がらず、進化ではレベル・名前・元画像・職業・習得済みの技・装備・戦績がすべて保持されます。</div>
     <div class="evo-ladder">${CHAR_RARITY_ORDER.map(r=>rankLine(r, r===c.rarity)).join('')}</div>
@@ -683,7 +730,7 @@ function evolutionScreen(app, s) {
         <div class="evo-compare">
           <div class="evo-side"><h5>現在</h5>${charImage(c,'evo')}${rankBadge(c.rarity)}<div class="evo-facts"><span>レベル <b>Lv.${c.level}</b></span><span>戦闘力 <b>${fmt(powerScore(c,s))}</b></span><span>EXP <b>${fmt(c.exp)} / ${fmt(xpForLevel(c.level))}</b></span></div>${statTable(p.beforeStats || computeStats(c,s))}</div>
           <div class="evo-arrow">➜</div>
-          <div class="evo-side next">${p.max ? `<h5>最終ランク</h5>${charImage(c,'evo')}<div class="callout gold">LR に到達済み。転生でさらなる成長を。</div>` : `<h5>進化後（${e(p.rule.to)}）</h5>${charImage(after,'evo')}${rankBadge(p.rule.to)}<div class="evo-facts"><span>レベル <b>Lv.${c.level}（維持）</b></span><span>戦闘力 <b>${fmt(powerScore(after,s))}</b></span><span>習得技 <b>+${e(p.skill?.name||'')}</b></span></div>${statTable(p.afterStats)}`}</div>
+          <div class="evo-side next">${p.max ? `<h5>最終ランク</h5>${charImage(c,'evo')}<div class="callout gold">LR に到達済み。転生でさらなる成長を。</div>` : `<h5>進化後（${e(p.rule.to)}）</h5>${charImage(after,'evo')}${rankBadge(p.rule.to)}<div class="evo-facts"><span>レベル <b>Lv.${c.level}（維持）</b></span><span>戦闘力 <b>${fmt(powerScore(after,s))}</b></span><span>習得技 <b>+${e(p.skill?.name||'')}</b>${p.skill?SI.skillBadge(p.skill,{cd:false}):''}</span></div>${statTable(p.afterStats)}`}</div>
         </div>
         <div class="hint-box small">進化後も元画像は差し替えられません。ランクごとの光・装飾・粒子は画像に重ねるだけで、顔や衣類は隠れません。</div>
       </div>
@@ -693,7 +740,7 @@ function evolutionScreen(app, s) {
           <div class="list-line"><span>必要レベル</span><b class="${c.level>=p.rule.level?'ok':'bad'}">Lv.${p.rule.level}（現在 Lv.${c.level}）</b></div>
           <div class="list-line"><span>必要コイン</span><b class="${s.coins>=p.rule.coins?'ok':'bad'}">🪙 ${fmt(p.rule.coins)}（所持 ${fmt(s.coins)}）</b></div>
           <div class="list-line"><span>ステータス上昇</span><b>${e(p.rule.gain)}</b></div>
-          <div class="list-line"><span>解放技</span><b>${e(p.skill?.name||'')}</b></div>
+          <div class="list-line"><span>解放技</span><b>${e(p.skill?.name||'')} ${p.skill?SI.skillBadge(p.skill,{cd:false}):''}</b></div>
           <h4 class="mt">必要素材（クリックで詳細）</h4>${materialReqList(p.mats,s)}
           ${p.ok ? `<button class="btn btn-primary btn-lg full" data-action="evolveChar">✦ 進化を実行する</button>`
             : `<button class="btn btn-ghost full" disabled>条件が揃っていません</button><div class="hint-box">不足：${p.reasons.map(e).join(' / ')}</div>`}
@@ -1118,13 +1165,13 @@ function nurtureTab(tab, app, s) {
     return `<div class="two-col">
       <div class="panel soft"><h4>習得済みの技 <span class="pill">${c.skills.filter(k=>!ULTIMATE_IDS.has(k.id)&&SKILL[k.id]?.source!=='god').length} / ${LEARNABLE_SKILL_COUNT}</span></h4>
         <p class="muted small">戦闘で使える技は最大8つ。★を押して入れ替えられます。熟練度は修行場で上げられます。</p>
-        <div class="skill-list">${c.skills.map(k=>{const sk=SKILL[k.id]; const on=c.equippedSkills.includes(k.id);return `<div class="skill-line">${elementTag(sk.element)}<div><b>${e(sk.name)}</b><small>${e(sk.cat)} / 威力${sk.power||'—'} / MP${sk.mp} / CD${sk.cd} / 熟練${k.mastery}/20</small></div><button class="btn btn-mini ${on?'on':''}" data-action="skillToggle" data-skill="${sk.id}">${on?'★ 装備中':'☆ 装備'}</button></div>`;}).join('')}</div>
+        <div class="skill-list">${c.skills.map(k=>{const sk=SKILL[k.id]; const on=c.equippedSkills.includes(k.id);return `<div class="skill-line">${elementTag(sk.element)}<div>${SI.skillHead(sk)}<small>${e(sk.cat)} / 熟練 ${k.mastery}/20</small></div><button class="btn btn-mini ${on?'on':''}" data-action="skillToggle" data-skill="${sk.id}">${on?'★ 装備中':'☆ 装備'}</button></div>`;}).join('')}</div>
         <h4 class="mt">技の書を使う</h4>${books.length?`<div class="chip-row">${books.map(([id,n])=>`<button class="btn btn-mini" data-action="useBook" data-book="${id}">${e(ITEM[id].name)} ×${n}</button>`).join('')}</div>`:'<p class="muted">技の書を持っていません（道具屋・交換所で入手）</p>'}
       </div>
       <div class="panel soft"><h4>技を習得する <span class="pill">🔷 ${fmt(s.bp)} BP</span></h4>
         <label class="field"><span>種別で絞り込み</span><select data-change="skillFilter">${cats.map(x=>`<option value="${e(x)}" ${filter===x?'selected':''}>${x==='all'?'すべて':e(x)}</option>`).join('')}</select></label>
         <div class="skill-list">${shown.map(sk=>{const cost = 25 + sk.tier*22 + (sk.cat==='覚醒限定技'?200:0);
-          return `<div class="skill-line">${elementTag(sk.element)}<div><b>${e(sk.name)}</b><small>${e(sk.cat)} / 威力${sk.power||'—'} / MP${sk.mp} / ${e(sk.desc)}</small></div><button class="btn btn-mini" data-action="skillLearn" data-skill="${sk.id}" data-cost="${cost}" ${s.bp<cost?'disabled':''}>🔷${fmt(cost)}</button></div>`;}).join('')}</div>
+          return `<div class="skill-line">${elementTag(sk.element)}<div>${SI.skillHead(sk)}<small>${e(sk.cat)} / ${e(sk.desc)}</small></div><button class="btn btn-mini" data-action="skillLearn" data-skill="${sk.id}" data-cost="${cost}" ${s.bp<cost?'disabled':''}>🔷${fmt(cost)}</button></div>`;}).join('')}</div>
         <div class="row-btns">${offset>0?`<button class="btn btn-ghost" data-action="skillPage" data-delta="-24">← 前へ</button>`:''}${offset+24<unlearned.length?`<button class="btn btn-ghost" data-action="skillPage" data-delta="24">次へ →</button>`:''}<span class="muted small">${offset+1}–${Math.min(offset+24,unlearned.length)} / ${unlearned.length} 件</span></div>
       </div></div>`;
   }
@@ -1147,7 +1194,7 @@ function nurtureTab(tab, app, s) {
       <div class="row-btns"><button class="btn btn-glass" data-action="nav" data-to="endgame">🏆 転生・やり込み</button><button class="btn btn-glass" data-action="nav" data-to="facility" data-facility="guild" data-tab="0">⚔ ボスに挑む</button></div>
     </div>
     <div class="panel soft"><h4>覚醒で解放される技・特殊能力</h4>
-      <div class="skill-list">${['sk_awaken1','sk_awaken2','sk_awaken3','sk_eclipse','sk_genesis','sk_secret'].map((id,i)=>`<div class="skill-line">${elementTag(SKILL[id].element)}<div><b>${e(SKILL[id].name)}</b><small>${e(SKILL[id].desc)}</small></div><span class="pill ${c.skills.some(k=>k.id===id)?'on':'off'}">${c.skills.some(k=>k.id===id)?'習得済':'覚醒'+Math.min(5,i+1)}</span></div>`).join('')}</div>
+      <div class="skill-list">${['sk_awaken1','sk_awaken2','sk_awaken3','sk_eclipse','sk_genesis','sk_secret'].map((id,i)=>`<div class="skill-line">${elementTag(SKILL[id].element)}<div>${SI.skillHead(SKILL[id])}<small>${e(SKILL[id].desc)}</small></div><span class="pill ${c.skills.some(k=>k.id===id)?'on':'off'}">${c.skills.some(k=>k.id===id)?'習得済':'覚醒'+Math.min(5,i+1)}</span></div>`).join('')}</div>
       <h4 class="mt">覚醒による効果</h4><div class="effect-grid"><div>会心率 <b>+${3+c.awakening*2}%</b></div><div>吸血 <b>+${c.awakening>=4?4:0}%</b></div><div>全能力 <b>×${(1+c.awakening*0.13+c.evolution*0.05).toFixed(2)}</b></div><div>限定技 <b>${c.skills.filter(k=>SKILL[k.id]?.cat==='覚醒限定技').length} 種</b></div></div>
     </div></div>`;
 }
@@ -1221,7 +1268,7 @@ function trainingTab(tab, app, s) {
   }
   if (tab === 1) {
     return `<div class="callout">技の練習で <b>熟練度 1→20</b> まで鍛えられます。熟練度1につき技の威力が <b>+3%</b>、職業熟練度も上がります。</div>
-    <div class="skill-list wide">${c.skills.map(k=>{const sk=SKILL[k.id];const cost=220+k.mastery*90;return `<div class="skill-line">${elementTag(sk.element)}<div><b>${e(sk.name)} <small class="muted">熟練 ${k.mastery}/20（威力+${k.mastery*3}%）</small></b><small>${e(sk.cat)} / 威力${sk.power||'—'} / MP${sk.mp}</small></div>${bar(k.mastery,20,'linear-gradient(90deg,#8ce6a8,#b6f0c6)','')}<button class="btn btn-mini" data-action="practice" data-skill="${sk.id}" ${k.mastery>=20||s.coins<cost?'disabled':''}>練習 ${fmt(cost)}</button></div>`;}).join('')}</div>`;
+    <div class="skill-list wide">${c.skills.map(k=>{const sk=SKILL[k.id];const cost=220+k.mastery*90;return `<div class="skill-line">${elementTag(sk.element)}<div>${SI.skillHead(sk)}<small>${e(sk.cat)} / 熟練 ${k.mastery}/20（威力+${k.mastery*3}%）</small></div>${bar(k.mastery,20,'linear-gradient(90deg,#8ce6a8,#b6f0c6)','')}<button class="btn btn-mini" data-action="practice" data-skill="${sk.id}" ${k.mastery>=20||s.coins<cost?'disabled':''}>練習 ${fmt(cost)}</button></div>`;}).join('')}</div>`;
   }
   return `<div class="callout gold">修行クエストは達成条件と報酬が設定された一回限りの挑戦。日替わり修行は何度でも受けられます。</div>
     <div class="quest-grid">${TRAINING_QUESTS.map(q=>{const st=trainingQuestStatus(s,c,q);return `<div class="quest-card ${st.done?'done':''}"><b>${e(q.name)}</b><p>${e(q.desc)}</p>
@@ -1241,9 +1288,9 @@ function enemyCard(app, s, en, mode='cpu', floor=0) {
     <div class="enemy-sprite">${enemyArtHost(en,'card',app.enemySprites[en.id]||'','none',false,Number(app.enemyVariant)||0)}</div>
     <div class="enemy-info"><b>${e(en.name)}</b><small>${e(JOB[en.job]?.name||'')} / Lv.${en.level} / ${e(en.difficulty||'CPU')}</small>
       ${k.features ? `<div class="enemy-feature">${e(k.features)}</div>` : ''}
-      ${mv ? `<div class="enemy-move"><b>✦ ${e(mv.name)}</b><small>${e(mv.desc)} / ${mv.hits||1}連撃 / ${e((ELEMENTS[mv.element]||ELEMENTS.none).name)}</small></div>` : ''}
+      ${mv ? `<div class="enemy-move"><div class="sk-head"><b>✦ ${e(mv.name)}</b>${SI.skillBadge(SI.resolveSkill(mv.id),{cd:false})}</div><small>${e(mv.desc)} / ${mv.hits||1}連撃 / ${e((ELEMENTS[mv.element]||ELEMENTS.none).name)}</small></div>` : ''}
       <div class="enemy-metrics">${STAT_KEYS.map(kk=>`<span>${STAT_ICONS[kk]} ${STAT_NAMES[kk]} ${fmt(st[kk]||0)}</span>`).join('')}</div>
-      <div class="enemy-skills">${en.skills.slice(0,3).map(id=>`<span>${e(SKILL[id]?.name||'')}</span>`).join('')}</div>
+      <div class="enemy-skills">${en.skills.slice(0,3).map(id=>{const sk=SKILL[id];return sk?`<button type="button" class="enemy-skill-chip" data-action="skillInfo" data-skill="${id}">${e(sk.name)}${SI.skillBadge(sk,{cd:false})}</button>`:'';}).join('')}</div>
     </div>
     ${unlocked?`<button class="btn btn-primary" data-action="battleStart" data-enemy="${e(en.id)}" data-mode="${mode}" data-floor="${floor}">⚔ 対戦</button>`:`<button class="btn btn-ghost" disabled>🔒 ${e(lockedText)}</button>`}
   </div>`;
@@ -1310,7 +1357,7 @@ function guildTab(tab, app, s) {
       <div class="exchange-list">${EXCHANGE.map(ex=>{const owned = ex.kind==='skill' && c.skills.some(k=>k.id===ex.skill);
         const need = ex.skill==='sk_secret'?5:ex.skill==='sk_awaken3'||ex.skill==='sk_awaken2'?2:1;
         const lock = ex.kind==='skill' && c.awakening<need;
-        return `<div class="ex-line"><div><b>${e(ex.name)}</b><small>${e(ex.desc)}${lock?` ／ 覚醒${need}以上が必要`:''}</small></div><button class="btn btn-mini" data-action="exchange" data-id="${ex.id}" ${s.bp<ex.cost||owned||lock?'disabled':''}>${owned?'習得済':lock?'🔒':`🔷 ${fmt(ex.cost)}`}</button></div>`;}).join('')}</div>
+        return `<div class="ex-line"><div><div class="sk-head"><b>${e(ex.name)}</b>${ex.kind==='skill'&&SKILL[ex.skill]?SI.skillBadge(SKILL[ex.skill],{cd:false})+SI.skillInfoButton(ex.skill):''}</div><small>${e(ex.desc)}${lock?` ／ 覚醒${need}以上が必要`:''}</small></div><button class="btn btn-mini" data-action="exchange" data-id="${ex.id}" ${s.bp<ex.cost||owned||lock?'disabled':''}>${owned?'習得済':lock?'🔒':`🔷 ${fmt(ex.cost)}`}</button></div>`;}).join('')}</div>
       <div class="hint-box">勝利でBP、敗北でも少量のBPを獲得。連勝・ボス・ダンジョンでさらに増えます。</div>
     </div></div>`;
 }
@@ -1379,7 +1426,7 @@ function characterScreen(app, s) {
       <div class="char-detail">
         <div class="panel soft"><h4>能力値</h4>${statTable(st)}${bar(c.hp,st.hp,'linear-gradient(90deg,#ff6b6b,#ff9e7a)',`HP ${fmt(c.hp)} / ${fmt(st.hp)}`)}${bar(c.mp,st.mp,'linear-gradient(90deg,#5b9dff,#8ce6ff)',`MP ${fmt(c.mp)} / ${fmt(st.mp)}`)}${bar(c.exp,xpForLevel(c.level),'linear-gradient(90deg,#ffd77a,#ffe9a8)',`EXP ${fmt(c.exp)} / ${fmt(xpForLevel(c.level))}`)}</div>
         <div class="panel soft"><h4>装備中</h4>${SLOTS.map(slot=>{const inst=findInstance(s,c.equipment[slot]);const def=instanceDef(inst);return `<div class="list-line"><span>${e(SLOT_NAME[slot])}</span><b style="color:${def?.color||'#889'}">${e(def?.name||'なし')} ${def?`+${inst.enhance||0}`:''}</b></div>`;}).join('')}</div>
-        <div class="panel soft"><h4>習得技（装備中 ★）</h4><div class="chip-row">${c.skills.map(k=>`<span class="chip ${c.equippedSkills.includes(k.id)?'on':''}">${c.equippedSkills.includes(k.id)?'★':'☆'} ${e(SKILL[k.id]?.name||k.id)}</span>`).join('')}</div></div>
+        <div class="panel soft"><h4>習得技（装備中 ★）</h4><div class="chip-row">${c.skills.map(k=>{const sk=SKILL[k.id];return `<button type="button" class="chip skill-chip ${c.equippedSkills.includes(k.id)?'on':''}" data-action="skillInfo" data-skill="${e(k.id)}">${c.equippedSkills.includes(k.id)?'★':'☆'} ${e(sk?.name||k.id)}${sk?SI.skillBadge(sk,{cd:false}):''}</button>`;}).join('')}</div></div>
         <div class="panel soft"><h4>キャラクター切替 <span class="pill">${s.characters.length} 人</span></h4>${s.characters.map(ch=>`<div class="switch-line ${rankClassOf(ch)}" style="${rankVisualStyle(ch)}">${charImage(ch,'tiny')}<div><b>${e(ch.name)}</b><small>${rankBadge(ch.rarity)} Lv.${ch.level} / ${e(JOB[ch.jobId].name)}</small></div>${ch.id===s.activeId?'<span class="pill on">選択中</span>':`<button class="btn btn-mini" data-action="switchChar" data-id="${ch.id}">選択</button>`}${s.characters.length>1?`<button class="btn btn-mini ghost" data-action="deleteChar" data-id="${ch.id}">削除</button>`:''}</div>`).join('')}</div>
       </div>
     </div></main>${toastArea(app)}`;
@@ -1395,7 +1442,7 @@ function codexScreen(app, s) {
   if (tab === 1) {
     const ordinary = SKILLS.filter(sk=>!ULTIMATE_IDS.has(sk.id)&&sk.source!=='god');
     const specials = SKILLS.filter(sk=>ULTIMATE_IDS.has(sk.id)||sk.source==='god');
-    const card = sk => `<div class="codex-skill ${collected.includes(sk.id)?'':'unknown'}">${elementTag(sk.element)}<b>${collected.includes(sk.id)?e(sk.name):'？？？'}</b><small>${collected.includes(sk.id)?`${e(sk.cat)} / 威力${sk.power||'—'} / MP${sk.mp||0}`:'未習得・進化で解放'}</small></div>`;
+    const card = sk => `<div class="codex-skill ${collected.includes(sk.id)?'':'unknown'}">${elementTag(sk.element)}<div class="sk-head"><b>${collected.includes(sk.id)?e(sk.name):'？？？'}</b>${SI.skillBadge(sk,{cd:false})}${collected.includes(sk.id)?SI.skillInfoButton(sk.id):''}</div><small>${collected.includes(sk.id)?`${e(sk.cat)} / 対象 ${e(SI.skillInfo(sk).targetText)}`:'未習得・進化で解放（数値は技データから表示）'}</small></div>`;
     body = `<div class="callout">全技収集：${collected.filter(id=>!ULTIMATE_IDS.has(id)&&SKILL[id]?.source!=='god').length} / ${LEARNABLE_SKILL_COUNT} 種 ${collected.filter(id=>!ULTIMATE_IDS.has(id)&&SKILL[id]?.source!=='god').length>=LEARNABLE_SKILL_COUNT?'🌟 コンプリート！':''}</div>
       <div class="codex-skills">${ordinary.map(card).join('')}</div>
       <h4 class="mt">✵ 奥義・神専用技 <small class="muted">ランク進化 / 特殊ギミックで解放</small></h4>
@@ -1520,7 +1567,7 @@ function combatPanel(b, side, label, char) {
     <div class="combat-info">
       <div class="combat-name">${e(side.name)}</div>
       <div class="combat-meta"><span class="pill">${e(rarity)}</span><span>Lv.${side.level}</span><span>${e(jobName)}</span></div>
-      ${!isP && b.enemyMoveSkill ? `<div class="combat-move">✦ ${e(b.enemyMoveSkill.name)}<small>${e(b.enemyMoveSkill.desc)}</small></div>` : ''}
+      ${!isP && b.enemyMoveSkill ? `<div class="combat-move"><div class="sk-head"><b>✦ ${e(b.enemyMoveSkill.name)}</b>${SI.skillBadge(b.enemyMoveSkill,{cd:false})}</div><small>${e(b.enemyMoveSkill.desc)}</small></div>` : ''}
       ${bar(side.hp,side.maxHp,'linear-gradient(90deg,#ff5f6d,#ffb37b)',`HP ${fmt(side.hp)} / ${fmt(side.maxHp)}`)}
       ${bar(side.mp,side.maxMp,'linear-gradient(90deg,#4f8cff,#8ce6ff)',`MP ${fmt(side.mp)} / ${fmt(side.maxMp)}`)}
       <div class="combat-status">${side.shield?`<span class="st shield">🛡 ${fmt(side.shield)}</span>`:''}${side.guard?'<span class="st">防御</span>':''}${statuses?`<span class="st bad">${e(statuses)}</span>`:''}${side.buffs.filter(x=>x.amount>0).map(x=>`<span class="st good">${e(({hp:'HP↑',atk:'攻↑',def:'防↑',mp:'MP↑',hit:'命中↑',dodge:'回避↑',crit:'会心↑'})[x.stat]||x.stat)}</span>`).join('')}</div>
@@ -1571,20 +1618,27 @@ function battleScreen(app, s) {
         ${ultimates.length?`<div class="ultimate-row"><span class="ur-label">✵ 奥義</span>${ultimates.map(sk=>{
           const ready = b.canUseUltimate(sk) && !locked;
           return `<button class="ultimate-btn ${ready?'ready':''}" data-action="battleAction" data-id="${e(sk.id)}" ${ready?'':'disabled'} style="--ec:${(ELEMENTS[sk.element]||ELEMENTS.none).color}">
-            <b>${e(sk.name)}</b><small>威力 ${sk.power} / MP ${sk.mp} / ${ready?'発動可能':`ゲージ ${gauge}%・CD ${b.player.cds[sk.id]||0}`}</small></button>`;
+            <b>${e(sk.name)}</b>${SI.skillBadge(sk,{cd:false})}${SI.skillForecastHTML(sk,SI.forecastContext(app,s,sk.id))}<small>${ready?'発動可能':`ゲージ ${gauge}%・CD ${b.player.cds[sk.id]||0}`}</small></button>`;
         }).join('')}</div>`:''}
-        <div class="filter-tabs small">${[['skill','技'],['item','アイテム'],['basic','基本']].map(([id,label])=>`<button class="ftab ${tab===id?'on':''}" data-action="battleTab" data-tab="${id}">${label}</button>`).join('')}</div>
+        <div class="filter-tabs small">${[['skill','技'],['details','技詳細'],['item','アイテム'],['basic','基本']].map(([id,label])=>`<button class="ftab ${tab===id?'on':''}" data-action="battleTab" data-tab="${id}">${label}</button>`).join('')}</div>
         ${tab==='skill'?`<div class="action-grid">${actions.filter(sk=>!sk.ultimate).map(sk=>{
           const cd=b.player.cds[sk.id]||0;
           const usable=sk.usable!==false && !locked && b.player.mp>=(sk.mp||0) && cd===0 && b.canAct(b.player);
           return `<button class="action-btn" data-action="battleAction" data-id="${e(sk.id)}" ${usable?'':'disabled'} style="--ec:${(ELEMENTS[sk.element]||ELEMENTS.none).color}">
             <span class="ab-top">${elementTag(sk.element)}<small>${e(sk.cat)}</small></span><b>${e(sk.name)}</b>
-            <small>威力 ${sk.power||'—'}${sk.parts?.[0]?.hits>1?` ×${sk.parts[0].hits}`:''} / MP ${sk.mp||0} / CD ${sk.cd||0}</small>
+            ${SI.skillBadge(sk,{cd:false})}${SI.skillForecastHTML(sk,SI.forecastContext(app,s,sk.id))}
+            <small>CD ${sk.cd||0} / 対象 ${e(SI.skillInfo(sk).targetText)}</small>
             ${cd?`<span class="cd">あと${cd}ターン</span>`:''}${sk.parts?.some(p=>p.op==='heal')?'<span class="ab-tag heal">回復</span>':''}${sk.cat==='覚醒限定技'?'<span class="ab-tag awake">覚醒</span>':''}
           </button>`;}).join('')}</div>`:''}
+        ${tab==='details'?`<div class="battle-skill-details">
+          <div class="callout violet">⚔ <b>技を選ぶ前の確認 / AUTO が使用する技</b><br>「攻撃力」は技に固有の威力、「MP」は実際に消費する量です。「予測ダメージ」は現在の攻撃力と相手の防御力から計算した目安（会心・属性・バフは含みません）。ⓘ を押すと効果・対象・追加効果を確認できます。</div>
+          <div class="skill-info-list">${actions.map(sk=>SI.skillInfoLine(SI.resolveSkill(sk.id,sk),{ctx:SI.forecastContext(app,s,sk.id)})).join('')}</div>
+          ${b.enemyMoveSkill?`<h4 class="mt">相手の専用技</h4><div class="skill-info-list">${SI.skillInfoLine(b.enemyMoveSkill,{ctx:null,info:false})}</div>`:''}
+          <div class="hint-box">AUTO はこの一覧の技から MP と威力を見て自動で選択します。装備する技は「育成の間 → 技」で変更できます。</div>
+        </div>`:''}
         ${tab==='item'?`<div class="item-actions">${items.map(it=>`<button class="action-btn item" data-action="battleAction" data-id="__item:${e(it.id)}" ${locked?'disabled':''}><span>${it.icon}</span><b>${e(it.name)} ×${it.n}</b><small>${e(it.desc)}</small></button>`).join('') || '<p class="muted">使えるアイテムがありません。道具屋で購入できます。</p>'}</div>`:''}
         ${tab==='basic'?`<div class="item-actions">
-          <button class="action-btn item" data-action="battleAction" data-id="__attack" ${locked?'disabled':''}><span>⚔</span><b>通常攻撃</b><small>MP消費なし / 威力100</small></button>
+          <button class="action-btn item" data-action="battleAction" data-id="__attack" ${locked?'disabled':''}><span>⚔</span><b>通常攻撃</b>${SI.skillBadge(SI.BASIC_ATTACK,{cd:false})}<small>詳細は「技詳細」タブ / ⓘ から確認できます</small></button>
           <button class="action-btn item" data-action="battleAction" data-id="__guard" ${locked?'disabled':''}><span>🛡</span><b>防御する</b><small>被ダメ軽減 / MP+14 / HP少回復</small></button>
           <button class="action-btn item" data-action="battleAuto"><span>AUTO</span><b>${b.autoMode?'AUTO を OFF':'AUTO を ON'}</b><small>戦闘中いつでも切替 / ターンは飛びません</small></button>
           <button class="action-btn item" data-action="battleSurrender"><span>🏳</span><b>降参する</b><small>敗北扱い。少量のポイントは獲得</small></button>
@@ -1635,6 +1689,7 @@ export function renderScreen(app, s) {
     case 'create': return createScreen(app,s);
     case 'town': return townScreen(app,s);
     case 'story': return storyScreen(app,s);
+    case 'skillCheck': return skillCheckScreen(app,s);
     case 'gather': return gatherScreen(app,s);
     case 'help': return helpScreen(app,s);
     case 'hints': return hintsScreen(app,s);
@@ -1649,5 +1704,6 @@ export function renderScreen(app, s) {
     default: return titleScreen(app,s);
   } })();
   return html + materialModal(app, s) + gachaRatesModal(app, s)
-    + weaponDetailModal(app, s) + gachaPresentation(app, s) + jobChangeModal(app, s);
+    + weaponDetailModal(app, s) + gachaPresentation(app, s) + jobChangeModal(app, s)
+    + SI.skillDetailModal(app, s);
 }

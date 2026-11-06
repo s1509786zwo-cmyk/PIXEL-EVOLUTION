@@ -54,7 +54,8 @@ def main():
         print('== 1. no-store と内容ハッシュ ==')
         for path in ('/', '/index.html', '/js/main.js', '/js/state.js', '/js/ui.js',
                      '/js/enemyAssets.js', '/js/enemyArt.js', '/js/story.js',
-                     '/js/saveBackup.js', '/js/creatorTools.js', '/css/style.css'):
+                     '/js/saveBackup.js', '/js/creatorTools.js', '/js/skillInfo.js',
+                     '/css/style.css'):
             status, h, _ = request(port, path)
             cc = h.get('Cache-Control', '')
             check(status == 200 and 'no-store' in cc and 'max-age=0' in cc,
@@ -89,6 +90,14 @@ def main():
         ui = ui_js.decode('utf-8')
         check('全 5 章' in ui and 'backup-list' in ui and 'asset-kind' in ui,
               '5章 / バックアップ / 敵素材台帳の UI が配信される')
+        check("from './skillInfo.js?h=" in ui and 'SI.skillBadge(' in ui
+              and "case 'skillCheck':" in ui,
+              '技情報の一元モジュールと全画面表示が配信される')
+        _, _, ski_js = request(port, '/js/skillInfo.js?h=x')
+        skj = ski_js.decode('utf-8')
+        check('export function skillInfo(' in skj and '攻撃力：' in skj
+              and "from './battle.js?h=" in skj and 'MP：' in skj,
+              '技情報モジュールは実データ (parts / mp / 敵技生成器) を参照')
         for forbidden in ('enemy3d.js', 'enemyModelKey', 'model3d', 'enemy-3d'):
             check(forbidden not in t and forbidden not in ui and forbidden not in st,
                   f'配信 JS に 3D 残存なし: {forbidden}')
@@ -96,13 +105,20 @@ def main():
         cs = css.decode('utf-8')
         check('.enemy-art' in cs and '.enemy-move-fx' in cs and '.story-chapter' in cs,
               '2D 表示・専用技・ストーリーの CSS が配信される')
-        check('.creator-layer' in cs and '.creator-searchbar' in cs and '.creator-evolve-btn' in cs
-              and '.ftab-story-link' in cs, '製作者ツール / ストーリータブの CSS が配信される')
+        check('.creator-layer' in cs and '.creator-searchbar' in cs
+              and '.creator-evolve-one' in cs and '.creator-note' in cs
+              and '.creator-evolve-btn' not in cs and '.ftab-story-link' in cs,
+              '製作者ツール（小さいボタン） / ストーリータブの CSS が配信される')
+        check('.skill-metrics' in cs and '.sk-power' in cs and '.sk-mp' in cs
+              and '.skill-detail-modal' in cs and '@media (max-width:640px)' in cs,
+              '技バッジ・詳細・スマホ幅の CSS が配信される')
         _, _, creator_js = request(port, '/js/creatorTools.js?h=x')
         cj = creator_js.decode('utf-8')
-        check('creatorBulkEvolve' in cj and "const PASSWORD = 'kiyo'" in cj
-              and '全キャラクターのLR進化が完了しました！' in cj,
-              '製作者ツール本体（認証・一括進化・完了文言）が配信される')
+        check('creatorEvolveOne' in cj and "const PASSWORD = 'kiyo'" in cj
+              and 'のLR進化が完了しました！' in cj
+              and 'data-creator-action="evolveOne"' in cj
+              and '全キャラクターのLR進化が完了しました！' not in cj,
+              '製作者ツール本体（認証・キャラ 1 体ずつの一括進化・全員一括なし）が配信される')
         check("from './state.js?h=" in cj and "from './ui.js?h=" in cj,
               '製作者ツールの import も内容ハッシュ付き')
         _, _, data_js = request(port, '/js/data.js?h=x')

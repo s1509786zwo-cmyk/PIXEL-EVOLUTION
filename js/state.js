@@ -448,7 +448,7 @@ export function defaultSaveFields() {
     lastDaily: nowDate(),
     // 製作者ツールの「完了・保存」状態。後方互換のため欠損時は updateExistingSave が補うだけ。
     // 通常プレイの進行・所持品には一切影響しない、追加専用のフラグ。
-    creatorTool: { completed:false, lastRunAt:null, lastCount:0 },
+    creatorTool: { completed:false, lastRunAt:null, lastCount:0, lastCharId:null },
   };
 }
 
@@ -1032,7 +1032,7 @@ export function evolveCharacter(state, c) {
 }
 
 /* ============================================================
-   製作者専用ツール：全自作キャラの一括 LR 進化（隠し機能）
+   製作者専用ツール：自作キャラ 1 体の LR 進化（隠し機能）
    ------------------------------------------------------------
    - 通常進化と同じ rankUpBonus() を R→SR→SSR→UR→LR の 4 回
      順番に適用した「理論値」を、そのキャラの現在の育成状態から算出。
@@ -1041,6 +1041,8 @@ export function evolveCharacter(state, c) {
      ストーリー・ガチャ・クエスト等は変更しない。
    - 既に理論値以上なら加算せず、既に LR なら何も壊さない（冪等）。
    - 実績判定 checkAchievements() は呼ばない（報酬で所持コインが増えないようにする）。
+   - 「一括」は 1 キャラの中の全進化段階をまとめて行う意味で、
+     他のキャラクターには一切影響しない（全員一括進化の経路は存在しない）。
    ============================================================ */
 /** そのキャラが通常育成で R から LR まで 4 回進化した場合の evolutionBonus 理論値 */
 export function creatorLRTheory(state, c) {
@@ -1084,50 +1086,56 @@ function creatorGrantSkill(c, state, id) {
   return true;
 }
 
+/** 1 キャラ分だけを LR 理論値へ進化させる同期処理。途中状態を作らない。 */
+function creatorEvolveChar(state, c) {
+  const from = c.rarity || 'R';
+  const missing = Math.max(0, 4 - charRankIndex(from));
+  const theory = creatorLRTheory(state, c);
+  const beforeBonus = clone(c.evolutionBonus || emptyEvolutionBonus());
+  const merged = maxEvolutionBonus(c.evolutionBonus, theory);
+  const bonusChanged = creatorBonusChanged(beforeBonus, merged);
+  const rankChanged = from !== 'LR';
+
+  /* 1) ランクと進化ボーナスだけを理論値へ。画像・名前・職業・装備は触らない */
+  c.rarity = 'LR';
+  c.evolutionBonus = merged;
+
+  /* 2) 通常進化と同じ付随効果を「不足分だけ」適用 */
+  if (missing > 0) c.statPoints = (Number(c.statPoints) || 0) + 6 * missing;
+  for (const rule of EVOLUTION_RULES) creatorGrantSkill(c, state, rule.skill);
+  const uidv = c.jobId === GOD_JOB_ID ? GOD_ULTIMATE_ID : JOB_ULTIMATE[c.jobId];
+  if (uidv) creatorGrantSkill(c, state, uidv);
+  if (c.specialKey && c.specialUltimateId) creatorGrantSkill(c, state, c.specialUltimateId);
+  c.ultimateSkills = Array.isArray(c.ultimateSkills) ? c.ultimateSkills : [];
+  for (const sk of c.skills)
+    if (ULTIMATE_IDS.has(sk.id) && !c.ultimateSkills.includes(sk.id)) c.ultimateSkills.push(sk.id);
+
+  /* 3) 通常進化と同じく HP/MP を最大まで戻し、装備スナップショットを更新 */
+  restoreFull(state, c);
+  syncEquipmentSnapshot(state, c);
+  if (missing > 0) state.stats.evolutions = (state.stats.evolutions || 0) + missing;
+  logEvent(state, `製作者ツール：「${c.name}」を ${from} → LR の理論値へ進化（素材・コイン消費なし）。`, 'evolution');
+  return { id:c.id, name:c.name, from, to:'LR', rankChanged, bonusChanged,
+    changed:rankChanged || bonusChanged, theory, applied:merged };
+}
+
 /**
- * 現在のセーブに登録されている「自作キャラ全員」を LR の理論値へ一括進化する。
- * 同期処理（await なし）なので、途中で画面を閉じても中途半端な状態にならない。
- * 戻り値は UI / テスト用のレポートで、セーブ形式には新しい必須項目を増やさない。
+ * 製作者ツールの「一括進化」ボタン 1 回＝指定した自作キャラ 1 体だけを LR へ進化する。
+ * 他のキャラクターは 1 件も変更しない。同期処理（await なし）なので
+ * 途中で画面を閉じても中途半端な状態にならない。
+ * 完了状態は後方互換の追加フィールド state.creatorTool に「追加するだけ」。
  */
-export function creatorBulkEvolve(state) {
+export function creatorEvolveOne(state, charId) {
   const chars = Array.isArray(state.characters) ? state.characters : [];
-  const out = { total: chars.length, evolved: 0, alreadyMax: 0, characters: [] };
-  for (const c of chars) {
-    const from = c.rarity || 'R';
-    const missing = Math.max(0, 4 - charRankIndex(from));
-    const theory = creatorLRTheory(state, c);
-    const beforeBonus = clone(c.evolutionBonus || emptyEvolutionBonus());
-    const merged = maxEvolutionBonus(c.evolutionBonus, theory);
-    const bonusChanged = creatorBonusChanged(beforeBonus, merged);
-    const rankChanged = from !== 'LR';
-
-    /* 1) ランクと進化ボーナスだけを理論値へ。画像・名前・職業・装備は触らない */
-    c.rarity = 'LR';
-    c.evolutionBonus = merged;
-
-    /* 2) 通常進化と同じ付随効果を「不足分だけ」適用 */
-    if (missing > 0) c.statPoints = (Number(c.statPoints) || 0) + 6 * missing;
-    for (const rule of EVOLUTION_RULES) creatorGrantSkill(c, state, rule.skill);
-    const uidv = c.jobId === GOD_JOB_ID ? GOD_ULTIMATE_ID : JOB_ULTIMATE[c.jobId];
-    if (uidv) creatorGrantSkill(c, state, uidv);
-    if (c.specialKey && c.specialUltimateId) creatorGrantSkill(c, state, c.specialUltimateId);
-    c.ultimateSkills = Array.isArray(c.ultimateSkills) ? c.ultimateSkills : [];
-    for (const sk of c.skills)
-      if (ULTIMATE_IDS.has(sk.id) && !c.ultimateSkills.includes(sk.id)) c.ultimateSkills.push(sk.id);
-
-    /* 3) 通常進化と同じく HP/MP を最大まで戻し、装備スナップショットを更新 */
-    restoreFull(state, c);
-    syncEquipmentSnapshot(state, c);
-    if (missing > 0) state.stats.evolutions = (state.stats.evolutions || 0) + missing;
-    if (rankChanged || bonusChanged) out.evolved++; else out.alreadyMax++;
-    out.characters.push({ id:c.id, name:c.name, from, to:'LR', rankChanged, bonusChanged,
-      theory, applied:merged });
-    logEvent(state, `製作者ツール：「${c.name}」を ${from} → LR の理論値へ一括進化（素材・コイン消費なし）。`, 'evolution');
-  }
-  /* 完了状態は既存セーブに「追加するだけ」。古いセーブに creatorTool が無くても動く */
+  const c = chars.find(x => x.id === charId) || null;
+  if (!c) return { ok:false, msg:'キャラクターが見つかりません', total:0,
+    evolved:0, alreadyMax:0, characters:[] };
+  const one = creatorEvolveChar(state, c);
   state.creatorTool = { ...(state.creatorTool || {}), completed:true,
-    lastRunAt:new Date().toISOString(), lastCount:chars.length };
-  return out;
+    lastRunAt:new Date().toISOString(), lastCount:1, lastCharId:c.id };
+  return { ok:true, msg:`「${c.name}」のLR進化が完了しました！`,
+    total:1, evolved:one.changed ? 1 : 0, alreadyMax:one.changed ? 0 : 1,
+    characters:[one], untouched:chars.length - 1 };
 }
 
 /* ---------- 武器・装備のランク進化 ---------- */

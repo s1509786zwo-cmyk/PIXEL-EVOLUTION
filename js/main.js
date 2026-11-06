@@ -10,7 +10,7 @@ import * as EA from './enemyArt.js?v=2';
 import { STORY_CHAPTERS, storyIntegrity } from './story.js?v=2';
 import { ASSET_FILES, ENEMY_KINDS, UNREADABLE_FILES } from './enemyAssets.js?v=2';
 import { initCreatorTools, toggleCreator, syncCreatorTools, creatorReport,
-  openCreator, closeCreator, authenticateCreator, evolveAllCreator } from './creatorTools.js?v=2';
+  openCreator, closeCreator, authenticateCreator, evolveOneCreator } from './creatorTools.js?v=2';
 
 const app = {
   screen: 'title', params: {}, tabs: {}, draft: null, look: null, compare: false,
@@ -24,6 +24,7 @@ const app = {
   storyChapter: null, storyBattle: null, assetEnemy: null, assetPage: 0,
   enemyVariant: 0, backups: [], loadIssue: {},
   creator: { open:false, mode:'closed' },   // 製作者ツールの表示状態（セーブ対象外・通常プレイ無影響）
+  skillDetail: null, skillCheckEnemy: null,   // 技情報の詳細モーダル / 戦闘前の技確認
 };
 let state = S.newState();
 let toastTimer = null, regenTimer = null;
@@ -806,6 +807,8 @@ async function handleAction(action, ds, el) {
 
     /* --- 素材・進化 --- */
     case 'matDetail': app.materialDetail = ds.id; return render();
+    case 'skillInfo': app.skillDetail = ds.skill || null; return render();
+    case 'skillInfoClose': app.skillDetail = null; return render();
     case 'matDetailClose': app.materialDetail = null; return render();
     case 'matSourceGo': {
       // 素材詳細を閉じてから入手先の画面へ。移動後も所持品・進行状況はそのまま。
@@ -1105,6 +1108,7 @@ document.addEventListener('change', ev => {
   if (el.dataset?.change) {
     const v = el.value, key = el.dataset.change;
     if (key === 'skillFilter') { app.skillFilter = v; app.skillOffset = 0; return render(); }
+    if (key === 'skillCheckEnemy') { app.skillCheckEnemy = v; return render(); }
     if (key === 'equipSlot') { app.equipSlot = v; return render(); }
     if (key === 'equipTitle') { S.equipTitle(state, S.activeChar(state), v); return commit('称号を変更しました'); }
   }
@@ -1150,7 +1154,7 @@ window.__OCF = { app, get state() { return state; }, S, D, P, navigate, handleAc
   EA, STORY: { chapters: STORY_CHAPTERS, integrity: storyIntegrity },
   ASSETS: { files: ASSET_FILES, kinds: ENEMY_KINDS, unreadable: UNREADABLE_FILES },
   CREATOR: { toggle: toggleCreator, open: openCreator, close: closeCreator,
-    authenticate: authenticateCreator, evolveAll: evolveAllCreator, report: creatorReport } };
+    authenticate: authenticateCreator, evolveOne: evolveOneCreator, report: creatorReport } };
 
 /* ---------------- 起動 ---------------- */
 (async function boot() {

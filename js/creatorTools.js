@@ -4,15 +4,16 @@
    - 通常プレイの画面・セーブ・進行には一切手を加えない。
      #app の外側に単一のオーバーレイを 1 つだけ作り、C キーで開閉する。
    - パスワード認証は「決定」ボタン（または入力欄の Enter）でのみ実行。
-   - 一括進化は state.js の creatorBulkEvolve() に委譲し、
-     同期処理 → 1 回の保存 → 完了メッセージ、の順で確定する。
+   - 「一括進化」はキャラカードごとの小さいボタン。押したカードの
+     キャラクター 1 体だけを進化させ、他のキャラは一切変更しない。
+   - 進化は同期処理 → 1 回の保存 → 完了メッセージ、の順で確定する。
    ============================================================ */
 import { e, charImage, rankBadge } from './ui.js?v=2';
 import { JOB } from './data.js?v=2';
-import { creatorBulkEvolve } from './state.js?v=2';
+import { creatorEvolveOne } from './state.js?v=2';
 
 const PASSWORD = 'kiyo';                 // 半角小文字のみ。大文字・空白・余分な文字は不可
-const DONE_TEXT = '全キャラクターのLR進化が完了しました！';
+const DONE_SUFFIX = 'のLR進化が完了しました！';
 
 let host = null;                         // 唯一のオーバーレイ要素
 let ctx = null;                          // { app, getState, save, refresh }
@@ -20,6 +21,7 @@ let busy = false;                        // 進化処理中は画面を閉じな
 let err = '';
 let doneMsg = '';
 let lastResult = null;
+let lastCharId = null;
 
 function ensureHost() {
   if (host) return host;
@@ -56,13 +58,16 @@ function charCard(c, i) {
   const rank = c.rarity || 'R';
   const job = JOB[c.jobId]?.name || c.jobId || '—';
   const lv = Number(c.level) || 1;
-  return `<article class="creator-char" data-creator-id="${e(c.id || String(i))}">
+  return `<article class="creator-char" data-creator-done="${rank === 'LR' ? '1' : '0'}" data-creator-id="${e(c.id || String(i))}">
     <div class="creator-portrait">${charImage(c, 'creator-art')}</div>
     <div class="creator-char-meta">
       <div class="creator-char-name">${e(c.name || '名無し')}</div>
       <div class="creator-char-row">${rankBadge(rank)}<span class="creator-char-lv">Lv.${lv}</span></div>
       <div class="creator-char-job">${e(String(job))}</div>
     </div>
+    <button type="button" class="creator-evolve-one" data-creator-action="evolveOne"
+      data-creator-id="${e(c.id || String(i))}" ${busy ? 'disabled' : ''}
+      title="このキャラクター 1 体だけを LR 理論値へ進化（消費ゼロ）">⚡ 一括進化</button>
   </article>`;
 }
 
@@ -82,18 +87,11 @@ function toolsHTML() {
       <button type="button" class="creator-x" data-creator-action="close" aria-label="閉じる">×</button>
     </header>
 
-    <section class="creator-action">
-      <div class="creator-action-copy">
-        <h2>⚡ 一括進化</h2>
-        <p>一覧の<strong>全自作キャラクター</strong>を、育成素材・ゲーム内通貨・アイテムを<strong>一切消費せず</strong>に LR の理論値まで進化させます。</p>
-        <p class="creator-action-note">レベル・名前・画像・職業・装備・習得済み技・既存セーブデータは保持されます。</p>
-      </div>
-      <button type="button" class="creator-evolve-btn" data-creator-action="evolve" ${busy ? 'disabled' : ''}>
-        <span class="creator-evolve-icon" aria-hidden="true">⚡</span>
-        <span class="creator-evolve-label">一括進化</span>
-        <small>全キャラ → LR 理論値 / 消費ゼロ</small>
-      </button>
-    </section>
+    <div class="creator-note">
+      <b>⚡ 一括進化</b> は各キャラクターのカードにある小さいボタンから実行します。
+      押した <strong>そのキャラクター 1 体だけ</strong> が LR の理論値へ進化し、他のキャラクターには影響しません。
+      育成素材・コイン・アイテムの消費はゼロ。名前・画像・職業・装備・既存の技・セーブデータは保持されます。
+    </div>
 
     ${busy ? '<p class="creator-busy" role="status">進化処理中です… 保存が終わるまで画面を閉じません。</p>' : ''}
     ${doneMsg ? `<p class="creator-done-msg" role="status">✅ ${e(doneMsg)}</p>` : ''}
@@ -142,8 +140,8 @@ function onHostClick(ev) {
     authenticateCreator(inp ? inp.value : '');
   } else if (act === 'close' || act === 'done') {
     closeCreator();
-  } else if (act === 'evolve') {
-    evolveAllCreator();
+  } else if (act === 'evolveOne') {
+    evolveOneCreator(el.dataset.creatorId);
   }
 }
 function onHostKeyDown(ev) {
@@ -160,7 +158,7 @@ export function initCreatorTools(options) {
   // ページ再読込／テストの再起動で document が差し替わったら、古い DOM を捨てて
   // 新しい document に 1 つだけ作り直す（オーバーレイの重複を絶対に起こさない）。
   if (host && host.ownerDocument !== document) {
-    host = null; busy = false; err = ''; doneMsg = ''; lastResult = null;
+    host = null; busy = false; err = ''; doneMsg = ''; lastResult = null; lastCharId = null;
   }
   ensureHost();
   draw();
@@ -176,7 +174,7 @@ export function openCreator() {
   if (!ctx || busy) return false;
   const cr = ctx.app.creator;
   cr.open = true; cr.mode = 'password';
-  err = ''; doneMsg = ''; lastResult = null;
+  err = ''; doneMsg = ''; lastResult = null; lastCharId = null;
   draw();
   return true;
 }
@@ -201,32 +199,35 @@ export function authenticateCreator(value) {
     draw();
     return false;
   }
-  err = ''; doneMsg = ''; lastResult = null;
+  err = ''; doneMsg = ''; lastResult = null; lastCharId = null;
   cr.mode = 'tools';
   draw();
   return true;
 }
 
-/** 一括進化：同期で全件適用 → 1 回だけ保存 → 完了メッセージ */
-export async function evolveAllCreator() {
+/** カード 1 枚の「一括進化」：そのキャラ 1 体だけを同期適用 → 1 回だけ保存 */
+export async function evolveOneCreator(charId) {
   if (!ctx || busy) return { ok:false, msg:'処理中です' };
   const cr = ctx.app.creator;
   if (!cr.open || cr.mode !== 'tools') return { ok:false, msg:'ツールが開いていません' };
+  if (!charId) return { ok:false, msg:'キャラクターが指定されていません' };
   busy = true; doneMsg = '';
-  draw();                                      // ボタンを無効化して二重実行を防ぐ
+  draw();                                      // 全ボタンを無効化して二重実行を防ぐ
   let result = null;
   try {
-    result = creatorBulkEvolve(ctx.getState());  // await なし＝原子的に全件確定
-    await ctx.save(true);                       // 1 回の即時保存で永続化
+    result = creatorEvolveOne(ctx.getState(), charId);   // await なし＝原子的に 1 件だけ確定
+    if (!result.ok) throw new Error(result.msg || '進化できませんでした');
+    await ctx.save(true);                               // 1 回の即時保存で永続化
     lastResult = result;
-    doneMsg = DONE_TEXT;
+    lastCharId = charId;
+    doneMsg = result.msg || `「${result.characters[0]?.name || ''}」${DONE_SUFFIX}`;
   } catch (ex) {
     doneMsg = `進化処理に失敗しました：${ex?.message || ex}`;
   } finally {
     busy = false;
     draw();
   }
-  return { ok:!!result, result, msg:doneMsg };
+  return { ok:!!result?.ok, result, msg:doneMsg };
 }
 
 /** 通常ゲームの render() から呼ぶ。ツール表示中に新キャラが増えても自動で一覧へ入る */
@@ -248,8 +249,8 @@ export function creatorReport() {
     names: chars.map(c => c.name),
     layers: document.querySelectorAll('#creator-layer').length,
     completed: !!st?.creatorTool?.completed,
-    lastResult,
+    lastCharId, lastResult,
   };
 }
 
-export { DONE_TEXT };
+export { DONE_SUFFIX };

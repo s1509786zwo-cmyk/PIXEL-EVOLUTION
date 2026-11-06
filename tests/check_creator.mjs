@@ -6,7 +6,7 @@
    ・パスワード画面の文言／入力欄／決定ボタン、決定押下でのみ認証
    ・正しい kiyo のみ通過、大小文字・空白・余分な文字・全角を拒否
    ・ツール画面の一覧（画像・名前・ランク・全件・スクロール・新規キャラ自動追加）
-   ・一括進化：無消費・全ランク→LR・通常育成の LR 理論値・奥義解放・冪等性
+   ・各カードの小さい「一括進化」：無消費・押した 1 体だけ LR・他キャラ不変・LR 理論値・冪等性
    ・完了ボタン、再起動後のセーブ維持（更新扱い／新規ゲーム化の防止）
 */
 import fs from 'node:fs';
@@ -15,7 +15,7 @@ import { setup, assert, fileURL, wait, ROOT } from './_harness.mjs';
 const clone = o => JSON.parse(JSON.stringify(o));
 const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const LS = 'ocf_save_v3';
-const DONE = '全キャラクターのLR進化が完了しました！';
+const DONE_SUFFIX = 'のLR進化が完了しました！';
 
 /* =========================================================
    0. 通常の育成システムで R→LR した場合の理論値との一致
@@ -202,9 +202,20 @@ assert(shellTitle.includes('CREATOR TOOLS') && shellTitle.includes('製作者ツ
   '専用画面のタイトル CREATOR TOOLS / 製作者ツール');
 assert(document.querySelector('.creator-shell').getAttribute('aria-modal') === 'true',
   '通常ゲームと明確に区別できるモーダル');
-assert(!!document.querySelector('.creator-evolve-btn') &&
-  document.querySelector('.creator-evolve-btn').textContent.includes('一括進化'),
-  '目立つ「一括進化」ボタン');
+const cssText = fs.readFileSync(ROOT + '/css/style.css','utf8');
+const oneButtons = () => [...document.querySelectorAll('.creator-char [data-creator-action="evolveOne"]')];
+assert(oneButtons().length === st.characters.length,
+  `キャラ ${st.characters.length} 人すべてのカードに「一括進化」ボタン`);
+assert(oneButtons().every(b => b.textContent.includes('一括進化')),
+  '各ボタンのラベルは「一括進化」');
+assert(!document.querySelector('[data-creator-action="evolve"]') &&
+  !document.querySelector('.creator-evolve-btn'),
+  '全キャラを一気に進化させる大きなボタン／経路は存在しない');
+assert(cssText.includes('.creator-evolve-one{width:100%;min-height:32px') &&
+  !cssText.includes('.creator-evolve-btn'),
+  '各カードのボタンは小さく（高さ32px）、巨大ボタンの CSS は撤去');
+assert(document.querySelector('.creator-note')?.textContent.includes('そのキャラクター 1 体だけ'),
+  '「1 体だけ」であることを画面に明記');
 assert(!!document.querySelector('.creator-scroll') &&
   fs.readFileSync(ROOT + '/css/style.css','utf8').includes('overflow-y:auto'),
   'スクロール可能な一覧');
@@ -236,9 +247,9 @@ assert(layer().textContent.includes('あとから追加'), '新キャラの名�
 assert(document.querySelector('.town-page'), 'ツール表示中も通常ゲーム側は描画されている');
 
 /* =========================================================
-   5. 一括進化：無消費・LR 理論値・既存データ保護
+   5. 各カードの「一括進化」：押した 1 体だけに反映・無消費・LR 理論値
    ========================================================= */
-console.log('== 5. 一括進化（無消費 / LR 理論値 / 既存セーブ保護） ==');
+console.log('== 5. 1 キャラずつの一括進化（他キャラ不変 / 無消費 / LR 理論値） ==');
 const total = st.characters.length;
 const snap = {
   coins:st.coins, bp:st.bp, rankPoints:st.rankPoints,
@@ -250,28 +261,41 @@ const snap = {
     id:c.id, name:c.name, original:c.original, sprite:c.sprite,
     transparentData:c.transparentData, imageSettings:clone(c.imageSettings),
     jobId:c.jobId, level:c.level, exp:c.exp, alloc:clone(c.alloc),
-    equipment:clone(c.equipment), skills:c.skills.map(s => s.id),
+    equipment:clone(c.equipment), skills:c.skills.map(x => x.id),
     equippedSkills:clone(c.equippedSkills), statPoints:c.statPoints,
     rarity:c.rarity, bonus:clone(c.evolutionBonus),
     stats:clone(S.computeStats(c, st)),
   })),
 };
+const ranksBefore = st.characters.map(c => c.rarity);
+const targetIdx = 0;                    // R の「自作1」だけを進化させる
+const secondIdx = 1;                    // 続けて SR の「自作2」を進化させる
+const targetId = st.characters[targetIdx].id;
+const secondId = st.characters[secondIdx].id;
+const untouched = i => i !== targetIdx && i !== secondIdx;
 
-const evoBtn = document.querySelector('[data-creator-action="evolve"]');
-evoBtn.click();                               // 実際のボタンから実行
-assert(document.querySelector('[data-creator-action="evolve"]').disabled === true,
-  '処理中は一括進化ボタンを無効化（二重実行防止）');
+oneButtons()[targetIdx].click();        // 実際の小さいボタンから実行
+assert([...document.querySelectorAll('[data-creator-action="evolveOne"]')].every(b => b.disabled),
+  '処理中は全カードのボタンを無効化（二重実行防止）');
 assert(document.querySelector('[data-creator-action="done"]').disabled === true,
   '処理中は完了ボタンも無効化（閉じてのデータ破損を防止）');
-document.querySelector('[data-creator-action="evolve"]').click();   // 二重クリック
+oneButtons()[targetIdx].click();        // 二重クリック（無効化されているので無視される）
 await wait(160);
 assert(report().busy === false, '処理が完了');
-assert(report().message === DONE, `完了メッセージ「${DONE}」`);
-assert(!!report().lastResult && report().lastResult.total === total,
-  `${total} 人すべてが処理対象`);
-assert(report().lastResult.alreadyMax >= 1, '既に LR 理論値のキャラは「変更なし」として扱う');
-assert(st.characters.every(c => c.rarity === 'LR'), 'R / SR / SSR / UR / LR の全員が LR へ');
-assert(report().ranks.every(r => r === 'LR'), 'UI 側のレポートも全件 LR');
+assert(report().message === `「${snap.chars[targetIdx].name}」${DONE_SUFFIX}`,
+  `完了メッセージは対象キャラ 1 体の名前（${report().message}）`);
+assert(!!report().lastResult && report().lastResult.total === 1 &&
+  report().lastResult.untouched === total - 1,
+  `処理対象は 1 体だけ / 残り ${total - 1} 体は未処理`);
+assert(report().lastCharId === targetId, 'レポートも対象キャラの ID だけを記録');
+assert(st.characters[targetIdx].rarity === 'LR', '押したキャラだけが LR へ');
+assert(st.characters.every((c, i) => untouched(i) ? c.rarity === ranksBefore[i] : true),
+  '押していないキャラのランクは 1 人も変わらない');
+assert(st.characters[secondIdx].rarity === ranksBefore[secondIdx],
+  '隣のカードのキャラも進化していない（全員一括ではない）');
+assert(report().ranks[targetIdx] === 'LR' &&
+  report().ranks[secondIdx] === ranksBefore[secondIdx],
+  'UI レポートも対象 1 体だけ LR（全員 LR 化は起きない）');
 
 // 無消費：通貨・素材・装備・ガチャ・ストーリー等は 1 ミリも変わらない
 assert(st.coins === snap.coins, `コイン不変 ${st.coins}`);
@@ -288,8 +312,8 @@ assert(st.stats.pulls === snap.stats.pulls && st.stats.wins === snap.stats.wins,
   '既存のガチャ / 戦績統計を維持');
 
 const KEYS = ['hp','atk','def','mp'];
-st.characters.forEach((c, i) => {
-  const b = snap.chars[i];
+const checkEvolved = (i) => {
+  const c = st.characters[i], b = snap.chars[i];
   assert(c.id === b.id && c.name === b.name && c.original === b.original &&
     c.sprite === b.sprite && c.transparentData === b.transparentData,
     `No.${i + 1} の名前・画像データを変更しない`);
@@ -298,38 +322,61 @@ st.characters.forEach((c, i) => {
     `No.${i + 1} の職業・レベル・EXP を維持`);
   assert(eq(c.alloc, b.alloc) && eq(c.equipment, b.equipment),
     `No.${i + 1} の振り分け・装備をリセットしない`);
-  assert(b.skills.every(id => c.skills.some(s => s.id === id)) &&
+  assert(b.skills.every(id => c.skills.some(x => x.id === id)) &&
     b.equippedSkills.every(id => c.equippedSkills.includes(id)),
     `No.${i + 1} の習得済み技・セット済み技を消さない`);
   const rankIdx = D.CHAR_RARITY_ORDER.indexOf(b.rarity);
   assert(c.statPoints === b.statPoints + 6 * Math.max(0, 4 - rankIdx),
     `No.${i + 1} のステータスポイントは通常進化と同じ不足分だけ`);
   const th = S.creatorLRTheory(st, c);
-  assert(eq(c.evolutionBonus, th),
-    `No.${i + 1} の進化ボーナスが LR 理論値どおり（二重加算なし）`);
-  assert(KEYS.every(k => c.evolutionBonus[k] >= th[k]), `No.${i + 1} の理論値を下回らない`);
+  assert(eq(c.evolutionBonus, th), `No.${i + 1} の進化ボーナスが LR 理論値どおり（二重加算なし）`);
   const now = S.computeStats(c, st);
   assert(KEYS.every(k => now[k] >= b.stats[k]), `No.${i + 1} の 4 基本ステータスが上昇`);
   for (const r of D.EVOLUTION_RULES)
-    assert(c.skills.some(s => s.id === r.skill), `No.${i + 1} にランク技 ${r.skill} を解放`);
+    assert(c.skills.some(x => x.id === r.skill), `No.${i + 1} にランク技 ${r.skill} を解放`);
   const uidv = c.jobId === D.GOD_JOB_ID ? D.GOD_ULTIMATE_ID : D.JOB_ULTIMATE[c.jobId];
   if (uidv) {
-    assert(c.skills.some(s => s.id === uidv), `No.${i + 1} に LR 職業奥義 ${uidv} を解放`);
+    assert(c.skills.some(x => x.id === uidv), `No.${i + 1} に LR 職業奥義 ${uidv} を解放`);
     assert(c.ultimateSkills.includes(uidv), `No.${i + 1} の ultimateSkills にも登録`);
   }
   assert(c.hp === now.hp && c.mp === now.mp, `No.${i + 1} の HP/MP キャッシュを理論値に同期`);
+};
+checkEvolved(targetIdx);
+st.characters.forEach((c, i) => {
+  if (untouched(i)) assert(eq(c.evolutionBonus, snap.chars[i].bonus),
+    `No.${i + 1} の進化ボーナスは未変更（押していないキャラ）`);
 });
-assert(st.creatorTool.completed === true && st.creatorTool.lastCount === total,
-  '進化完了・保存状態をセーブ項目として記録');
+assert(st.creatorTool.completed === true && st.creatorTool.lastCount === 1 &&
+  st.creatorTool.lastCharId === targetId,
+  '進化完了・対象 1 体の情報をセーブ項目として記録');
 
-// 冪等性：もう一度実行してもステータスは一切増えない
+// 2 体目：別のカードを押すと、そのキャラだけが追加で進化する
+const secondBonusBefore = st.characters.map(c => clone(c.evolutionBonus));
+oneButtons()[secondIdx].click();
+await wait(160);
+assert(report().message === `「${snap.chars[secondIdx].name}」${DONE_SUFFIX}`,
+  '2 体目も押したキャラの名前で完了表示');
+assert(report().lastResult.total === 1 && report().lastCharId === secondId,
+  '2 回目も処理対象は 1 体だけ');
+assert(st.characters[secondIdx].rarity === 'LR', '2 体目だけが LR へ');
+checkEvolved(secondIdx);
+assert(st.characters.every((c, i) => untouched(i) ?
+  c.rarity === ranksBefore[i] && eq(c.evolutionBonus, secondBonusBefore[i]) : true),
+  '1 体目・2 体目以外は 2 回目でも一切変化しない');
+assert(eq(st.characters[targetIdx].evolutionBonus, secondBonusBefore[targetIdx]),
+  '1 体目の理論値は 2 回目で二重加算されない');
+
+// 冪等性：同じボタンをもう一度押しても増えないし、全員進化も起きない
 const bonusBefore2 = st.characters.map(c => clone(c.evolutionBonus));
-const rep2 = S.creatorBulkEvolve(st);
-assert(rep2.evolved === 0 && rep2.alreadyMax === total,
-  '2 回目は全員「変更なし」（理論値到達済みを重複加算しない）');
+const rep2 = S.creatorEvolveOne(st, targetId);
+assert(rep2.evolved === 0 && rep2.alreadyMax === 1 && rep2.total === 1,
+  '同じキャラの再実行は「変更なし」（理論値到達済みを重複加算しない）');
 assert(st.characters.every((c, i) => eq(c.evolutionBonus, bonusBefore2[i])),
-  '2 回目で進化ボーナスが増えない');
-assert(st.characters.every(c => c.rarity === 'LR'), '2 回目も LR のまま');
+  '再実行で進化ボーナスが増えない');
+assert(st.characters.every((c, i) => untouched(i) ? c.rarity === ranksBefore[i] : true),
+  '再実行でも他のキャラが一斉に LR 化しない');
+assert(S.creatorEvolveOne(st, 'not-exist').ok === false,
+  '存在しない ID では何も変更しない');
 
 /* =========================================================
    6. 完了ボタン / C キー / × ボタンで通常ゲームへ戻る
@@ -341,7 +388,9 @@ assert(!report().open && report().mode === 'closed', '「完了」でツール�
 assert(layer().innerHTML === '' && layer().classList.contains('creator-hidden'),
   '閉じた後オーバーレイは消える');
 assert(!!document.querySelector('.town-page'), '通常の街ホーム画面に戻る');
-assert(st.characters.every(c => c.rarity === 'LR'), '閉じても進化結果は保持');
+assert(st.characters[targetIdx].rarity === 'LR' && st.characters[secondIdx].rarity === 'LR' &&
+  st.characters.every((c, i) => untouched(i) ? c.rarity === ranksBefore[i] : true),
+  '閉じても進化した 2 体だけが LR、他は元のランクのまま');
 
 pressC();
 assert(report().open && report().mode === 'password', '完了後も C で再表示できる');
@@ -374,8 +423,10 @@ const raw = localStorage.getItem(LS);
 assert(!!raw, '一括進化の結果が localStorage に保存されている');
 const saved = JSON.parse(raw);
 assert(saved.version === D.VERSION && !!saved.story?.arc, 'VERSION 8 / 既存ストーリー形式のまま');
-assert(saved.characters.length === total && saved.characters.every(c => c.rarity === 'LR'),
-  '保存された全キャラが LR');
+assert(saved.characters.length === total &&
+  saved.characters[targetIdx].rarity === 'LR' && saved.characters[secondIdx].rarity === 'LR' &&
+  saved.characters.every((c, i) => untouched(i) ? c.rarity === ranksBefore[i] : true),
+  '保存データでも進化した 2 体だけが LR（全員一括進化されていない）');
 assert(saved.creatorTool?.completed === true, '完了状態も保存されている');
 assert(saved.coins === snap.coins && eq(saved.inventory.items, snap.items),
   '保存データの通貨・素材も不変');
@@ -392,7 +443,9 @@ assert(!O2.app.loadIssue.unreadable, '破損セーブとして隔離されない
 assert(O2.app.loadIssue.migrated === false, '更新扱いにされず既存セーブとして読込');
 assert(O2.app.screen === 'town', 'セーブありなので街ホームから再開（新規ゲームにならない）');
 assert(st2.characters.length === total, `${total} 人全員が復元される`);
-assert(st2.characters.every(c => c.rarity === 'LR'), '再起動後も全員 LR');
+assert(st2.characters[targetIdx].rarity === 'LR' && st2.characters[secondIdx].rarity === 'LR' &&
+  st2.characters.every((c, i) => untouched(i) ? c.rarity === ranksBefore[i] : true),
+  '再起動後も進化した 2 体だけが LR');
 assert(st2.creatorTool.completed === true, '再起動後も完了状態を維持');
 assert(st2.coins === snap.coins && eq(st2.inventory.items, snap.items),
   '通貨・育成素材が復元後も不変');
@@ -411,8 +464,16 @@ st2.characters.forEach((c, i) => {
   assert(c.name === b.name && c.original === b.original && c.jobId === b.jobId &&
     c.level === b.level && eq(c.equipment, b.equipment),
     `再起動後 No.${i + 1} の名前・画像・職業・レベル・装備を維持`);
-  assert(eq(c.evolutionBonus, S.creatorLRTheory(st2, c)),
-    `再起動後 No.${i + 1} も LR 理論値のまま`);
+  if (i === targetIdx || i === secondIdx)
+    assert(eq(c.evolutionBonus, S.creatorLRTheory(st2, c)),
+      `再起動後 No.${i + 1} も LR 理論値のまま`);
+  else {
+    const b = snap.chars[i].bonus || {}, cur = c.evolutionBonus || {};
+    assert(['hp','atk','def','mp'].every(k => (Number(cur[k]) || 0) === (Number(b[k]) || 0)) &&
+      ['crit','critDamage','ultimatePower'].every(k =>
+        (Number(cur.effects?.[k]) || 0) === (Number(b.effects?.[k]) || 0)),
+      `再起動後 No.${i + 1} は進化ボーナスも未変更（読み込み時の既定値補完のみ許容）`);
+  }
 });
 assert(O2.CREATOR.report().open === false && O2.CREATOR.report().mode === 'closed',
   '再起動後はツールは閉じた状態（通常プレイに影響しない）');
@@ -420,4 +481,4 @@ assert(second.document.querySelectorAll('#creator-layer').length === 1,
   '再起動後もオーバーレイは 1 つだけ（古い DOM を持ち越さない）');
 
 assert(errors.length === 0, `console.error / unhandledRejection 0 件（実際 ${errors.length}: ${errors.slice(0,2)}）`);
-console.log('\nCREATOR TOOLS CHECK OK — Cキー・認証・一覧・一括進化・LR理論値・完了・再起動維持すべて合格');
+console.log('\nCREATOR TOOLS CHECK OK — Cキー・認証・一覧・各キャラ1体ずつの一括進化・全員一括なし・LR理論値・完了・再起動維持すべて合格');
