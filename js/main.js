@@ -6,6 +6,7 @@ import * as S from './state.js?v=2';
 import * as P from './pixel.js?v=2';
 import { Battle } from './battle.js?v=2';
 import { renderScreen, imageFilter, imageTransform, e, charImage, rankVisualStyle } from './ui.js?v=2';
+import * as E3 from './enemy3d.js?v=2';
 
 const app = {
   screen: 'title', params: {}, tabs: {}, draft: null, look: null, compare: false,
@@ -96,6 +97,7 @@ function ensureEnemySprites() {
 }
 
 function initAfterRender() {
+  E3.syncEnemy3D();   // DOM を作り直しても 3D レイヤのホストを再同期する
   const t = $('toast'); if (t && app.toast) t.className = `toast show`;
   if (app.screen === 'create') initEditor('draftStage', 'draft');
   if (app.screen === 'appearance') initEditor('lookStage', 'look');
@@ -495,6 +497,11 @@ const SPECIAL_FX = {
   '河岡':   { n:3, color:'#ff9ecf', glyph:'💠', label:'おにーちゃんの加護' },
 };
 function showFx(o) {
+  // 外部 3D アセットのアニメーションを戦闘イベントに割り当てる（戦闘ロジックは不変）
+  if (o.side === 'enemy' && (o.type === 'damage' || o.type === 'statusDamage' || o.type === 'stun')) E3.playEnemy3D('damage');
+  if (o.side === 'enemy' && (o.type === 'skill' || o.type === 'ultimate')) E3.playEnemy3D('attack');
+  if (o.type === 'victory') E3.playEnemy3D('death');
+  if (o.type === 'defeat') E3.playEnemy3D('attack');
   const layer = $('fx-layer'); if (!layer) return;
   const el = document.createElement('div');
   if (['damage','heal','statusDamage','miss','stun'].includes(o.type)) {
@@ -566,6 +573,7 @@ async function startBattle(enemyDef, mode = 'cpu', floor = 0) {
   app.battle = b; app.result = null; app.battleTab = 'skill'; app.screen = 'battle';
   ready = true;
   render();
+  E3.playEnemy3D('move');   // 登場→待機
   b.start();                 // AUTO 設定が ON なら新しい戦闘でも即座に自動進行を開始
   window.scrollTo({ top:0 });
   sfx('ok');
@@ -1052,7 +1060,7 @@ window.addEventListener('resize', () => {
 });
 
 /* デバッグ・自動テスト用（ゲーム進行には影響しません） */
-window.__OCF = { app, get state() { return state; }, S, D, P, navigate, handleAction };
+window.__OCF = { app, get state() { return state; }, S, D, P, navigate, handleAction, E3 };
 
 /* ---------------- 起動 ---------------- */
 (async function boot() {
@@ -1061,6 +1069,7 @@ window.__OCF = { app, get state() { return state; }, S, D, P, navigate, handleAc
   if (state.home?.started) app.screen = 'town';   // 次回起動時も街のホーム画面から
   ensureEnemySprites();
   render();
+  E3.initEnemy3D();
   // 透過設定だけ保存されている場合、再起動後に透過PNGを作り直す（元画像は不変）
   (async () => {
     for (const ch of state.characters) {

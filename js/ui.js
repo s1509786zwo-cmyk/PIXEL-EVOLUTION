@@ -11,6 +11,7 @@ import {
   ULTIMATE_IDS, SKILL_COUNT, toCoreStats, HINT_CATEGORIES,
   CHAR_RARITIES, CHAR_RARITY, CHAR_RARITY_ORDER, charRankIndex, EVOLUTION_RULES, RATE_TOTAL,
 } from './data.js?v=2';
+import { enemyModelKey } from './enemy3d.js?v=2';
 import {
   fmt, clamp, activeChar, computeStats, powerScore, xpForLevel, jobXpForLevel, levelCap,
   instanceDef, instanceRarity, equipmentStats, findInstance, itemCount,
@@ -99,6 +100,14 @@ export function spriteImg(src, cls = '', aura = 'none') {
   const colors = { blue:'#4fd8ff', gold:'#ffd77a', violet:'#b98bff', rainbow:'#68f7d4', void:'#ff6fae' };
   const glow = colors[aura] ? `--aura:${colors[aura]}` : '';
   return `<img class="sprite ${cls}" src="${e(src)}" alt="キャラクター" style="${glow}">`;
+}
+/** 外部 3D アセット（GLB）を描画するホスト。WebGL 不可時は既存 2D スプライトを残す */
+export function enemy3dHost(en, cls = '', sprite = '', aura = 'none', battle = false) {
+  const key = enemyModelKey(en);
+  return `<div class="enemy-3d ${cls}" data-enemy3d="${e(key)}"${battle ? ' data-enemy3d-battle="1"' : ''}>
+      <div class="enemy-3d-ground"></div>
+      <div class="enemy-3d-fallback">${spriteImg(sprite, cls, aura)}</div>
+    </div>`;
 }
 /* ---------- 素材アイコン ---------- */
 export function itemIcon(id, size = 42) {
@@ -1150,7 +1159,7 @@ function enemyCard(app, s, en, mode='cpu', floor=0) {
   const st = buildEnemyCombatant(en);
   const lockedText = en.hidden ? '覚醒III / ボス3体 / ダンジョン10階' : en.boss ? '6勝 + シルバーランク' : en.tier>=1 ? '3勝で解放' : '';
   return `<div class="enemy-card ${unlocked?'':'locked'}" style="--accent:${en.palette?.accent||'#ffd77a'}">
-    <div class="enemy-sprite">${app.enemySprites[en.id]?`<img src="${app.enemySprites[en.id]}" alt="${e(en.name)}">`:''}</div>
+    <div class="enemy-sprite">${enemy3dHost(en,'card',app.enemySprites[en.id]||'','none')}</div>
     <div class="enemy-info"><b>${e(en.name)}</b><small>${e(JOB[en.job]?.name||'')} / Lv.${en.level} / ${e(en.difficulty||'CPU')}</small>
       <div class="enemy-metrics">${STAT_KEYS.map(k=>`<span>${STAT_ICONS[k]} ${STAT_NAMES[k]} ${fmt(st[k]||0)}</span>`).join('')}</div>
       <div class="enemy-skills">${en.skills.slice(0,3).map(id=>`<span>${e(SKILL[id]?.name||'')}</span>`).join('')}</div>
@@ -1376,7 +1385,7 @@ function combatPanel(b, side, label, char) {
   const rarity = isP ? (char?.rarity || 'R')
     : (side.hidden ? 'S' : side.boss ? 'M' : side.level >= 40 ? 'L' : side.level >= 25 ? 'E' : 'R');
   return `<div class="combatant ${isP?'p1':'p2'} ${isP&&char?.jobId===GOD_JOB_ID?'god-mode':''}" id="${isP?'arena-player':'arena-enemy'}">
-    <div class="combat-sprite ${isP?'':'mirrored'}">${isP && char ? charImage(char,'battle') : spriteImg(side.sprite,'battle',side.aura)}</div>
+    <div class="combat-sprite ${isP?'':'mirrored'}">${isP && char ? charImage(char,'battle') : enemy3dHost(b.enemyDef,'battle',side.sprite,side.aura,true)}</div>
     ${isP && char ? `<div class="combat-rank">${rankBadge(char.rarity)}</div>` : ''}
     <div class="combat-info">
       <div class="combat-name">${e(side.name)}</div>
@@ -1466,6 +1475,7 @@ function resultScreen(app, s) {
   ];
   return `<div class="result-screen" style="background-image:linear-gradient(180deg,rgba(8,12,26,.8),rgba(8,12,26,.96)),url('assets/title_bg.jpg')">
     <div class="result-card ${r.won?'win':'lose'}">
+      <div class="result-enemy-3d">${enemy3dHost(r.enemy,'result','','none',true)}</div>
       <div class="result-crest">${r.won?'🏆':'⚔'}</div>
       <h1>${r.won?'VICTORY':'DEFEAT'}</h1><h2>${r.won?'勝利！':'敗北…'}</h2>
       <p>${e(r.enemy.trueName||r.enemy.name)} との対戦を ${r.turns} ターンで終えた。</p>

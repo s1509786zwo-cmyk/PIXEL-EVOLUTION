@@ -1401,10 +1401,12 @@ export function hiddenBossUnlocked(state, c) {
 }
 export function hardDungeonUnlocked(state) { return state.dungeon.best >= 15; }
 export function dungeonEnemy(state, floor, hard = false) {
-  const pool = ENEMIES.filter(e => !e.boss);
+  // model3d を持つ敵は後から追加した 3D アセット専用の CPU 対戦相手。
+  // ダンジョンの出現順は既存セーブの進行を変えないよう、元の敵だけを使う。
+  const pool = ENEMIES.filter(e => !e.boss && !e.model3d);
   const base = pool[(floor * 3) % pool.length];
   const isBoss = floor % 5 === 0;
-  const bossPool = ENEMIES.filter(e => e.boss && !e.hidden);
+  const bossPool = ENEMIES.filter(e => e.boss && !e.hidden && !e.model3d);
   const src = isBoss ? bossPool[Math.floor(floor / 5) % bossPool.length] : base;
   const mul = (src.mul || 1) * (1 + floor * (hard ? 0.11 : 0.065)) * (hard ? 1.55 : 1);
   return {

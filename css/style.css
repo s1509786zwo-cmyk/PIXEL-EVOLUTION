@@ -347,10 +347,10 @@ small{font-size:11px}
 .streak-box b,.record-box b{font-size:20px;color:#fff}
 .streak-box span,.record-box span{font-size:10.5px;color:var(--muted)}
 .enemy-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px}
-.enemy-card{display:grid;grid-template-columns:62px minmax(0,1fr);gap:9px;align-items:center;padding:10px;border-radius:12px;border:1px solid var(--line);background:linear-gradient(120deg,rgba(20,32,64,.9),rgba(10,16,34,.9));position:relative}
+.enemy-card{display:grid;grid-template-columns:82px minmax(0,1fr);gap:9px;align-items:center;padding:10px;border-radius:12px;border:1px solid var(--line);background:linear-gradient(120deg,rgba(20,32,64,.9),rgba(10,16,34,.9));position:relative}
 .enemy-card.locked{opacity:.55}
 .enemy-card .btn{grid-column:1/-1;width:100%}
-.enemy-sprite{width:62px;height:78px;display:grid;place-items:center;background:radial-gradient(circle,color-mix(in srgb,var(--accent) 20%,transparent),transparent 70%);border-radius:8px;overflow:hidden}
+.enemy-sprite{width:82px;height:92px;display:grid;place-items:center;background:radial-gradient(circle,color-mix(in srgb,var(--accent) 20%,transparent),transparent 70%);border-radius:8px;overflow:hidden}
 .enemy-sprite img{width:100%;height:100%;object-fit:contain;image-rendering:pixelated}
 .enemy-info b{display:block;font-size:13px;color:#fff}
 .enemy-info small{color:var(--muted);font-size:10px}
@@ -1488,3 +1488,22 @@ button.job-card:disabled.locked{cursor:not-allowed}
   .hint-cond{flex-wrap:wrap}
   .hint-cond .btn{margin-left:27px}
 }
+
+/* ============================================================
+   外部 3D アセット（GLB）の敵モデル表示レイヤ
+   WebGL が使えない環境では .enemy-3d-fallback の 2D スプライトを残す。
+   ============================================================ */
+#enemy3d-layer{position:fixed;left:0;top:0;display:block;z-index:60;pointer-events:none;background:transparent}
+.enemy-3d{position:relative;width:100%;height:100%;min-height:1px}
+.enemy-3d-fallback{position:absolute;inset:0;display:grid;place-items:center;transition:opacity .25s ease}
+.enemy-3d[data-enemy3d-loaded="1"] .enemy-3d-fallback{opacity:0;pointer-events:none}
+.enemy-3d-ground{position:absolute;left:12%;right:12%;bottom:3%;height:12%;border-radius:50%;
+  background:radial-gradient(ellipse,rgba(4,8,20,.62),rgba(4,8,20,0) 72%);filter:blur(3px);opacity:0;transition:opacity .3s ease}
+.enemy-3d[data-enemy3d-loaded="1"] .enemy-3d-ground{opacity:.9}
+.enemy-sprite .enemy-3d{width:100%;height:100%}
+.enemy-sprite .enemy-3d-ground{bottom:6%;height:10%}
+.combat-sprite .enemy-3d{width:100%;height:100%}
+.combat-sprite .enemy-3d-ground{left:18%;right:18%;bottom:4%;height:9%}
+.result-enemy-3d{width:160px;height:160px;margin:0 auto 4px;max-width:100%}
+.result-enemy-3d .enemy-3d-ground{bottom:2%}
+@media (max-width:640px){.result-enemy-3d{width:120px;height:120px}}

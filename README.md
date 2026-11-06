@@ -288,12 +288,55 @@ CPU キャラクターのみ `makeEnemySprite()` が 40×52 ドットの髪型�
 - 旧セーブ（ドット絵・旧天井形式・新システム追加前）も読み込み時に自動移行します。装備・ランク・奥義・役職を変更した後も再起動して復元できます。
 - 操作後の自動セーブ、手動セーブ、JSON 書き出し / 読み込み、データ初期化、タイトルの **つづきから** で復元
 
+### 敵キャラクターの外部 3D アセット（CC0 / GLB）
+
+CPU の敵は **実際に取得した外部 3D モデル** を `GLTFLoader` で読み込んで描画します。
+自作の図形・色違い・プレースホルダーは使っていません。形状・色・テクスチャ・材質・
+リグ・アニメーションは元ファイルのままで、ゲーム側で決めるのはカメラに合わせた
+一様な拡大縮小・向き・接地位置だけです。
+
+- 取得元: **Quaternius / Ultimate Monsters**, **Quaternius / Cute Animated Monsters**,
+  **KayKit / Adventurers**, **KayKit / Skeletons** — いずれも **CC0 1.0 (Public Domain)**。
+  原本のライセンス文・出典・全ファイル一覧は `assets/models/enemies/ASSETS.md` と
+  `assets/models/enemies/licenses/` に同梱しています。
+- 形式: **GLB 2.0 (binary glTF)** 10 ファイル + 共有パレット PNG 5 枚。
+  スキン・マテリアル・テクスチャ・アニメーションクリップを保持したまま読み込みます。
+- 描画: three.js r160（MIT）を `js/three.module.js` / `js/three.GLTFLoader.js` /
+  `js/three.BufferGeometryUtils.js` として同梱。WebGL が使える場合だけ動的 import し、
+  1 枚の全面 canvas に scissor + viewport でギルドの一覧・戦闘・リザルトの敵をまとめて描きます。
+  モデルごとの実寸からカメラ距離を決めるため、見切れ・地面への埋もれ・極端な小ささを防ぎます。
+- アニメーション: 元モデルのクリップ名から `idle / move / attack / damage / death` を割り当て、
+  登場・被ダメージ・敵の技・撃破に合わせて再生します（クリップが同梱されていない
+  KayKit 製 2 体は待機ポーズ。詳細は `ASSETS.md`）。
+- **WebGL が使えない環境では 3D を読み込んだふりをせず**、従来の 2D スプライトを表示します。
+  読み込み成否は開発者ツールの `window.__OCF3D.report()` で全モデル分確認できます。
+
+追加した敵（既存 31 体の定義・能力・報酬・セーブデータは無変更のまま末尾に追加）:
+
+| 敵 | シルエット | 使用モデル |
+| --- | --- | --- |
+| 天翔る使徒 ルミエル | 翼を持つ浮遊型（天使相当） | Quaternius / Hywirl |
+| 角魔公 アザゼル | 角と翼を持つ悪魔 | Quaternius / Big Demon |
+| 異形の怪物 ヴォイド | 異形の怪物 | Quaternius / Big Alien |
+| 堕ちた聖騎士 ガウェイン | 甲冑の騎士 | KayKit / Knight |
+| 古竜 リヴァイア | 翼を持つ竜 | Quaternius / Flying Dragon |
+| 死神 モルト | 髑髏の浮遊霊 | Quaternius / Flying Ghost Skull |
+| 深海の異形 クトゥルフ | 触腕を持つ深海の異形 | Quaternius / Cthulhu |
+| 古代の守護者 ゴーレム | 石の守護者 | Quaternius / Goleling |
+| 巨人王 ムシュール | 巨体の王 | Quaternius / Mushroom King |
+| 死者の魔導士 ネクロス | 髑髏の魔導士 | KayKit / Skeleton Mage |
+
+> **天使モデルについて**: 利用許諾を確認できた取得先には純粋な「天使」の CC0 3D モデルが
+> なかったため、天使枠は翼を持つ浮遊型の別シルエット（堕天使／天翔る使徒）を割り当てています。
+> 天使そのもののモデルではなく、仮の図形でもありません。必要な場合は
+> `ASSETS.md` に差し替え先と追加ファイル名を記載しています。
+
 ### 設計メモ
 
 - `Battle` クラスはプレイヤー / CPU を同じ `combatant` 構造で扱うため、将来の友達とのオンライン対戦では CPU 思考部分を差し替えるだけで拡張できます（オンライン対戦自体は未実装）。
 - ゲームデータは `js/data.js`、素材定義と SVG アイコンは `js/materials.js`、ピックアップ / 提供割合 / シークレット秘匿は `js/gacha.js` に集約。
 - 進行ロジックは `js/state.js`、描画は `js/ui.js`、入力・演出は `js/main.js`、画像処理は `js/pixel.js`、戦闘は `js/battle.js` に分離しています。
-- 依存パッケージなし（素の HTML / CSS / ES Modules / 標準ライブラリのみの Python サーバー）。効果音・環境音は WebAudio で合成しているため音声ファイル不要です。
+- 依存パッケージなし（素の HTML / CSS / ES Modules / 標準ライブラリのみの Python サーバー）。three.js はソースを同梱しているため npm インストールは不要です。効果音・環境音は WebAudio で合成しているため音声ファイル不要です。
 - `serve.py` は配信時に HTML / JS / CSS のローカル参照へ内容ハッシュを挿入します。ディスク上のソースは `?v=2` のままなので、Node の ESM としてもそのまま import できます。
 
 ---
@@ -307,7 +350,7 @@ tests/
   check_cache.py   キャッシュ事故の回帰テスト
 css/style.css
 js/
-  data.js       ゲームデータ定義（161技 = 129通常 + 26奥義 + 6神専用 / 130装備 / 22職 / 31 CPU / クエスト / 実績 / レアリティ）
+  data.js       ゲームデータ定義（161技 = 129通常 + 26奥義 + 6神専用 / 130装備 / 22職 / 41 CPU / クエスト / 実績 / レアリティ）
   materials.js  進化素材 40 種の定義・SVG アイコン・ランク要件・合成
   gacha.js      ピックアップバナー（7日周期）/ 提供割合 100% 管理 / シークレット秘匿 / 武器性能・用途
   state.js      セーブ・育成・進化・ガチャ（演出前に結果確定）・報酬・クエスト・ランク等のロジック
@@ -315,9 +358,12 @@ js/
   battle.js     ターン制対戦エンジン（AUTO・1〜3倍速・奥義ゲージ・装備特殊効果の実計算）
   ui.js         全画面の HTML 生成
   main.js       ルーティング・入力・演出・起動
+  enemy3d.js    外部 GLB の読み込み・カメラ適合・アニメーション割り当て・レポート
+  three.module.js / three.GLTFLoader.js / three.BufferGeometryUtils.js  three.js r160 (MIT)
 assets/
   title_bg.jpg, battle_bg.jpg, sample_hero.jpg
   facility_*.jpg  （添付画像を 5 分割したもの）
+  models/enemies/  外部 3D アセット 10 GLB + 共有テクスチャ + ASSETS.md + ライセンス文
 ```
 
 ---
@@ -325,5 +371,6 @@ assets/
 ## 対応環境
 
 - Chrome / Edge / Safari / Firefox の最新版、PC・スマートフォン
-- `Canvas 2D` / `IndexedDB` / `ES Modules` / `WebAudio` を使用
+- `Canvas 2D` / `WebGL`（敵 3D モデル） / `IndexedDB` / `ES Modules` / `WebAudio` を使用
+- WebGL 非対応端末では敵を従来の 2D スプライトで表示します（ゲーム進行への影響なし）
 - 画像形式：PNG / JPEG / WebP / GIF / BMP / AVIF などブラウザが読み込める形式
