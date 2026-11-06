@@ -1,0 +1,2402 @@
+[
+ {
+  "id": "1RdPp9TUu6eEFIa40DLk3RojFdB_Mq2re",
+  "name": "4.インプ.png",
+  "ok": true,
+  "size": 1572160,
+  "sha256": "8a160a8dece34df3fdeed294d1e1aebd462d41efad16009c556c5e851691211f",
+  "file": "assets/enemies/source/1RdPp9TUu6eEFIa40DLk3RojFdB_Mq2re.png",
+  "png": {
+   "w": 1550,
+   "h": 1750,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1Wnw_9eZK4JCYM2qmJ6k0AV2kDGDnM6FH",
+  "name": "3.インプ.png",
+  "ok": true,
+  "size": 1579220,
+  "sha256": "56c8af13d40ad8139ef0c507eb15dc27934a23dffe0f157ecffaf53f32551e00",
+  "file": "assets/enemies/source/1Wnw_9eZK4JCYM2qmJ6k0AV2kDGDnM6FH.png",
+  "png": {
+   "w": 1550,
+   "h": 1750,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1MNC0daFqe-jKp2wOTigx3D1ebGExSDSC",
+  "name": "2.インプ.png",
+  "ok": true,
+  "size": 1573612,
+  "sha256": "4af74fee9aa01f174ad3cbca3b5cbeb6578944118e21774fde2a6b31f1ae9655",
+  "file": "assets/enemies/source/1MNC0daFqe-jKp2wOTigx3D1ebGExSDSC.png",
+  "png": {
+   "w": 1550,
+   "h": 1750,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1tdIEJ9CKKAjeJcnEFpp8xPnAXuMYFBXM",
+  "name": "1.インプ.png",
+  "ok": true,
+  "size": 1570449,
+  "sha256": "fa13cf3b6b46773c2fc4a1086365ceff2be784eac83db4ccdea62d8e6e15fc35",
+  "file": "assets/enemies/source/1tdIEJ9CKKAjeJcnEFpp8xPnAXuMYFBXM.png",
+  "png": {
+   "w": 1550,
+   "h": 1750,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1mFFarhShWDXbL3oSjGBzh3ILKVWSd741",
+  "name": "ゴブリン_棍棒3.png",
+  "ok": true,
+  "size": 667673,
+  "sha256": "f9d917347c88391faf68bfe8b7b05f0d38d6368a09deedfb87c80b8b32c0bc5f",
+  "file": "assets/enemies/source/1mFFarhShWDXbL3oSjGBzh3ILKVWSd741.png",
+  "png": {
+   "w": 734,
+   "h": 1170,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1-7y-HB7VCl6NRpyiyckZOkiqXy1AS8vS",
+  "name": "ゴブリン_棍棒2.png",
+  "ok": true,
+  "size": 636029,
+  "sha256": "a299a11f9ca3c7c727b7640de95d3832b628dab1dd637c43fc8175d8da019807",
+  "file": "assets/enemies/source/1-7y-HB7VCl6NRpyiyckZOkiqXy1AS8vS.png",
+  "png": {
+   "w": 734,
+   "h": 1170,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1Sd0Sk5N-ml34tHcBRcE0sKGxob9PLEO1",
+  "name": "ゴブリン_棍棒1.png",
+  "ok": true,
+  "size": 669485,
+  "sha256": "0e5f77429c4889b6dd1164b59d88228efa9e03845024248f2fa70cbcdced3dcd",
+  "file": "assets/enemies/source/1Sd0Sk5N-ml34tHcBRcE0sKGxob9PLEO1.png",
+  "png": {
+   "w": 734,
+   "h": 1170,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1trwdEMgLERN6r_RMkhGAimEbKqOd7n2I",
+  "name": "ゴブリン_棍棒.png",
+  "ok": true,
+  "size": 678136,
+  "sha256": "ee690f77058881943e559be5e2a812fa3826e497dae070744145ca2a31096f9c",
+  "file": "assets/enemies/source/1trwdEMgLERN6r_RMkhGAimEbKqOd7n2I.png",
+  "png": {
+   "w": 734,
+   "h": 1170,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1nsNEFKYF3VNWNFc3xItLiFu33fvk-xZL",
+  "name": "ゴブリン_斧3.png",
+  "ok": true,
+  "size": 667044,
+  "sha256": "e488ca1c915a29c7d70d3dd16d1273e173551fae39a3716d862c79c1680e7a27",
+  "file": "assets/enemies/source/1nsNEFKYF3VNWNFc3xItLiFu33fvk-xZL.png",
+  "png": {
+   "w": 734,
+   "h": 1170,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "197ygeAcKFwhW5ePgXgaRGPY7lnUuSXpG",
+  "name": "ゴブリン_斧2.png",
+  "ok": true,
+  "size": 635890,
+  "sha256": "e19ec909fdf3e5618583cb1e162df4935e328d0f630c47e0f9556f6ac9e2c2f8",
+  "file": "assets/enemies/source/197ygeAcKFwhW5ePgXgaRGPY7lnUuSXpG.png",
+  "png": {
+   "w": 734,
+   "h": 1170,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1oUdaDl_l7tD9dWncT77x7iaV-YFmodEZ",
+  "name": "ゴブリン_斧1.png",
+  "ok": true,
+  "size": 668908,
+  "sha256": "501da443259c703757f511d90b1c51bb86f81005ca06996b7d1a29ddf17469f9",
+  "file": "assets/enemies/source/1oUdaDl_l7tD9dWncT77x7iaV-YFmodEZ.png",
+  "png": {
+   "w": 734,
+   "h": 1170,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1vAheawFvbvdGb9l9Sc479y2VsVRLWGQw",
+  "name": "ゴブリン_斧.png",
+  "ok": true,
+  "size": 678293,
+  "sha256": "60eb5b085b36ae71a7bfe26230202ce3541c6555cfa557bceba9399a5e3a1d28",
+  "file": "assets/enemies/source/1vAheawFvbvdGb9l9Sc479y2VsVRLWGQw.png",
+  "png": {
+   "w": 734,
+   "h": 1170,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1_oOpxKPLMmkHRR9lUY6LRWfM3EoGfyh6",
+  "name": "ゴブリン_剣3.png",
+  "ok": true,
+  "size": 665856,
+  "sha256": "fae243330519ac34574fad67e7b0a90b429951e649365a1a6c86e0e456915c04",
+  "file": "assets/enemies/source/1_oOpxKPLMmkHRR9lUY6LRWfM3EoGfyh6.png",
+  "png": {
+   "w": 734,
+   "h": 1170,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1PDVu1agPNWyDN37s3UyQOTvH_OHm2XOh",
+  "name": "ゴブリン_剣2.png",
+  "ok": true,
+  "size": 639710,
+  "sha256": "ef57dfdf8ca64374603066cfe2adb45b5517f045236029e11f7b29b4c36e7aac",
+  "file": "assets/enemies/source/1PDVu1agPNWyDN37s3UyQOTvH_OHm2XOh.png",
+  "png": {
+   "w": 734,
+   "h": 1170,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1XHgHa71JDel8zMVimxa1IQAeUGbNuf51",
+  "name": "ゴブリン_剣1.png",
+  "ok": true,
+  "size": 668959,
+  "sha256": "2b2236e1f78b0ef6e9b3889a72a45ec72f843dd00c325cd431f63c247075c86a",
+  "file": "assets/enemies/source/1XHgHa71JDel8zMVimxa1IQAeUGbNuf51.png",
+  "png": {
+   "w": 734,
+   "h": 1170,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1Sf77knWA3fbE_I-8cP8-2L_lkICzh1wD",
+  "name": "ゴブリン_剣.png",
+  "ok": true,
+  "size": 678350,
+  "sha256": "a7eb5d8409ce20f42ec5f82c995fc8581082469d44760bbb1efdec5bdbb12e60",
+  "file": "assets/enemies/source/1Sf77knWA3fbE_I-8cP8-2L_lkICzh1wD.png",
+  "png": {
+   "w": 734,
+   "h": 1170,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1H6ceVuYP7j92AmJkeQBfn3BPALTQx8R5",
+  "name": "ゴブリン_弓3.png",
+  "ok": true,
+  "size": 681948,
+  "sha256": "458249dd75d10935dc6a05801d9daaa2a0a8f9969a7e1064b7ce4362b2de38e0",
+  "file": "assets/enemies/source/1H6ceVuYP7j92AmJkeQBfn3BPALTQx8R5.png",
+  "png": {
+   "w": 734,
+   "h": 1170,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1UqreksrL__KXvNr9qRpKaaLSFYnlFM9P",
+  "name": "ゴブリン_弓2.png",
+  "ok": true,
+  "size": 658830,
+  "sha256": "2f411573280f12df53753d43a0a9256b24e57d70817e074dd496aa0e57fecff2",
+  "file": "assets/enemies/source/1UqreksrL__KXvNr9qRpKaaLSFYnlFM9P.png",
+  "png": {
+   "w": 734,
+   "h": 1170,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1fWcRQUosdskd_qNWY2ISmZONZaUm8gsu",
+  "name": "ゴブリン_弓1.png",
+  "ok": true,
+  "size": 686313,
+  "sha256": "9be05bce3ae6dba6ce1f5ae606a9451f24b938f7daa47dbdff3a79c5df516b60",
+  "file": "assets/enemies/source/1fWcRQUosdskd_qNWY2ISmZONZaUm8gsu.png",
+  "png": {
+   "w": 734,
+   "h": 1170,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1ToKKbcdmrFGedDNth0g1Yg7e_QQGcsJ-",
+  "name": "ゴブリン_弓.png",
+  "ok": true,
+  "size": 693779,
+  "sha256": "e78eefbc5b7e00e87940ca472e4795139ec3f8b758c10f65e76e8adb03be0410",
+  "file": "assets/enemies/source/1ToKKbcdmrFGedDNth0g1Yg7e_QQGcsJ-.png",
+  "png": {
+   "w": 734,
+   "h": 1170,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "12onljfEwgvD_RkjlCO_P6dTW6Ed1rdNS",
+  "name": "4.リッチ_男.png",
+  "ok": true,
+  "size": 1393797,
+  "sha256": "d34827fd42be3e6a738b2a7fd6f0ed89524e6f45e3b87e7bf2b2825af4f2b9cb",
+  "file": "assets/enemies/source/12onljfEwgvD_RkjlCO_P6dTW6Ed1rdNS.png",
+  "png": {
+   "w": 1100,
+   "h": 1753,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1arTTfsZtv1Lbqhz_PBGNJHnqzaT9BkAy",
+  "name": "3.リッチ_男.png",
+  "ok": true,
+  "size": 1438474,
+  "sha256": "7437cad26961f07148f44551e4cd2136a4d1f821953b8261b2880e565e6a26d8",
+  "file": "assets/enemies/source/1arTTfsZtv1Lbqhz_PBGNJHnqzaT9BkAy.png",
+  "png": {
+   "w": 1100,
+   "h": 1753,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "12wAiXbZ6MKtdOCvyD4gsUPK-6cIWOZWX",
+  "name": "2.リッチ_男.png",
+  "ok": true,
+  "size": 1432930,
+  "sha256": "f37a8d9ab357a8e2b6a612c4b20b9605e3806331107539069bc7200e40e1ed2e",
+  "file": "assets/enemies/source/12wAiXbZ6MKtdOCvyD4gsUPK-6cIWOZWX.png",
+  "png": {
+   "w": 1100,
+   "h": 1753,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1-4XtoV8WaHnpyW8gI7Du7Eu0PelWr2Mj",
+  "name": "1.リッチ_男.png",
+  "ok": true,
+  "size": 1391331,
+  "sha256": "3bf8ee9e46c972b05a2923f6b41b49f69cc43dc3011c6bc8a0fa28c1c3d0a0fb",
+  "file": "assets/enemies/source/1-4XtoV8WaHnpyW8gI7Du7Eu0PelWr2Mj.png",
+  "png": {
+   "w": 1100,
+   "h": 1753,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "11bZFbuVMld_Pb2nVKMSX9aOdMRfi2yC6",
+  "name": "4.リッチ_女.png",
+  "ok": true,
+  "size": 1364741,
+  "sha256": "c71e9d0d69a56c0efd4d66f8d236f3eabfa2bafd5180f59582063f280e6e6e8f",
+  "file": "assets/enemies/source/11bZFbuVMld_Pb2nVKMSX9aOdMRfi2yC6.png",
+  "png": {
+   "w": 1100,
+   "h": 1753,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "17VXZ-sDxiWBYKMrYyv2D4dXAa-rxv75F",
+  "name": "3.リッチ_女.png",
+  "ok": true,
+  "size": 1363715,
+  "sha256": "c706f9777c53bed01ba98ed76a53913edf1bb74e9aae10e47944c7abda327e52",
+  "file": "assets/enemies/source/17VXZ-sDxiWBYKMrYyv2D4dXAa-rxv75F.png",
+  "png": {
+   "w": 1100,
+   "h": 1753,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1Js_HPX0ZA4GiVoNwFgFPfWebwV_LpEjw",
+  "name": "2.リッチ_女.png",
+  "ok": true,
+  "size": 1365006,
+  "sha256": "3e8b9965cf8af0c8d60a1afe6d96b8254123b0860b557f91b6ce550683180376",
+  "file": "assets/enemies/source/1Js_HPX0ZA4GiVoNwFgFPfWebwV_LpEjw.png",
+  "png": {
+   "w": 1100,
+   "h": 1753,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1gdYf_9T_Etb411vTXfeL4cZyelR3QD4g",
+  "name": "1.リッチ_女.png",
+  "ok": true,
+  "size": 1342069,
+  "sha256": "8d4b54e7c668702afaf2cadb9a73b91c0e7aa2ea7ab6bcccd2717f57b776610e",
+  "file": "assets/enemies/source/1gdYf_9T_Etb411vTXfeL4cZyelR3QD4g.png",
+  "png": {
+   "w": 1100,
+   "h": 1753,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1FkubVPrj8gr1TuPWq_dQp9E1GaXM8Xbt",
+  "name": "4.ファントム.png",
+  "ok": true,
+  "size": 761679,
+  "sha256": "95251094483867cb3d9e7819534581c1f441e62d84c1172057d42d3966aa367d",
+  "file": "assets/enemies/source/1FkubVPrj8gr1TuPWq_dQp9E1GaXM8Xbt.png",
+  "png": {
+   "w": 1450,
+   "h": 1100,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1lFyo86HQBjtSvZlKhL1xOC6RKyX_RRRe",
+  "name": "3.ファントム.png",
+  "ok": true,
+  "size": 761396,
+  "sha256": "37c5e4be8d4bd3ce21661d74a7abb051ddb79bc0b9ff59ebb37c4c7e54fc1cdc",
+  "file": "assets/enemies/source/1lFyo86HQBjtSvZlKhL1xOC6RKyX_RRRe.png",
+  "png": {
+   "w": 1450,
+   "h": 1100,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1l2NiAcH69OG0QaUa4YrU3ih7kUhMjhsY",
+  "name": "2.ファントム.png",
+  "ok": true,
+  "size": 762620,
+  "sha256": "9d758d55a7fa197a0f5f93932d9462c26b3bd2400929637c7854deaf725a9ff8",
+  "file": "assets/enemies/source/1l2NiAcH69OG0QaUa4YrU3ih7kUhMjhsY.png",
+  "png": {
+   "w": 1450,
+   "h": 1100,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1S-hkECGj1AfZHPInUR-ov7PWURuQCLXB",
+  "name": "1.ファントム.png",
+  "ok": true,
+  "size": 757342,
+  "sha256": "eda452af4c6ae540bf40be22cfd70312c157137885dceffbc6069895fac487b5",
+  "file": "assets/enemies/source/1S-hkECGj1AfZHPInUR-ov7PWURuQCLXB.png",
+  "png": {
+   "w": 1450,
+   "h": 1100,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1BbhGNW2LqAQJdCOe7_2_uZXHIs_KxKC6",
+  "name": "4.ジャックランタン.png",
+  "ok": true,
+  "size": 1470212,
+  "sha256": "a65d97b5fdbddd1a830e2588a5a6ae32eeb06b78bef2e9c3f8efb638d7da5637",
+  "file": "assets/enemies/source/1BbhGNW2LqAQJdCOe7_2_uZXHIs_KxKC6.png",
+  "png": {
+   "w": 1275,
+   "h": 1742,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1RPvQ6BUvUvDwSetT9v6X_LpYq7Szlqcq",
+  "name": "3.ジャックランタン.png",
+  "ok": true,
+  "size": 1459988,
+  "sha256": "32d7210ca7ab72ab2b1268e1c91413f001d61e43d281a9b4302f762047ef0b8d",
+  "file": "assets/enemies/source/1RPvQ6BUvUvDwSetT9v6X_LpYq7Szlqcq.png",
+  "png": {
+   "w": 1275,
+   "h": 1742,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1z8RsButkftzMX23e9SK2Z2FMLwbNsd7T",
+  "name": "2.ジャックランタン.png",
+  "ok": true,
+  "size": 1492147,
+  "sha256": "6ddd4e22f048727353a01d29ae2c0aaa40a0f74b792a16668e7b2bd4cd00fed2",
+  "file": "assets/enemies/source/1z8RsButkftzMX23e9SK2Z2FMLwbNsd7T.png",
+  "png": {
+   "w": 1275,
+   "h": 1742,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1CZZ8yjRi7RnR2axJe1aT4AeyKOSuN1cC",
+  "name": "1.ジャックランタン.png",
+  "ok": true,
+  "size": 1445714,
+  "sha256": "d400693afaa2f74be1e88f1998acc8e4eb35b599e53a0c26d2fb8b63b715710d",
+  "file": "assets/enemies/source/1CZZ8yjRi7RnR2axJe1aT4AeyKOSuN1cC.png",
+  "png": {
+   "w": 1275,
+   "h": 1742,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1ODLIewrR3Yaz2JcKYcueV_u1YoOQWurP",
+  "name": "4.スケルトン.png",
+  "ok": true,
+  "size": 617232,
+  "sha256": "acffcb6f51b299087cb9132178e16dd21b8ef07bdcd62bb4c1d3defce4f62095",
+  "file": "assets/enemies/source/1ODLIewrR3Yaz2JcKYcueV_u1YoOQWurP.png",
+  "png": {
+   "w": 1253,
+   "h": 1699,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1S0LaIUuiKtTKR4b_W_6QxhfKXvkjcCVF",
+  "name": "4.（腕）スケルトン.png",
+  "ok": true,
+  "size": 967019,
+  "sha256": "b92630f7ce00c15aac6f533731c4e7112a321ca02678e00d624a8f2e125d72bb",
+  "file": "assets/enemies/source/1S0LaIUuiKtTKR4b_W_6QxhfKXvkjcCVF.png",
+  "png": {
+   "w": 1253,
+   "h": 1699,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1u4bLZfA37ilyFZocU2eHIgr_b1EbxiHB",
+  "name": "4.（兜）スケルトン.png",
+  "ok": true,
+  "size": 643608,
+  "sha256": "d6a9df9793a178355c5dcd3159f642549f1c19ba9069d4edbf1a4726895fa8ec",
+  "file": "assets/enemies/source/1u4bLZfA37ilyFZocU2eHIgr_b1EbxiHB.png",
+  "png": {
+   "w": 1253,
+   "h": 1699,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1_Ck0buJPMZoW42qFbgnOdPUw2pqXIcTd",
+  "name": "4.（角）スケルトン.png",
+  "ok": true,
+  "size": 674641,
+  "sha256": "55585c4a9dbd21719b81a2cb1df1e04df010e2f7aef7c52609acb4b919af53c6",
+  "file": "assets/enemies/source/1_Ck0buJPMZoW42qFbgnOdPUw2pqXIcTd.png",
+  "png": {
+   "w": 1253,
+   "h": 1699,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1r0_QP_CJP648OiLaQ0sL5swh-AqrSZDq",
+  "name": "3.スケルトン.png",
+  "ok": true,
+  "size": 617150,
+  "sha256": "5b63c0b8a4090c44a32125da19d85ba10609ae3d319ae5104ee5f38b524fc583",
+  "file": "assets/enemies/source/1r0_QP_CJP648OiLaQ0sL5swh-AqrSZDq.png",
+  "png": {
+   "w": 1253,
+   "h": 1699,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1PnRTKFeBxQHIpmzk8rHdSPX_YxsgPcSX",
+  "name": "3.（腕）スケルトン.png",
+  "ok": true,
+  "size": 966621,
+  "sha256": "0238e6a5c4724ecc09d66434dc96155969a7458a333ce43538c0aff680e990f0",
+  "file": "assets/enemies/source/1PnRTKFeBxQHIpmzk8rHdSPX_YxsgPcSX.png",
+  "png": {
+   "w": 1253,
+   "h": 1699,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1l3jUs2OVTRo4-IG5ll9HGvRC3DQ6BeO3",
+  "name": "3.（兜）スケルトン.png",
+  "ok": true,
+  "size": 642327,
+  "sha256": "932b1940b1734151d3ea10cbe52dfe4027265e0fee4e41f5bfd3690858e01899",
+  "file": "assets/enemies/source/1l3jUs2OVTRo4-IG5ll9HGvRC3DQ6BeO3.png",
+  "png": {
+   "w": 1253,
+   "h": 1699,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1yHwGXrp6cfZQR1cPsk5cua83mi37Tupx",
+  "name": "3.（角）スケルトン.png",
+  "ok": true,
+  "size": 674686,
+  "sha256": "1082ca34f3b29aba192d12302af1595e455cb315941d3eebaa2e2b72788696fc",
+  "file": "assets/enemies/source/1yHwGXrp6cfZQR1cPsk5cua83mi37Tupx.png",
+  "png": {
+   "w": 1253,
+   "h": 1699,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1pJfk8OiBRWpFzAo8yFDKzgn-_epJF9mM",
+  "name": "2.スケルトン.png",
+  "ok": true,
+  "size": 608098,
+  "sha256": "16dafe4fbfdb425ede9412653e3c0656f17ed7a65751b4df46e0b0bfd07450d8",
+  "file": "assets/enemies/source/1pJfk8OiBRWpFzAo8yFDKzgn-_epJF9mM.png",
+  "png": {
+   "w": 1253,
+   "h": 1699,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1p0km4Hz1Va4EYnliPvQnB96pVBclB6Uq",
+  "name": "2.（腕）スケルトン.png",
+  "ok": true,
+  "size": 957926,
+  "sha256": "a419530d35078a3523247949795e2311cd9cae8dd370f15ca7e7cc1c29e7fdbf",
+  "file": "assets/enemies/source/1p0km4Hz1Va4EYnliPvQnB96pVBclB6Uq.png",
+  "png": {
+   "w": 1253,
+   "h": 1699,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1CT9gyprzjjlk3Em6Aw6blvOCV7BXMK3R",
+  "name": "2.（兜）スケルトン.png",
+  "ok": true,
+  "size": 632672,
+  "sha256": "f58cd4f5f9445ee7fd254ba1c83d57c0cda0cba02647542d83aeafbd8efeefd1",
+  "file": "assets/enemies/source/1CT9gyprzjjlk3Em6Aw6blvOCV7BXMK3R.png",
+  "png": {
+   "w": 1253,
+   "h": 1699,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1y4UnyB9Tjtl1ShikyoXgJAfDxp9MtPID",
+  "name": "2.（角）スケルトン.png",
+  "ok": true,
+  "size": 665551,
+  "sha256": "edeac4ee1519706998fe4831d9c907455536f388c5a74c80a042a1cf1e4360ce",
+  "file": "assets/enemies/source/1y4UnyB9Tjtl1ShikyoXgJAfDxp9MtPID.png",
+  "png": {
+   "w": 1253,
+   "h": 1699,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1yP8KBJn5pYS8Fr62RrCyoYjagWZDFl6w",
+  "name": "1.スケルトン.png",
+  "ok": true,
+  "size": 598746,
+  "sha256": "2f09f460d7772528a24fc47f368ec59eadf98314688b5bbd2184aa8434a45e80",
+  "file": "assets/enemies/source/1yP8KBJn5pYS8Fr62RrCyoYjagWZDFl6w.png",
+  "png": {
+   "w": 1253,
+   "h": 1699,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1avI3-xfKAInpIBrX9YNXQss280TUjmtq",
+  "name": "1.（腕）スケルトン.png",
+  "ok": true,
+  "size": 948358,
+  "sha256": "4f29961aa7c137cbfcf0bd008be4ca891dbb33834c64585fa257972fbf71b094",
+  "file": "assets/enemies/source/1avI3-xfKAInpIBrX9YNXQss280TUjmtq.png",
+  "png": {
+   "w": 1253,
+   "h": 1699,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1c5jphhb5tl_TTHzMPiKlh4ywXARfF5cD",
+  "name": "1.（兜）スケルトン.png",
+  "ok": true,
+  "size": 623242,
+  "sha256": "0bd8badecc8a9f7561e93e01795ed65cf2ece83322c8fc8c831105dc519c8d02",
+  "file": "assets/enemies/source/1c5jphhb5tl_TTHzMPiKlh4ywXARfF5cD.png",
+  "png": {
+   "w": 1253,
+   "h": 1699,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1wbJTUP1k0Cv11cRKlBEklkrAEz_T1VVA",
+  "name": "1.（角）スケルトン.png",
+  "ok": true,
+  "size": 656277,
+  "sha256": "1d91a39dfbde1162174b862ac7a994bb64b89bfe453f3da001e75948babf4ad5",
+  "file": "assets/enemies/source/1wbJTUP1k0Cv11cRKlBEklkrAEz_T1VVA.png",
+  "png": {
+   "w": 1253,
+   "h": 1699,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1isc9uka2EkqSDA111wHRm-j9fkfIFF2W",
+  "name": "4.魔法_グレーターデーモン.png",
+  "ok": true,
+  "size": 1270781,
+  "sha256": "88410cb03c6af5095e4fcaa2386347403fac9e7fbb2a03da6835e6d5b4fc36e2",
+  "file": "assets/enemies/source/1isc9uka2EkqSDA111wHRm-j9fkfIFF2W.png",
+  "png": {
+   "w": 1150,
+   "h": 1550,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1L7PJpt9LmDD2haAtqMtitgmjnkVOxxcA",
+  "name": "4.杖_グレーターデーモン.png",
+  "ok": true,
+  "size": 1208912,
+  "sha256": "ed4e010b7a676f7bc9af6b05a404842e744bf336c039e356d5cb206d3800bfaa",
+  "file": "assets/enemies/source/1L7PJpt9LmDD2haAtqMtitgmjnkVOxxcA.png",
+  "png": {
+   "w": 1150,
+   "h": 1550,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1c-L-KXJoIdjR6cY5f6ndoeU7Ukl98KlZ",
+  "name": "4.杖&魔法_グレーターデーモン.png",
+  "ok": true,
+  "size": 1364090,
+  "sha256": "1117f6ece7247b67fc0e6e97eb59c74aa797cfe7ca5d51079c8a505e8382a963",
+  "file": "assets/enemies/source/1c-L-KXJoIdjR6cY5f6ndoeU7Ukl98KlZ.png",
+  "png": {
+   "w": 1150,
+   "h": 1550,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1uRm9Q0Swkc109-BUD0cQ1TVT_nY3nIC2",
+  "name": "4.グレーターデーモン.png",
+  "ok": true,
+  "size": 1113516,
+  "sha256": "ae22a9db907f928fe24640dffebbef355cda6cb982c7a3fea9d87f15c891a6f7",
+  "file": "assets/enemies/source/1uRm9Q0Swkc109-BUD0cQ1TVT_nY3nIC2.png",
+  "png": {
+   "w": 1150,
+   "h": 1550,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1Sbambd8q_qBPOExutylDtmoMhuGrsVM3",
+  "name": "3.魔法_グレーターデーモン.png",
+  "ok": true,
+  "size": 1312501,
+  "sha256": "683d165a086ea5c8860703c255f7370fecfa4091c840ec41885fac321d0654ee",
+  "file": "assets/enemies/source/1Sbambd8q_qBPOExutylDtmoMhuGrsVM3.png",
+  "png": {
+   "w": 1150,
+   "h": 1550,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1ReCoxZKiDpKQ84iWxykZ22_Pv0pIm7lD",
+  "name": "3.杖_グレーターデーモン.png",
+  "ok": true,
+  "size": 1251038,
+  "sha256": "5fa73c6d4d5fd3e6db2a34f97be040035070b7b577c7c1a823b2bca43706e22f",
+  "file": "assets/enemies/source/1ReCoxZKiDpKQ84iWxykZ22_Pv0pIm7lD.png",
+  "png": {
+   "w": 1150,
+   "h": 1550,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1pb544PPgZrn236bJ_g13O5D0U76Fx10C",
+  "name": "3.杖&魔法_グレーターデーモン.png",
+  "ok": true,
+  "size": 1406950,
+  "sha256": "9781cb1a39943b260d5049dbcd9748955eca04350f9c9fd71e02dec5daf5ed7e",
+  "file": "assets/enemies/source/1pb544PPgZrn236bJ_g13O5D0U76Fx10C.png",
+  "png": {
+   "w": 1150,
+   "h": 1550,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1UOYwxeJA44aJr9zHkMlKAvb9u9qwdTwd",
+  "name": "3.グレーターデーモン.png",
+  "ok": true,
+  "size": 1155820,
+  "sha256": "6d634155c0a1acd624e74a0740385e289d5c7d7b1aa3b954335179f5ff0eda75",
+  "file": "assets/enemies/source/1UOYwxeJA44aJr9zHkMlKAvb9u9qwdTwd.png",
+  "png": {
+   "w": 1150,
+   "h": 1550,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "19lMG_UCU1nOc3hgR9oHweuav3R3PgM8N",
+  "name": "2.魔法_グレーターデーモン.png",
+  "ok": true,
+  "size": 1306172,
+  "sha256": "e547653ef12412e57f57baa8dd2643130cfb09e1e580fd5eabbe2dcdd29a0cb4",
+  "file": "assets/enemies/source/19lMG_UCU1nOc3hgR9oHweuav3R3PgM8N.png",
+  "png": {
+   "w": 1150,
+   "h": 1550,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1gDuhz6wjFs2YEhZm9MnP-13rNN3bMhAt",
+  "name": "2.杖_グレーターデーモン.png",
+  "ok": true,
+  "size": 1242980,
+  "sha256": "5b94f9f7ce470b9870237df55a092c6eea3828a24e2253a10f8b2aa9305c4022",
+  "file": "assets/enemies/source/1gDuhz6wjFs2YEhZm9MnP-13rNN3bMhAt.png",
+  "png": {
+   "w": 1150,
+   "h": 1550,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1gWYnMDjUABUnw2cpHgfEpOtO7jhYG5c2",
+  "name": "2.杖&魔法_グレーターデーモン.png",
+  "ok": true,
+  "size": 1399667,
+  "sha256": "cafa137edef8506abc4c0945dbb85a03a12989296e3b7bfd8486323e0ca21403",
+  "file": "assets/enemies/source/1gWYnMDjUABUnw2cpHgfEpOtO7jhYG5c2.png",
+  "png": {
+   "w": 1150,
+   "h": 1550,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1MLxn3PgNLsppbaxGnXFV3mzsTpkSkZHx",
+  "name": "2.グレーターデーモン.png",
+  "ok": true,
+  "size": 1147845,
+  "sha256": "3de966c907ad5ab4bb58ace0eef9bfb8b1982546c936f91867e175581cf1f41e",
+  "file": "assets/enemies/source/1MLxn3PgNLsppbaxGnXFV3mzsTpkSkZHx.png",
+  "png": {
+   "w": 1150,
+   "h": 1550,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1eLa_ViYNKJfniryQg63ETz2CRMMpSO6u",
+  "name": "1.魔法_グレーターデーモン.png",
+  "ok": true,
+  "size": 1253016,
+  "sha256": "c8c19f20af25e919de9e85282ee60dbce57da1452bdf5fb49ce327e003b4f139",
+  "file": "assets/enemies/source/1eLa_ViYNKJfniryQg63ETz2CRMMpSO6u.png",
+  "png": {
+   "w": 1150,
+   "h": 1550,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "13hA_Evg96eAM2Nyep23Bv2IQF28AUQLT",
+  "name": "1.杖_グレーターデーモン.png",
+  "ok": true,
+  "size": 1191075,
+  "sha256": "1987e8635d3c4120c7aa16dea895455a44853f55633a1240d272d2b529fe4f80",
+  "file": "assets/enemies/source/13hA_Evg96eAM2Nyep23Bv2IQF28AUQLT.png",
+  "png": {
+   "w": 1150,
+   "h": 1550,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1wYeYpJqGWSBeTzOr-4n99l1Tz-GdHrKU",
+  "name": "1.杖&魔法_グレーターデーモン.png",
+  "ok": true,
+  "size": 1346300,
+  "sha256": "243b7df3adf3b838aae2a8e6ce534a900674fc5510774f792942c2d77a6e1508",
+  "file": "assets/enemies/source/1wYeYpJqGWSBeTzOr-4n99l1Tz-GdHrKU.png",
+  "png": {
+   "w": 1150,
+   "h": 1550,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "130YvF6lYu_TLpyo3pfV91Lwe6E3XhLTj",
+  "name": "1.グレーターデーモン.png",
+  "ok": true,
+  "size": 1095500,
+  "sha256": "09c6b70c7240050f52cd8cc5958afdaccfcc45492d2b8b56d2185c8b623b1ff6",
+  "file": "assets/enemies/source/130YvF6lYu_TLpyo3pfV91Lwe6E3XhLTj.png",
+  "png": {
+   "w": 1150,
+   "h": 1550,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1UK7BeF3lYz7RmYvEPJeJlTcN_AONTO-Z",
+  "name": "4.ウィッカーマン.png",
+  "ok": true,
+  "size": 1447535,
+  "sha256": "81bf17def196a09fb63b16dc7861e46c7648fe85139a45ac6841a7eceb40ab8c",
+  "file": "assets/enemies/source/1UK7BeF3lYz7RmYvEPJeJlTcN_AONTO-Z.png",
+  "png": {
+   "w": 1275,
+   "h": 1753,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1JOapUQ5TIeZY9kp6rRMSyv2drwzqMRdK",
+  "name": "3.ウィッカーマン.png",
+  "ok": true,
+  "size": 1466080,
+  "sha256": "d85ffc21c8f063a898e156a4b373b686be8112164cd768866b63eff317e0e053",
+  "file": "assets/enemies/source/1JOapUQ5TIeZY9kp6rRMSyv2drwzqMRdK.png",
+  "png": {
+   "w": 1275,
+   "h": 1753,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1UszoDsm9WdcCX0noG7LAtmeGTzfvgJCi",
+  "name": "2.ウィッカーマン.png",
+  "ok": true,
+  "size": 1470198,
+  "sha256": "f1967736ffc2674089c131f680949cb23dea0cb0183f665bbbd9823459396954",
+  "file": "assets/enemies/source/1UszoDsm9WdcCX0noG7LAtmeGTzfvgJCi.png",
+  "png": {
+   "w": 1275,
+   "h": 1753,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1kcruGYahDwklHPqPdgrnzKkoxHLXbeF-",
+  "name": "1.ウィッカーマン.png",
+  "ok": true,
+  "size": 1373731,
+  "sha256": "713433f6b07389f3da39f17057b8562c640ca412725786e219b874a11d2afcac",
+  "file": "assets/enemies/source/1kcruGYahDwklHPqPdgrnzKkoxHLXbeF-.png",
+  "png": {
+   "w": 1275,
+   "h": 1753,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1T4V0O_gNzjhU69WSVB04j_4mCKoQd4rq",
+  "name": "4.ゲイザー.png",
+  "ok": true,
+  "size": 1899529,
+  "sha256": "bee2be03a884e4e46a3f47b0a621fc79cb4ba72b4b05afd7b72922580b43847e",
+  "file": "assets/enemies/source/1T4V0O_gNzjhU69WSVB04j_4mCKoQd4rq.png",
+  "png": {
+   "w": 1275,
+   "h": 1753,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1KjdqWheBp5HpSu70L-XIHpzJKWSs4opN",
+  "name": "3.ゲイザー.png",
+  "ok": true,
+  "size": 1889288,
+  "sha256": "5f9703b477154a1c4164058e33ff998d49f2c2eb7f22296eadb66d1cb02b417c",
+  "file": "assets/enemies/source/1KjdqWheBp5HpSu70L-XIHpzJKWSs4opN.png",
+  "png": {
+   "w": 1275,
+   "h": 1753,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1obkKBCGtuLchcTXyRvds-4GxmxSIcve-",
+  "name": "2.ゲイザー.png",
+  "ok": true,
+  "size": 1888364,
+  "sha256": "552429d6c560f21e3f787c0b6c4fb700492f803dae55d2cc018b711cca8dc764",
+  "file": "assets/enemies/source/1obkKBCGtuLchcTXyRvds-4GxmxSIcve-.png",
+  "png": {
+   "w": 1275,
+   "h": 1753,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1ndgovC8aRN1KslaeXt6d6-Rq9SdX2fP0",
+  "name": "1.ゲイザー.png",
+  "ok": true,
+  "size": 1873911,
+  "sha256": "07bdae4b4fe656b1d3a7e7c4d3b3f145cdebb9b57a525db445643361e5c735fd",
+  "file": "assets/enemies/source/1ndgovC8aRN1KslaeXt6d6-Rq9SdX2fP0.png",
+  "png": {
+   "w": 1275,
+   "h": 1753,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "19l5HsF5IARyuMRCULquwbsP-jfEvhzAQ",
+  "name": "4.アークデーモン.png",
+  "ok": true,
+  "size": 1546867,
+  "sha256": "9f273d36add658bf1c820d4dda6ed5e68deb3e4458eb3e47201d1ac78178b742",
+  "file": "assets/enemies/source/19l5HsF5IARyuMRCULquwbsP-jfEvhzAQ.png",
+  "png": {
+   "w": 1253,
+   "h": 1753,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "14W4J5MUkkVh6qdN5WmB6DkbL6Nj3MM5k",
+  "name": "3.アークデーモン.png",
+  "ok": true,
+  "size": 1545155,
+  "sha256": "9ce78491ce239a1909ef96dd1e9163aee56f63adffe806493420950693e20562",
+  "file": "assets/enemies/source/14W4J5MUkkVh6qdN5WmB6DkbL6Nj3MM5k.png",
+  "png": {
+   "w": 1253,
+   "h": 1753,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1WdoqyHGfQIYv4_MXq5C4wUvWKqVUWW_c",
+  "name": "2.アークデーモン.png",
+  "ok": true,
+  "size": 1606712,
+  "sha256": "03f2a160f00b39c6cfb4003d87111a0fd09ca8938062e9d11aab70a31e670214",
+  "file": "assets/enemies/source/1WdoqyHGfQIYv4_MXq5C4wUvWKqVUWW_c.png",
+  "png": {
+   "w": 1253,
+   "h": 1753,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1V_sBD6iLbEmVpd3-ebQILT_3A7MCu6fq",
+  "name": "1.アークデーモン.png",
+  "ok": true,
+  "size": 1536100,
+  "sha256": "f869c5afeb77dc82c4020c8be1138b06df362e77302949a538d94131fe749ee3",
+  "file": "assets/enemies/source/1V_sBD6iLbEmVpd3-ebQILT_3A7MCu6fq.png",
+  "png": {
+   "w": 1253,
+   "h": 1753,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1LRdEzf9lcsLKKn02tZKARbCMO_iYx7Ns",
+  "name": "4.スペクター.png",
+  "ok": true,
+  "size": 1232383,
+  "sha256": "34bf4da6e0a947e288a2f0ab09ef083a68b97fe2f04467d53707a168c6f1f5b3",
+  "file": "assets/enemies/source/1LRdEzf9lcsLKKn02tZKARbCMO_iYx7Ns.png",
+  "png": {
+   "w": 1500,
+   "h": 1275,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1nWc8pobkvUpqhX1ep02xh5suRkejPmxe",
+  "name": "3.スペクター.png",
+  "ok": true,
+  "size": 1291811,
+  "sha256": "53ad1ef03908b78089335cb770704a1053689e5ae62f08860f26c84442e60ab4",
+  "file": "assets/enemies/source/1nWc8pobkvUpqhX1ep02xh5suRkejPmxe.png",
+  "png": {
+   "w": 1500,
+   "h": 1275,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1DIYTvaRaAC9mCLzX7HRWWLXFqHOwWtp5",
+  "name": "2.スペクター.png",
+  "ok": true,
+  "size": 1252849,
+  "sha256": "e05110c61da2c4265637ccd161dbb8cc5d505e66caaa7925d8d5d8ed58c1e749",
+  "file": "assets/enemies/source/1DIYTvaRaAC9mCLzX7HRWWLXFqHOwWtp5.png",
+  "png": {
+   "w": 1500,
+   "h": 1275,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1QnduHSxT4ismF2E_fb1OWLz2lHUlTksS",
+  "name": "1.スペクター.png",
+  "ok": true,
+  "size": 1224914,
+  "sha256": "2fc81e29429b9c5ac327d167f3e6f22b215897119c10fb50514d1f744d164228",
+  "file": "assets/enemies/source/1QnduHSxT4ismF2E_fb1OWLz2lHUlTksS.png",
+  "png": {
+   "w": 1500,
+   "h": 1275,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1L94ufZYdHhP64u41HIXcNRI5wvZL7B9Y",
+  "name": "4.レイス.png",
+  "ok": true,
+  "size": 1220195,
+  "sha256": "c3fed1aba7043122ba7971249e83804de24cb6766406ccc649b59d6171883d91",
+  "file": "assets/enemies/source/1L94ufZYdHhP64u41HIXcNRI5wvZL7B9Y.png",
+  "png": {
+   "w": 1747,
+   "h": 1275,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1zM62lWJmRO5kP_9NkClLnodomFnCCzo1",
+  "name": "3.レイス.png",
+  "ok": true,
+  "size": 1254325,
+  "sha256": "48b5d0500e4fc32a69212690fe98b14f55cc5e38a9d5c69cb920eb355f211832",
+  "file": "assets/enemies/source/1zM62lWJmRO5kP_9NkClLnodomFnCCzo1.png",
+  "png": {
+   "w": 1747,
+   "h": 1275,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "15xr3Ac_hK8qwXEoAxTUnPqe-i6j0VjCG",
+  "name": "2.レイス.png",
+  "ok": true,
+  "size": 1207505,
+  "sha256": "2d40cd5c66010174b51067ebbe10fbd6068350b013b0f74e621a042c48fd4e86",
+  "file": "assets/enemies/source/15xr3Ac_hK8qwXEoAxTUnPqe-i6j0VjCG.png",
+  "png": {
+   "w": 1747,
+   "h": 1275,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1wmd6SJOIEgF4vZNlToNfEBUSsTOu6Yo8",
+  "name": "1.レイス.png",
+  "ok": true,
+  "size": 1196469,
+  "sha256": "8a79b691bb50dc626d4b08d2a622762d83dd9e23910333cd167a20225efccf77",
+  "file": "assets/enemies/source/1wmd6SJOIEgF4vZNlToNfEBUSsTOu6Yo8.png",
+  "png": {
+   "w": 1747,
+   "h": 1275,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1IiwyofQJSo9rFEIXiF-FMtv3LFIROPlj",
+  "name": "4.デーモンファウンダー.png",
+  "ok": true,
+  "size": 1826931,
+  "sha256": "139a39ca9b9da26c2774c6c534a1cfb51abd6355f516523337e3191def73f2b5",
+  "file": "assets/enemies/source/1IiwyofQJSo9rFEIXiF-FMtv3LFIROPlj.png",
+  "png": {
+   "w": 1720,
+   "h": 1237,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1tvW5jDojRHDLNB40aEdqqJN2NnsEpfOd",
+  "name": "3.デーモンファウンダー.png",
+  "ok": true,
+  "size": 1831362,
+  "sha256": "d8856a1b094761e12a879d67ffb49993ce3ff803f5afd189262d60525a301059",
+  "file": "assets/enemies/source/1tvW5jDojRHDLNB40aEdqqJN2NnsEpfOd.png",
+  "png": {
+   "w": 1720,
+   "h": 1237,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "13G93GH8xdNI7Gn5P6v3T1LQeLl7FfvZr",
+  "name": "2.デーモンファウンダー.png",
+  "ok": true,
+  "size": 1803293,
+  "sha256": "fe4fbd94dce0a1b1aa41b051f7ff1110d1285f4d383c212dc0e3e0788d8b3fc0",
+  "file": "assets/enemies/source/13G93GH8xdNI7Gn5P6v3T1LQeLl7FfvZr.png",
+  "png": {
+   "w": 1720,
+   "h": 1237,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1Giqtd6b7EsLvTI-dVhyPH-MZayakZi4D",
+  "name": "1.デーモンファウンダー.png",
+  "ok": true,
+  "size": 1860722,
+  "sha256": "76459e05e4de1d1106a61166fee62667e0c39b9539a1b137a4cc18b1c4687b5f",
+  "file": "assets/enemies/source/1Giqtd6b7EsLvTI-dVhyPH-MZayakZi4D.png",
+  "png": {
+   "w": 1720,
+   "h": 1237,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "14dcdf2oDMkDR5HWNlABgaM2KyQukmEqn",
+  "name": "4.サキュバス.png",
+  "ok": true,
+  "size": 1350742,
+  "sha256": "f2cb0cca158e7fc49b294d99b0ab024b201e777ea77b74f72ef0136883230113",
+  "file": "assets/enemies/source/14dcdf2oDMkDR5HWNlABgaM2KyQukmEqn.png",
+  "png": {
+   "w": 1600,
+   "h": 1275,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "18J9fPejOW40i-qlOefp1J4dfLLrYFZrn",
+  "name": "3.サキュバス.png",
+  "ok": true,
+  "size": 1348784,
+  "sha256": "353ec8d7703d7c7cfaeb4d929db98f04fe14fee5f9e2d59bbf1a908e734fec0f",
+  "file": "assets/enemies/source/18J9fPejOW40i-qlOefp1J4dfLLrYFZrn.png",
+  "png": {
+   "w": 1600,
+   "h": 1275,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1AK0DrC-HIajoqebP91Yxh3yD2ogdagMb",
+  "name": "2.サキュバス.png",
+  "ok": true,
+  "size": 1341482,
+  "sha256": "55c0864b6b4773bb18aaaf0ed102be4f71c3ff311f2a45e9af7667a244c4b974",
+  "file": "assets/enemies/source/1AK0DrC-HIajoqebP91Yxh3yD2ogdagMb.png",
+  "png": {
+   "w": 1600,
+   "h": 1275,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "12L6FFxgptBUboyYalhOw3T0PNzvv1iPB",
+  "name": "1.サキュバス.png",
+  "ok": true,
+  "size": 1351609,
+  "sha256": "d7d4a6f247e9ddda113635adbe766324d3e8d464472660ca4cf2221c8a9d3ab4",
+  "file": "assets/enemies/source/12L6FFxgptBUboyYalhOw3T0PNzvv1iPB.png",
+  "png": {
+   "w": 1600,
+   "h": 1275,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1SPDaM0HGiKeW4YK6etApneU8rUv2JA7t",
+  "name": "4.シェイド.png",
+  "ok": true,
+  "size": 1837101,
+  "sha256": "1f3135180c2578ead36f8a981728976cc28ed829f33082497651ee43a2d86b9c",
+  "file": "assets/enemies/source/1SPDaM0HGiKeW4YK6etApneU8rUv2JA7t.png",
+  "png": {
+   "w": 1400,
+   "h": 1753,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1xFtvEsYgexHlCu3c-BLLhLilQY4Y0hA6",
+  "name": "3.シェイド.png",
+  "ok": true,
+  "size": 2083326,
+  "sha256": "0bb98aa1c5a021812e93d9c0bd4dfd9dd047a93383d9d37e76c17470d01f21f8",
+  "file": "assets/enemies/source/1xFtvEsYgexHlCu3c-BLLhLilQY4Y0hA6.png",
+  "png": {
+   "w": 1400,
+   "h": 1753,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "18OlZZTT6V-Pd125Xigpd7CGSNw0jnl3w",
+  "name": "2.シェイド.png",
+  "ok": true,
+  "size": 2080960,
+  "sha256": "03ed9e9473ac66db1228cc485e48c6746348daab6fd52ff3e817f5da5d8b8398",
+  "file": "assets/enemies/source/18OlZZTT6V-Pd125Xigpd7CGSNw0jnl3w.png",
+  "png": {
+   "w": 1400,
+   "h": 1753,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1ZQ8GQVCzfWmQoV436vy0w-0yTMH4bQYy",
+  "name": "1.シェイド.png",
+  "ok": true,
+  "size": 2051179,
+  "sha256": "fe24e827206ce54d8f12ccca2f4433679cac4f245d9e762e53c4e9939450dee8",
+  "file": "assets/enemies/source/1ZQ8GQVCzfWmQoV436vy0w-0yTMH4bQYy.png",
+  "png": {
+   "w": 1400,
+   "h": 1753,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1VqeWuol-Ax1XIw5DAhVGg_Vadg7UpzAZ",
+  "name": "4.インキュバス.png",
+  "ok": true,
+  "size": 1794821,
+  "sha256": "efabf2463671af4fd321c22c8bba7a6307fc56a3ad0204a43c3f232223682c13",
+  "file": "assets/enemies/source/1VqeWuol-Ax1XIw5DAhVGg_Vadg7UpzAZ.png",
+  "png": {
+   "w": 1264,
+   "h": 1600,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "14r44wi_UzxmVN-MdkfgsH6wD41zulH6C",
+  "name": "3.インキュバス.png",
+  "ok": true,
+  "size": 1750825,
+  "sha256": "b4343981d194d94b6256f1e89921559b8d05d1ea1135b4d7af63ffc27c2c92df",
+  "file": "assets/enemies/source/14r44wi_UzxmVN-MdkfgsH6wD41zulH6C.png",
+  "png": {
+   "w": 1264,
+   "h": 1600,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1E-bMcaQpYZEZMBaa2YTZUgutG8hc-9if",
+  "name": "2.インキュバス.png",
+  "ok": true,
+  "size": 1795563,
+  "sha256": "5dc886db823701481f5016fcd130cf18e14d189e659e137194081c4aba2ff859",
+  "file": "assets/enemies/source/1E-bMcaQpYZEZMBaa2YTZUgutG8hc-9if.png",
+  "png": {
+   "w": 1264,
+   "h": 1600,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1kBl1hHoZ9li-lUoWnS9l29fRLgwCbm9r",
+  "name": "1.インキュバス.png",
+  "ok": true,
+  "size": 1770751,
+  "sha256": "a67b91a398c01518a0e431f5ac1e6a816c923fbc3326802591fa3423fab8cad3",
+  "file": "assets/enemies/source/1kBl1hHoZ9li-lUoWnS9l29fRLgwCbm9r.png",
+  "png": {
+   "w": 1264,
+   "h": 1600,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1K9vPotFdD2eiR5eaTNFEkKrBjLIq8b08",
+  "name": "レッサーデーモン4.png",
+  "ok": true,
+  "size": 1200698,
+  "sha256": "91bbdf91cb59400228a4fcb8e8f7ea7af160391ffff95beb5824fa168e7eeeb2",
+  "file": "assets/enemies/source/1K9vPotFdD2eiR5eaTNFEkKrBjLIq8b08.png",
+  "png": {
+   "w": 1064,
+   "h": 1731,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1OlBKn1eS6M99JORR-MtJUvGdD3PosT4b",
+  "name": "レッサーデーモン3.png",
+  "ok": true,
+  "size": 1086412,
+  "sha256": "a384dabd6e8f6d8630f8d387a126a1a7075612a13f7a272174483cbb8435f24e",
+  "file": "assets/enemies/source/1OlBKn1eS6M99JORR-MtJUvGdD3PosT4b.png",
+  "png": {
+   "w": 1064,
+   "h": 1731,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "12HPhQfrq5zNId3zf7lkM_C6nk-TMW6yn",
+  "name": "レッサーデーモン2.png",
+  "ok": true,
+  "size": 1110560,
+  "sha256": "ac79923cda0becae24508e385f8aaa1bc53ba955e645d691a5bbc1e7304d02f6",
+  "file": "assets/enemies/source/12HPhQfrq5zNId3zf7lkM_C6nk-TMW6yn.png",
+  "png": {
+   "w": 1064,
+   "h": 1731,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1QixONfHqB2rpdx3davH6fNrSfka2jrTC",
+  "name": "レッサーデーモン.png",
+  "ok": true,
+  "size": 1116514,
+  "sha256": "014ae82b1a367f79015972d19af1d9fc54081e582d645cb1e3af85122962bcef",
+  "file": "assets/enemies/source/1QixONfHqB2rpdx3davH6fNrSfka2jrTC.png",
+  "png": {
+   "w": 1064,
+   "h": 1731,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1eoDEWwlvkmcDqZZaCWtksGPgkyZei01z",
+  "name": "4.ゴブリンジパング.png",
+  "ok": true,
+  "size": 1029741,
+  "sha256": "40cb9e4d8be5bb9a462287b8dd5b4fd303d99fef42f7d7c34eb5fa72c483ae5c",
+  "file": "assets/enemies/source/1eoDEWwlvkmcDqZZaCWtksGPgkyZei01z.png",
+  "png": {
+   "w": 1350,
+   "h": 1650,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1py3UXVwgETPFRGTuPf_vZp55A14nCGCM",
+  "name": "3.ゴブリンジパング.png",
+  "ok": true,
+  "size": 1026415,
+  "sha256": "db0d9ffa17866e3da8a3801012220b5f927ff25f70fc7b216a70efebf7531aad",
+  "file": "assets/enemies/source/1py3UXVwgETPFRGTuPf_vZp55A14nCGCM.png",
+  "png": {
+   "w": 1350,
+   "h": 1650,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "12qbXueyugof_3RiHU_QJ_DioZk_dBhxB",
+  "name": "2.ゴブリンジパング.png",
+  "ok": true,
+  "size": 1044166,
+  "sha256": "00f08a3597fba8a1dcb8a1d9485263e31adcf61d624c18c481083ffef07baecc",
+  "file": "assets/enemies/source/12qbXueyugof_3RiHU_QJ_DioZk_dBhxB.png",
+  "png": {
+   "w": 1350,
+   "h": 1650,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1GbcUFhbCMyH1z50GjeT6SnejXFVzebOD",
+  "name": "1.ゴブリンジパング.png",
+  "ok": true,
+  "size": 1010461,
+  "sha256": "6f0a92f54e75f08272483daa2bbf8a8282bba93433c1367b006176ff70bafb3d",
+  "file": "assets/enemies/source/1GbcUFhbCMyH1z50GjeT6SnejXFVzebOD.png",
+  "png": {
+   "w": 1350,
+   "h": 1650,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1sOA1P8BfHGInU4DGh5eBhzR5cxgbCMZ4",
+  "name": "4.ゴブリンシャーマン.png",
+  "ok": true,
+  "size": 555373,
+  "sha256": "ae521dbb54b344717e60bae38161cba6bcfae22bb989245be77085e8343838fc",
+  "file": "assets/enemies/source/1sOA1P8BfHGInU4DGh5eBhzR5cxgbCMZ4.png",
+  "png": {
+   "w": 650,
+   "h": 1089,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1_DygbQvRptmI4jJ76JDxXp2dFfe3n-6l",
+  "name": "3.ゴブリンシャーマン.png",
+  "ok": true,
+  "size": 557483,
+  "sha256": "9da232d853184a38e016f8883861fd35976541986f2c953baee6f730683c97b0",
+  "file": "assets/enemies/source/1_DygbQvRptmI4jJ76JDxXp2dFfe3n-6l.png",
+  "png": {
+   "w": 650,
+   "h": 1089,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1z5eZhTMSQlKWP8freWbFtiiefrHO_kG5",
+  "name": "2.ゴブリンシャーマン.png",
+  "ok": true,
+  "size": 563019,
+  "sha256": "945f9d04d62a5f9508ad22f1e076999106b5a31fe2d4a492661d67631826abcd",
+  "file": "assets/enemies/source/1z5eZhTMSQlKWP8freWbFtiiefrHO_kG5.png",
+  "png": {
+   "w": 650,
+   "h": 1089,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1Hhifkr7jMLf8nnqr-o4dQNr0zM8XE7bp",
+  "name": "1.ゴブリンシャーマン.png",
+  "ok": true,
+  "size": 556538,
+  "sha256": "421a450a6bbdddb5b23ae8ba1a7e097954de1b285c9090dffee658207de9fe98",
+  "file": "assets/enemies/source/1Hhifkr7jMLf8nnqr-o4dQNr0zM8XE7bp.png",
+  "png": {
+   "w": 650,
+   "h": 1089,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1KzcdwsvCwGNd7zl8-bGXYkBTtIC0zx5U",
+  "name": "ホブゴブリン4.png",
+  "ok": true,
+  "size": 1099976,
+  "sha256": "88f3963a41ec0443ce9b86fb088d23ada88def4347cf41a1b06a32e3e7b02881",
+  "file": "assets/enemies/source/1KzcdwsvCwGNd7zl8-bGXYkBTtIC0zx5U.png",
+  "png": {
+   "w": 1188,
+   "h": 1477,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1Pe9S1eFAF5H79ASQac4Vb6bTwRaYAi9x",
+  "name": "ホブゴブリン3.png",
+  "ok": true,
+  "size": 1061873,
+  "sha256": "798326b7637d9305fb36a9917f1b9f25be27d4eb1cee9af6c0e182721c0ec84e",
+  "file": "assets/enemies/source/1Pe9S1eFAF5H79ASQac4Vb6bTwRaYAi9x.png",
+  "png": {
+   "w": 1188,
+   "h": 1477,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1s7AJLuWV1L2tRZlNoCCmlTELuvuUbVkj",
+  "name": "ホブゴブリン2.png",
+  "ok": true,
+  "size": 1066134,
+  "sha256": "01355e649b0e1505a21b51de3b285240945032882a0b856bd6888fdf27d955a7",
+  "file": "assets/enemies/source/1s7AJLuWV1L2tRZlNoCCmlTELuvuUbVkj.png",
+  "png": {
+   "w": 1188,
+   "h": 1477,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1MBJM6AbAENldnqef6giGJWgWc-5P0guk",
+  "name": "ホブゴブリン.png",
+  "ok": true,
+  "size": 1066777,
+  "sha256": "59b28c8f29ad6c7661142bc80de9b74ef86c0a3a2017a7be0f4af9914807f303",
+  "file": "assets/enemies/source/1MBJM6AbAENldnqef6giGJWgWc-5P0guk.png",
+  "png": {
+   "w": 1188,
+   "h": 1477,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1llIequmXvhsb18MgPp4-5o9zhz2i_G1O",
+  "name": "4.ゴブリンアーチャー.png",
+  "ok": true,
+  "size": 937936,
+  "sha256": "d6230b63de7b5faea744d603479001137a80ff461811e483d17e779bbe0c87e4",
+  "file": "assets/enemies/source/1llIequmXvhsb18MgPp4-5o9zhz2i_G1O.png",
+  "png": {
+   "w": 1275,
+   "h": 1600,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "12NNVxsXPM9kTqsrX7N_h2hkf16NN9laq",
+  "name": "3.ゴブリンアーチャー.png",
+  "ok": true,
+  "size": 988775,
+  "sha256": "9ad0f45a6fc54690a1ca01ebd59ce529f712b6220d3cb081c4683c19db2c58b1",
+  "file": "assets/enemies/source/12NNVxsXPM9kTqsrX7N_h2hkf16NN9laq.png",
+  "png": {
+   "w": 1275,
+   "h": 1600,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1L7e6pFyz_cplaYJyJoYePZ8J-HOFOLyz",
+  "name": "2.ゴブリンアーチャー.png",
+  "ok": true,
+  "size": 1003458,
+  "sha256": "db6d3d8f850a73a4673375dc6d16bca3be7881a01a67d1c4f9b47d4323864738",
+  "file": "assets/enemies/source/1L7e6pFyz_cplaYJyJoYePZ8J-HOFOLyz.png",
+  "png": {
+   "w": 1275,
+   "h": 1600,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1X23boRMyKQzAjL5RV0Q_nitVSOQwv5Pv",
+  "name": "1.ゴブリンアーチャー.png",
+  "ok": true,
+  "size": 987120,
+  "sha256": "70f7dacc49161460a5ae0f399986f00a31d36c3e6d5dd8304cc339a1887d8b37",
+  "file": "assets/enemies/source/1X23boRMyKQzAjL5RV0Q_nitVSOQwv5Pv.png",
+  "png": {
+   "w": 1275,
+   "h": 1600,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "12fxYbkaas-GHaRZ-6xfmlcN68pz9UTXV",
+  "name": "4.ノーライフクイーン.png",
+  "ok": true,
+  "size": 1438676,
+  "sha256": "07d9955a8a67ba83a78c1ba01e808fbb3d3b06b60ca3ea950647b7c3d07dbc39",
+  "file": "assets/enemies/source/12fxYbkaas-GHaRZ-6xfmlcN68pz9UTXV.png",
+  "png": {
+   "w": 1275,
+   "h": 1753,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1XOOzQxbJWb3OLVCxAeAIJFnLPU320y_h",
+  "name": "3.ノーライフクイーン.png",
+  "ok": true,
+  "size": 1438243,
+  "sha256": "e3d6ec48877b3bc825b2e9c4c74c8e0bcee4e33680ca7cf3746c013ce8f73299",
+  "file": "assets/enemies/source/1XOOzQxbJWb3OLVCxAeAIJFnLPU320y_h.png",
+  "png": {
+   "w": 1275,
+   "h": 1753,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1QjV3j4RPkjRAzefqcukp5t7DoLX87ODT",
+  "name": "2.ノーライフクイーン.png",
+  "ok": true,
+  "size": 1444266,
+  "sha256": "e326c118059c9afa00a340f4b6ccd3fd5e8c67077c65f6d52d05bd64633de739",
+  "file": "assets/enemies/source/1QjV3j4RPkjRAzefqcukp5t7DoLX87ODT.png",
+  "png": {
+   "w": 1275,
+   "h": 1753,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1pB-5_VihpZfGY13Pu-FVhvi5nLRnMNJG",
+  "name": "1.ノーライフクイーン.png",
+  "ok": true,
+  "size": 1404855,
+  "sha256": "d5e58d746f4de1a7ba8fd09df130157cbcc9444a2cbc4009b6444da54dbb1887",
+  "file": "assets/enemies/source/1pB-5_VihpZfGY13Pu-FVhvi5nLRnMNJG.png",
+  "png": {
+   "w": 1275,
+   "h": 1753,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1q-2DPGY7d75k1vB00f3mU_stoZOer_YL",
+  "name": "ゴブリンキング4.png",
+  "ok": true,
+  "size": 1015219,
+  "sha256": "c5078a0fc6b950d7ad8ef9eb926ecbb697ee0040ac2abce9969b29fab368db9d",
+  "file": "assets/enemies/source/1q-2DPGY7d75k1vB00f3mU_stoZOer_YL.png",
+  "png": {
+   "w": 869,
+   "h": 1569,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1Zi4Rnb5-gS_84lGL748UGt560v42ffyG",
+  "name": "ゴブリンキング3.png",
+  "ok": true,
+  "size": 972095,
+  "sha256": "3f2b06b43395adbf2b1fee9dd85f53742972ab84bc4df222b03d4aba2b5e2593",
+  "file": "assets/enemies/source/1Zi4Rnb5-gS_84lGL748UGt560v42ffyG.png",
+  "png": {
+   "w": 869,
+   "h": 1569,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1KrSbn7lBRJ4XRiYwkUhXC_GlFh8jNQnu",
+  "name": "ゴブリンキング2.png",
+  "ok": true,
+  "size": 944188,
+  "sha256": "66fdc3731772394eb9d2757448c07016bd7e321e7ba98b3dd8921cc6a7195783",
+  "file": "assets/enemies/source/1KrSbn7lBRJ4XRiYwkUhXC_GlFh8jNQnu.png",
+  "png": {
+   "w": 869,
+   "h": 1569,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1sRJQ_UEngh9cM_1IMC2GavnsUcoCQsw9",
+  "name": "ゴブリンキング.png",
+  "ok": true,
+  "size": 932558,
+  "sha256": "12f7f7e60fb30e1317192fff95f663b50e65699d6a36fc30b8a7971ce1a6f179",
+  "file": "assets/enemies/source/1sRJQ_UEngh9cM_1IMC2GavnsUcoCQsw9.png",
+  "png": {
+   "w": 869,
+   "h": 1569,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "10Wd_Sn3ojFLJBJwZIXfdiClq-wqjaiDi",
+  "name": "4.ヴァンパイア.png",
+  "ok": true,
+  "size": 1444632,
+  "sha256": "14d0e2282dc4c416928390e30e54e5f8d0780d20f481a1ff80d6892c04f5acda",
+  "file": "assets/enemies/source/10Wd_Sn3ojFLJBJwZIXfdiClq-wqjaiDi.png",
+  "png": {
+   "w": 1275,
+   "h": 1500,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1ymjNDvrurZaaBuzmM0b4QA2vTLgVKqwv",
+  "name": "3.ヴァンパイア.png",
+  "ok": true,
+  "size": 1411999,
+  "sha256": "c3f1170752344d5d07d25d311bcc5ee8e2603c55e9e885ccacef1a023b0f63e8",
+  "file": "assets/enemies/source/1ymjNDvrurZaaBuzmM0b4QA2vTLgVKqwv.png",
+  "png": {
+   "w": 1275,
+   "h": 1500,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1A2FrO6eLcPobOnCNZJcHJGijQ3sJez5p",
+  "name": "2.ヴァンパイア.png",
+  "ok": true,
+  "size": 1413219,
+  "sha256": "3768c1c373f379cab3a0434f79386b5f9bb98b8f7dd629d6d0929e291a6ef246",
+  "file": "assets/enemies/source/1A2FrO6eLcPobOnCNZJcHJGijQ3sJez5p.png",
+  "png": {
+   "w": 1275,
+   "h": 1500,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1K7wMspDoht4HiauE8zV6mjOVrM2TWDXE",
+  "name": "1.ヴァンパイア.png",
+  "ok": true,
+  "size": 1391654,
+  "sha256": "8b3f7b4554d5a392225b56b67756db13ec0d2a25329b431f3acad3816efa29b3",
+  "file": "assets/enemies/source/1K7wMspDoht4HiauE8zV6mjOVrM2TWDXE.png",
+  "png": {
+   "w": 1275,
+   "h": 1500,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1fWwKtrjdZbCBVF5q6HwPYE1l-u5J30GS",
+  "name": "4.ガーゴイル.png",
+  "ok": true,
+  "size": 1424199,
+  "sha256": "899538be175f657ddebac057563323ac9960908ea26df23bc0a3d5622362de40",
+  "file": "assets/enemies/source/1fWwKtrjdZbCBVF5q6HwPYE1l-u5J30GS.png",
+  "png": {
+   "w": 1499,
+   "h": 1242,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1spIUK583BXMi2kSmTFEcU9bl6DYt3wZr",
+  "name": "3.ガーゴイル.png",
+  "ok": true,
+  "size": 1398851,
+  "sha256": "3e81fe3cb50431a278c7e471136491a720036f0d869166d4367cd8c3160dddaf",
+  "file": "assets/enemies/source/1spIUK583BXMi2kSmTFEcU9bl6DYt3wZr.png",
+  "png": {
+   "w": 1499,
+   "h": 1242,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1tpOe1vCJ9IcyYoY8EzP4SUFwHy2ONFlw",
+  "name": "2.ガーゴイル.png",
+  "ok": true,
+  "size": 1379806,
+  "sha256": "2ff03e7f6c21b7878dbab3cc755a015fa186dd82e8c20538ab09216fa5795e55",
+  "file": "assets/enemies/source/1tpOe1vCJ9IcyYoY8EzP4SUFwHy2ONFlw.png",
+  "png": {
+   "w": 1499,
+   "h": 1242,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1CKyZBpFp_o2xrJUSD5fsYubxyIEeehIt",
+  "name": "1.ガーゴイル.png",
+  "ok": true,
+  "size": 1410679,
+  "sha256": "f3ee6c9b6beb86546e0b9a2aff74eb9d961c41cb6cf40667261c3a959acf6d53",
+  "file": "assets/enemies/source/1CKyZBpFp_o2xrJUSD5fsYubxyIEeehIt.png",
+  "png": {
+   "w": 1499,
+   "h": 1242,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1RO82c8Bl6vHJRpQVY1ykcrEWmiGCX8Qc",
+  "name": "ゴブリン・チャリオッツ.png",
+  "ok": true,
+  "size": 2126780,
+  "sha256": "c416943e5a040ec5cfb8f30d507f5a68b3963e6311d235e5966e7fd395d02d80",
+  "file": "assets/enemies/source/1RO82c8Bl6vHJRpQVY1ykcrEWmiGCX8Qc.png",
+  "png": {
+   "w": 1726,
+   "h": 1215,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1SepTPZl-WLo4KRo7N2hcqtV8SDoSGYDZ",
+  "name": "cfbad317d088e375e71d6df408c215d9.zip",
+  "ok": true,
+  "size": 4838855,
+  "sha256": "567b63d3390e053d9dcf2c220741548d107bff0a6fa506968e74c9342a527057",
+  "file": "assets/enemies/source/1SepTPZl-WLo4KRo7N2hcqtV8SDoSGYDZ.zip",
+  "png": null
+ },
+ {
+  "id": "1QgXImZOuCpwRL9mJFVewaoIAgvGvfL5C",
+  "name": "c25633b927e784671ddb0504626baf7b.zip",
+  "ok": true,
+  "size": 5842383,
+  "sha256": "cec948899723d7cb73cd4a195ac3cb59dd6d4bbce5780c823fdfd84139f23fa3",
+  "file": "assets/enemies/source/1QgXImZOuCpwRL9mJFVewaoIAgvGvfL5C.zip",
+  "png": null
+ },
+ {
+  "id": "1DNfvWG-sWTMNm5BjCACWqP0UaV7H5nnv",
+  "name": "41f31b9ae9e7f76877456493ba309327.zip",
+  "ok": true,
+  "size": 3009133,
+  "sha256": "2635c1e867400ce60427a32955e7595be6f93ab12178ec2af5e03c5fb92602d3",
+  "file": "assets/enemies/source/1DNfvWG-sWTMNm5BjCACWqP0UaV7H5nnv.zip",
+  "png": null
+ },
+ {
+  "id": "1fDt_dnGFN3hnKoFIwUrAvwjg3umTzXwD",
+  "name": "4.インプ.png",
+  "ok": true,
+  "size": 1572160,
+  "sha256": "8a160a8dece34df3fdeed294d1e1aebd462d41efad16009c556c5e851691211f",
+  "file": "assets/enemies/source/1fDt_dnGFN3hnKoFIwUrAvwjg3umTzXwD.png",
+  "same_as": "1RdPp9TUu6eEFIa40DLk3RojFdB_Mq2re",
+  "identical": true,
+  "png": {
+   "w": 1550,
+   "h": 1750,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1E6aIW6OXy9i_ln67qEPlckxcI8MRi0Gw",
+  "name": "3.インプ.png",
+  "ok": true,
+  "size": 1579220,
+  "sha256": "56c8af13d40ad8139ef0c507eb15dc27934a23dffe0f157ecffaf53f32551e00",
+  "file": "assets/enemies/source/1E6aIW6OXy9i_ln67qEPlckxcI8MRi0Gw.png",
+  "same_as": "1Wnw_9eZK4JCYM2qmJ6k0AV2kDGDnM6FH",
+  "identical": true,
+  "png": {
+   "w": 1550,
+   "h": 1750,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1fowjTHhb0i12jdgVGwtJ85fYl089hc2D",
+  "name": "2.インプ.png",
+  "ok": true,
+  "size": 1573612,
+  "sha256": "4af74fee9aa01f174ad3cbca3b5cbeb6578944118e21774fde2a6b31f1ae9655",
+  "file": "assets/enemies/source/1fowjTHhb0i12jdgVGwtJ85fYl089hc2D.png",
+  "same_as": "1MNC0daFqe-jKp2wOTigx3D1ebGExSDSC",
+  "identical": true,
+  "png": {
+   "w": 1550,
+   "h": 1750,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "19vaJOH-UuDg5AAnSo6HCtY5p_92rqY1x",
+  "name": "1.インプ.png",
+  "ok": true,
+  "size": 1570449,
+  "sha256": "fa13cf3b6b46773c2fc4a1086365ceff2be784eac83db4ccdea62d8e6e15fc35",
+  "file": "assets/enemies/source/19vaJOH-UuDg5AAnSo6HCtY5p_92rqY1x.png",
+  "same_as": "1tdIEJ9CKKAjeJcnEFpp8xPnAXuMYFBXM",
+  "identical": true,
+  "png": {
+   "w": 1550,
+   "h": 1750,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1IUNlF5qIfiPsdPwkcgq5TYEQNhNG0H2R",
+  "name": "4.魔法_グレーターデーモン.png",
+  "ok": true,
+  "size": 1270781,
+  "sha256": "88410cb03c6af5095e4fcaa2386347403fac9e7fbb2a03da6835e6d5b4fc36e2",
+  "file": "assets/enemies/source/1IUNlF5qIfiPsdPwkcgq5TYEQNhNG0H2R.png",
+  "same_as": "1isc9uka2EkqSDA111wHRm-j9fkfIFF2W",
+  "identical": true,
+  "png": {
+   "w": 1150,
+   "h": 1550,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1MNMAywUHBlLKoIM68RNh6LlX9VXYpBG_",
+  "name": "4.杖_グレーターデーモン.png",
+  "ok": true,
+  "size": 1208912,
+  "sha256": "ed4e010b7a676f7bc9af6b05a404842e744bf336c039e356d5cb206d3800bfaa",
+  "file": "assets/enemies/source/1MNMAywUHBlLKoIM68RNh6LlX9VXYpBG_.png",
+  "same_as": "1L7PJpt9LmDD2haAtqMtitgmjnkVOxxcA",
+  "identical": true,
+  "png": {
+   "w": 1150,
+   "h": 1550,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1vpC3zsUCb1yBMwlhSxsLUE1ovWkfXHb_",
+  "name": "4.杖&魔法_グレーターデーモン.png",
+  "ok": true,
+  "size": 1364090,
+  "sha256": "1117f6ece7247b67fc0e6e97eb59c74aa797cfe7ca5d51079c8a505e8382a963",
+  "file": "assets/enemies/source/1vpC3zsUCb1yBMwlhSxsLUE1ovWkfXHb_.png",
+  "same_as": "1c-L-KXJoIdjR6cY5f6ndoeU7Ukl98KlZ",
+  "identical": true,
+  "png": {
+   "w": 1150,
+   "h": 1550,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1fdF1Q4o7yyhl6R7_dRePdmCwVh_Swop2",
+  "name": "4.グレーターデーモン.png",
+  "ok": true,
+  "size": 1113516,
+  "sha256": "ae22a9db907f928fe24640dffebbef355cda6cb982c7a3fea9d87f15c891a6f7",
+  "file": "assets/enemies/source/1fdF1Q4o7yyhl6R7_dRePdmCwVh_Swop2.png",
+  "same_as": "1uRm9Q0Swkc109-BUD0cQ1TVT_nY3nIC2",
+  "identical": true,
+  "png": {
+   "w": 1150,
+   "h": 1550,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1v3cS_PtHM7Yx9-93Hpm_lhCBsLa8EFr_",
+  "name": "3.魔法_グレーターデーモン.png",
+  "ok": true,
+  "size": 1312501,
+  "sha256": "683d165a086ea5c8860703c255f7370fecfa4091c840ec41885fac321d0654ee",
+  "file": "assets/enemies/source/1v3cS_PtHM7Yx9-93Hpm_lhCBsLa8EFr_.png",
+  "same_as": "1Sbambd8q_qBPOExutylDtmoMhuGrsVM3",
+  "identical": true,
+  "png": {
+   "w": 1150,
+   "h": 1550,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "12KzjQO7udAHy6hmI7dQtLqA2QLgIs8nV",
+  "name": "3.杖_グレーターデーモン.png",
+  "ok": true,
+  "size": 1251038,
+  "sha256": "5fa73c6d4d5fd3e6db2a34f97be040035070b7b577c7c1a823b2bca43706e22f",
+  "file": "assets/enemies/source/12KzjQO7udAHy6hmI7dQtLqA2QLgIs8nV.png",
+  "same_as": "1ReCoxZKiDpKQ84iWxykZ22_Pv0pIm7lD",
+  "identical": true,
+  "png": {
+   "w": 1150,
+   "h": 1550,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "17QPo6cKgS-GKsepSxPkdZga8a-gYNLOW",
+  "name": "3.杖&魔法_グレーターデーモン.png",
+  "ok": true,
+  "size": 1406950,
+  "sha256": "9781cb1a39943b260d5049dbcd9748955eca04350f9c9fd71e02dec5daf5ed7e",
+  "file": "assets/enemies/source/17QPo6cKgS-GKsepSxPkdZga8a-gYNLOW.png",
+  "same_as": "1pb544PPgZrn236bJ_g13O5D0U76Fx10C",
+  "identical": true,
+  "png": {
+   "w": 1150,
+   "h": 1550,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1RtR9v8uHbqK_FPSLjk4KDbDr9YPf8gRD",
+  "name": "3.グレーターデーモン.png",
+  "ok": true,
+  "size": 1155820,
+  "sha256": "6d634155c0a1acd624e74a0740385e289d5c7d7b1aa3b954335179f5ff0eda75",
+  "file": "assets/enemies/source/1RtR9v8uHbqK_FPSLjk4KDbDr9YPf8gRD.png",
+  "same_as": "1UOYwxeJA44aJr9zHkMlKAvb9u9qwdTwd",
+  "identical": true,
+  "png": {
+   "w": 1150,
+   "h": 1550,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1oPo_9JQTUBfDQzjIVQcTgRykuKddBY_q",
+  "name": "2.魔法_グレーターデーモン.png",
+  "ok": true,
+  "size": 1306172,
+  "sha256": "e547653ef12412e57f57baa8dd2643130cfb09e1e580fd5eabbe2dcdd29a0cb4",
+  "file": "assets/enemies/source/1oPo_9JQTUBfDQzjIVQcTgRykuKddBY_q.png",
+  "same_as": "19lMG_UCU1nOc3hgR9oHweuav3R3PgM8N",
+  "identical": true,
+  "png": {
+   "w": 1150,
+   "h": 1550,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1AsLvUNpAUgrmF6BhtiWXBeWT1mBD-AqD",
+  "name": "2.杖_グレーターデーモン.png",
+  "ok": true,
+  "size": 1242980,
+  "sha256": "5b94f9f7ce470b9870237df55a092c6eea3828a24e2253a10f8b2aa9305c4022",
+  "file": "assets/enemies/source/1AsLvUNpAUgrmF6BhtiWXBeWT1mBD-AqD.png",
+  "same_as": "1gDuhz6wjFs2YEhZm9MnP-13rNN3bMhAt",
+  "identical": true,
+  "png": {
+   "w": 1150,
+   "h": 1550,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1iTKlO3JGfMs0Pa1UFiUf3qOxDjfDOxAU",
+  "name": "2.杖&魔法_グレーターデーモン.png",
+  "ok": true,
+  "size": 1399667,
+  "sha256": "cafa137edef8506abc4c0945dbb85a03a12989296e3b7bfd8486323e0ca21403",
+  "file": "assets/enemies/source/1iTKlO3JGfMs0Pa1UFiUf3qOxDjfDOxAU.png",
+  "same_as": "1gWYnMDjUABUnw2cpHgfEpOtO7jhYG5c2",
+  "identical": true,
+  "png": {
+   "w": 1150,
+   "h": 1550,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1xXfpWfCaCsJbJrNbHPsjbfy7I75UkKuj",
+  "name": "2.グレーターデーモン.png",
+  "ok": true,
+  "size": 1147845,
+  "sha256": "3de966c907ad5ab4bb58ace0eef9bfb8b1982546c936f91867e175581cf1f41e",
+  "file": "assets/enemies/source/1xXfpWfCaCsJbJrNbHPsjbfy7I75UkKuj.png",
+  "same_as": "1MLxn3PgNLsppbaxGnXFV3mzsTpkSkZHx",
+  "identical": true,
+  "png": {
+   "w": 1150,
+   "h": 1550,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1cOzJlMBBk9_Z_vwQESvwUNVN-1n39wO9",
+  "name": "1.魔法_グレーターデーモン.png",
+  "ok": true,
+  "size": 1253016,
+  "sha256": "c8c19f20af25e919de9e85282ee60dbce57da1452bdf5fb49ce327e003b4f139",
+  "file": "assets/enemies/source/1cOzJlMBBk9_Z_vwQESvwUNVN-1n39wO9.png",
+  "same_as": "1eLa_ViYNKJfniryQg63ETz2CRMMpSO6u",
+  "identical": true,
+  "png": {
+   "w": 1150,
+   "h": 1550,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "19tAm-TivhAuZ6nIsjyUzgXnZ14RhtboH",
+  "name": "1.杖_グレーターデーモン.png",
+  "ok": true,
+  "size": 1191075,
+  "sha256": "1987e8635d3c4120c7aa16dea895455a44853f55633a1240d272d2b529fe4f80",
+  "file": "assets/enemies/source/19tAm-TivhAuZ6nIsjyUzgXnZ14RhtboH.png",
+  "same_as": "13hA_Evg96eAM2Nyep23Bv2IQF28AUQLT",
+  "identical": true,
+  "png": {
+   "w": 1150,
+   "h": 1550,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1110VrFbkvYh4m7Wshwi16mjNNt08FFer",
+  "name": "1.杖&魔法_グレーターデーモン.png",
+  "ok": true,
+  "size": 1346300,
+  "sha256": "243b7df3adf3b838aae2a8e6ce534a900674fc5510774f792942c2d77a6e1508",
+  "file": "assets/enemies/source/1110VrFbkvYh4m7Wshwi16mjNNt08FFer.png",
+  "same_as": "1wYeYpJqGWSBeTzOr-4n99l1Tz-GdHrKU",
+  "identical": true,
+  "png": {
+   "w": 1150,
+   "h": 1550,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1ORAGXykudHAgMA0dTcKs88g0MJLPdfW0",
+  "name": "1.グレーターデーモン.png",
+  "ok": true,
+  "size": 1095500,
+  "sha256": "09c6b70c7240050f52cd8cc5958afdaccfcc45492d2b8b56d2185c8b623b1ff6",
+  "file": "assets/enemies/source/1ORAGXykudHAgMA0dTcKs88g0MJLPdfW0.png",
+  "same_as": "130YvF6lYu_TLpyo3pfV91Lwe6E3XhLTj",
+  "identical": true,
+  "png": {
+   "w": 1150,
+   "h": 1550,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1zoJ4Cxcbn39zkak8LBnB5IYT_GIrzTp6",
+  "name": "4.ゲイザー.png",
+  "ok": true,
+  "size": 1899529,
+  "sha256": "bee2be03a884e4e46a3f47b0a621fc79cb4ba72b4b05afd7b72922580b43847e",
+  "file": "assets/enemies/source/1zoJ4Cxcbn39zkak8LBnB5IYT_GIrzTp6.png",
+  "same_as": "1T4V0O_gNzjhU69WSVB04j_4mCKoQd4rq",
+  "identical": true,
+  "png": {
+   "w": 1275,
+   "h": 1753,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1uAooOiYWCQKi2RaHxnX4zsJDSuxOn8TY",
+  "name": "3.ゲイザー.png",
+  "ok": true,
+  "size": 1889288,
+  "sha256": "5f9703b477154a1c4164058e33ff998d49f2c2eb7f22296eadb66d1cb02b417c",
+  "file": "assets/enemies/source/1uAooOiYWCQKi2RaHxnX4zsJDSuxOn8TY.png",
+  "same_as": "1KjdqWheBp5HpSu70L-XIHpzJKWSs4opN",
+  "identical": true,
+  "png": {
+   "w": 1275,
+   "h": 1753,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1kQzCnPxICOckHRJKBa1TJak08juHAoe7",
+  "name": "2.ゲイザー.png",
+  "ok": true,
+  "size": 1888364,
+  "sha256": "552429d6c560f21e3f787c0b6c4fb700492f803dae55d2cc018b711cca8dc764",
+  "file": "assets/enemies/source/1kQzCnPxICOckHRJKBa1TJak08juHAoe7.png",
+  "same_as": "1obkKBCGtuLchcTXyRvds-4GxmxSIcve-",
+  "identical": true,
+  "png": {
+   "w": 1275,
+   "h": 1753,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1L7q2jw2TaeO-0qG8h0aKn5duFg410ud_",
+  "name": "1.ゲイザー.png",
+  "ok": true,
+  "size": 1873911,
+  "sha256": "07bdae4b4fe656b1d3a7e7c4d3b3f145cdebb9b57a525db445643361e5c735fd",
+  "file": "assets/enemies/source/1L7q2jw2TaeO-0qG8h0aKn5duFg410ud_.png",
+  "same_as": "1ndgovC8aRN1KslaeXt6d6-Rq9SdX2fP0",
+  "identical": true,
+  "png": {
+   "w": 1275,
+   "h": 1753,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1shC69d8JQSea_BqPyDK-j7i91Z3sAD5k",
+  "name": "4.アークデーモン.png",
+  "ok": true,
+  "size": 1546867,
+  "sha256": "9f273d36add658bf1c820d4dda6ed5e68deb3e4458eb3e47201d1ac78178b742",
+  "file": "assets/enemies/source/1shC69d8JQSea_BqPyDK-j7i91Z3sAD5k.png",
+  "same_as": "19l5HsF5IARyuMRCULquwbsP-jfEvhzAQ",
+  "identical": true,
+  "png": {
+   "w": 1253,
+   "h": 1753,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1PgdMHa9qEml0V-kiJvaXT9-dI4HVxWqn",
+  "name": "3.アークデーモン.png",
+  "ok": true,
+  "size": 1545155,
+  "sha256": "9ce78491ce239a1909ef96dd1e9163aee56f63adffe806493420950693e20562",
+  "file": "assets/enemies/source/1PgdMHa9qEml0V-kiJvaXT9-dI4HVxWqn.png",
+  "same_as": "14W4J5MUkkVh6qdN5WmB6DkbL6Nj3MM5k",
+  "identical": true,
+  "png": {
+   "w": 1253,
+   "h": 1753,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1CzinD_3cIQdhZMVkHkh7Du_cCeqxwuf0",
+  "name": "2.アークデーモン.png",
+  "ok": true,
+  "size": 1606712,
+  "sha256": "03f2a160f00b39c6cfb4003d87111a0fd09ca8938062e9d11aab70a31e670214",
+  "file": "assets/enemies/source/1CzinD_3cIQdhZMVkHkh7Du_cCeqxwuf0.png",
+  "same_as": "1WdoqyHGfQIYv4_MXq5C4wUvWKqVUWW_c",
+  "identical": true,
+  "png": {
+   "w": 1253,
+   "h": 1753,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "14La-EcSOBmtB9zc9ZEgaRXo5-tb8IWfO",
+  "name": "1.アークデーモン.png",
+  "ok": true,
+  "size": 1536100,
+  "sha256": "f869c5afeb77dc82c4020c8be1138b06df362e77302949a538d94131fe749ee3",
+  "file": "assets/enemies/source/14La-EcSOBmtB9zc9ZEgaRXo5-tb8IWfO.png",
+  "same_as": "1V_sBD6iLbEmVpd3-ebQILT_3A7MCu6fq",
+  "identical": true,
+  "png": {
+   "w": 1253,
+   "h": 1753,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1UM6RMO1QqEpHmLEMUzMEEgz9_f2URV65",
+  "name": "4.デーモンファウンダー.png",
+  "ok": true,
+  "size": 1826931,
+  "sha256": "139a39ca9b9da26c2774c6c534a1cfb51abd6355f516523337e3191def73f2b5",
+  "file": "assets/enemies/source/1UM6RMO1QqEpHmLEMUzMEEgz9_f2URV65.png",
+  "same_as": "1IiwyofQJSo9rFEIXiF-FMtv3LFIROPlj",
+  "identical": true,
+  "png": {
+   "w": 1720,
+   "h": 1237,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1SO6CkTwt1nRZfySEIFiM-qm7trgc1pND",
+  "name": "3.デーモンファウンダー.png",
+  "ok": true,
+  "size": 1831362,
+  "sha256": "d8856a1b094761e12a879d67ffb49993ce3ff803f5afd189262d60525a301059",
+  "file": "assets/enemies/source/1SO6CkTwt1nRZfySEIFiM-qm7trgc1pND.png",
+  "same_as": "1tvW5jDojRHDLNB40aEdqqJN2NnsEpfOd",
+  "identical": true,
+  "png": {
+   "w": 1720,
+   "h": 1237,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1NqSWK4CjCHfhE8T0AmyvuV8w16BjvL-4",
+  "name": "2.デーモンファウンダー.png",
+  "ok": true,
+  "size": 1803293,
+  "sha256": "fe4fbd94dce0a1b1aa41b051f7ff1110d1285f4d383c212dc0e3e0788d8b3fc0",
+  "file": "assets/enemies/source/1NqSWK4CjCHfhE8T0AmyvuV8w16BjvL-4.png",
+  "same_as": "13G93GH8xdNI7Gn5P6v3T1LQeLl7FfvZr",
+  "identical": true,
+  "png": {
+   "w": 1720,
+   "h": 1237,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "11HH2MuBml84CjsPVGJqP_dDjTrE7Ark-",
+  "name": "1.デーモンファウンダー.png",
+  "ok": true,
+  "size": 1860722,
+  "sha256": "76459e05e4de1d1106a61166fee62667e0c39b9539a1b137a4cc18b1c4687b5f",
+  "file": "assets/enemies/source/11HH2MuBml84CjsPVGJqP_dDjTrE7Ark-.png",
+  "same_as": "1Giqtd6b7EsLvTI-dVhyPH-MZayakZi4D",
+  "identical": true,
+  "png": {
+   "w": 1720,
+   "h": 1237,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1TNuxwRl6ioqLfzXLSN30S3WXs4P3gzw7",
+  "name": "4.サキュバス.png",
+  "ok": true,
+  "size": 1350742,
+  "sha256": "f2cb0cca158e7fc49b294d99b0ab024b201e777ea77b74f72ef0136883230113",
+  "file": "assets/enemies/source/1TNuxwRl6ioqLfzXLSN30S3WXs4P3gzw7.png",
+  "same_as": "14dcdf2oDMkDR5HWNlABgaM2KyQukmEqn",
+  "identical": true,
+  "png": {
+   "w": 1600,
+   "h": 1275,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1kqNYZDR1ZXgU5Zh0N0EdDs_gpFe7dH9r",
+  "name": "3.サキュバス.png",
+  "ok": true,
+  "size": 1348784,
+  "sha256": "353ec8d7703d7c7cfaeb4d929db98f04fe14fee5f9e2d59bbf1a908e734fec0f",
+  "file": "assets/enemies/source/1kqNYZDR1ZXgU5Zh0N0EdDs_gpFe7dH9r.png",
+  "same_as": "18J9fPejOW40i-qlOefp1J4dfLLrYFZrn",
+  "identical": true,
+  "png": {
+   "w": 1600,
+   "h": 1275,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "1R6qW0kxjeXjxPpu6pRp4rxkEGThR7rjG",
+  "name": "2.サキュバス.png",
+  "ok": true,
+  "size": 1341482,
+  "sha256": "55c0864b6b4773bb18aaaf0ed102be4f71c3ff311f2a45e9af7667a244c4b974",
+  "file": "assets/enemies/source/1R6qW0kxjeXjxPpu6pRp4rxkEGThR7rjG.png",
+  "same_as": "1AK0DrC-HIajoqebP91Yxh3yD2ogdagMb",
+  "identical": true,
+  "png": {
+   "w": 1600,
+   "h": 1275,
+   "colortype": 6
+  }
+ },
+ {
+  "id": "16c9yUI3zz9H16wa9ZOYqdhkekFYIaNxQ",
+  "name": "1.サキュバス.png",
+  "ok": true,
+  "size": 1351609,
+  "sha256": "d7d4a6f247e9ddda113635adbe766324d3e8d464472660ca4cf2221c8a9d3ab4",
+  "file": "assets/enemies/source/16c9yUI3zz9H16wa9ZOYqdhkekFYIaNxQ.png",
+  "same_as": "12L6FFxgptBUboyYalhOw3T0PNzvv1iPB",
+  "identical": true,
+  "png": {
+   "w": 1600,
+   "h": 1275,
+   "colortype": 6
+  }
+ }
+]

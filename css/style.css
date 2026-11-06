@@ -1490,20 +1490,227 @@ button.job-card:disabled.locked{cursor:not-allowed}
 }
 
 /* ============================================================
-   外部 3D アセット（GLB）の敵モデル表示レイヤ
-   WebGL が使えない環境では .enemy-3d-fallback の 2D スプライトを残す。
+   Google Drive「敵キャラ」静止 PNG の表示レイヤ（2D / 無変換）
+   ------------------------------------------------------------
+   元ファイルは 1 ピクセルも変更しない。CSS で表示サイズ・向き・
+   接地位置・攻撃モーション・エフェクトだけを与える。
+   3D モデル / スケletalアニメ / 動画の読み込みは存在しない。
    ============================================================ */
-#enemy3d-layer{position:fixed;left:0;top:0;display:block;z-index:60;pointer-events:none;background:transparent}
-.enemy-3d{position:relative;width:100%;height:100%;min-height:1px}
-.enemy-3d-fallback{position:absolute;inset:0;display:grid;place-items:center;transition:opacity .25s ease}
-.enemy-3d[data-enemy3d-loaded="1"] .enemy-3d-fallback{opacity:0;pointer-events:none}
-.enemy-3d-ground{position:absolute;left:12%;right:12%;bottom:3%;height:12%;border-radius:50%;
-  background:radial-gradient(ellipse,rgba(4,8,20,.62),rgba(4,8,20,0) 72%);filter:blur(3px);opacity:0;transition:opacity .3s ease}
-.enemy-3d[data-enemy3d-loaded="1"] .enemy-3d-ground{opacity:.9}
-.enemy-sprite .enemy-3d{width:100%;height:100%}
-.enemy-sprite .enemy-3d-ground{bottom:6%;height:10%}
-.combat-sprite .enemy-3d{width:100%;height:100%}
-.combat-sprite .enemy-3d-ground{left:18%;right:18%;bottom:4%;height:9%}
-.result-enemy-3d{width:160px;height:160px;margin:0 auto 4px;max-width:100%}
-.result-enemy-3d .enemy-3d-ground{bottom:2%}
-@media (max-width:640px){.result-enemy-3d{width:120px;height:120px}}
+.enemy-art{
+  position:relative;width:100%;height:100%;min-height:1px;overflow:hidden;isolation:isolate;
+  --art-scale:1;--art-ground:.99;--art-flip:-1;--art-color:#ffd77a;
+}
+.enemy-art .enemy-art-img{
+  position:absolute;left:50%;bottom:0;width:100%;height:100%;z-index:2;
+  object-fit:contain;object-position:50% 100%;image-rendering:auto;
+  transform:translateX(-50%) scaleX(var(--art-flip)) scale(var(--art-scale));
+  transform-origin:50% calc(var(--art-ground) * 100%);
+  filter:drop-shadow(0 7px 12px rgba(3,6,18,.38));
+  transition:opacity .22s ease;
+}
+.enemy-art-ground{
+  position:absolute;left:12%;right:12%;bottom:2%;height:11%;z-index:1;border-radius:50%;
+  background:radial-gradient(ellipse,rgba(4,8,20,.62),rgba(4,8,20,0) 72%);
+  filter:blur(3px);opacity:0;transition:opacity .3s ease;
+}
+.enemy-art[data-loaded="1"] .enemy-art-ground{opacity:.85}
+.enemy-art-aura{
+  position:absolute;left:18%;right:18%;bottom:6%;height:78%;z-index:0;border-radius:50%;
+  background:radial-gradient(ellipse,var(--aura,transparent),transparent 68%);
+  opacity:.16;filter:blur(12px);pointer-events:none;
+}
+.enemy-art-fx{position:absolute;inset:0;z-index:3;pointer-events:none}
+.enemy-art-fallback{position:absolute;inset:0;z-index:1;display:grid;place-items:center;opacity:0;transition:opacity .2s ease}
+.enemy-art-fallback img{max-width:100%;max-height:100%;object-fit:contain}
+.enemy-art[data-failed="1"] .enemy-art-img{opacity:0}
+.enemy-art[data-failed="1"] .enemy-art-fallback{opacity:1}
+.enemy-art.art-float .enemy-art-img{animation:art-float 3.2s ease-in-out infinite}
+.enemy-art.art-wide .enemy-art-img{object-fit:contain;object-position:50% 100%}
+.enemy-sprite .enemy-art,.combat-sprite .enemy-art,.result-enemy-art .enemy-art,
+.stage-art .enemy-art,.asset-preview .enemy-art{width:100%;height:100%}
+.combat-sprite .enemy-art-ground{left:18%;right:18%;bottom:4%;height:9%}
+.result-enemy-art{width:160px;height:160px;margin:0 auto 4px;max-width:100%}
+.stage-art{width:96px;height:112px;flex:0 0 96px}
+.asset-preview{width:200px;height:220px;flex:0 0 200px}
+.story-scene .story-art{width:140px;height:160px;flex:0 0 140px}
+
+/* --- 静止画への CSS モーション（画像データ自体は不変） --- */
+@keyframes art-float{0%,100%{margin-bottom:0}50%{margin-bottom:8px}}
+@keyframes art-enter{0%{opacity:0;transform:translateX(-50%) translateY(26px) scaleX(var(--art-flip)) scale(var(--art-scale))}
+  100%{opacity:1;transform:translateX(-50%) translateY(0) scaleX(var(--art-flip)) scale(var(--art-scale))}}
+@keyframes art-slash{0%{transform:translateX(-50%) scaleX(var(--art-flip)) scale(var(--art-scale))}
+  38%{transform:translateX(calc(-50% - 24px)) rotate(-7deg) scaleX(var(--art-flip)) scale(var(--art-scale))}
+  100%{transform:translateX(-50%) scaleX(var(--art-flip)) scale(var(--art-scale))}}
+@keyframes art-bash{0%{transform:translateX(-50%) scaleX(var(--art-flip)) scale(var(--art-scale))}
+  35%{transform:translateX(calc(-50% - 14px)) translateY(10px) rotate(5deg) scaleX(var(--art-flip)) scale(var(--art-scale))}
+  100%{transform:translateX(-50%) scaleX(var(--art-flip)) scale(var(--art-scale))}}
+@keyframes art-thrust{0%{transform:translateX(-50%) scaleX(var(--art-flip)) scale(var(--art-scale))}
+  45%{transform:translateX(calc(-50% - 34px)) scaleX(var(--art-flip)) scale(var(--art-scale))}
+  100%{transform:translateX(-50%) scaleX(var(--art-flip)) scale(var(--art-scale))}}
+@keyframes art-shot{0%{transform:translateX(-50%) scaleX(var(--art-flip)) scale(var(--art-scale))}
+  30%{transform:translateX(calc(-50% + 12px)) scaleX(var(--art-flip)) scale(var(--art-scale))}
+  100%{transform:translateX(-50%) scaleX(var(--art-flip)) scale(var(--art-scale))}}
+@keyframes art-cast{0%{filter:brightness(1)}40%{filter:brightness(1.55) drop-shadow(0 0 22px var(--art-color))}
+  100%{filter:brightness(1)}}
+@keyframes art-gaze{0%{opacity:1}45%{opacity:.78}100%{opacity:1}}
+@keyframes art-breath{0%{filter:brightness(1)}45%{filter:brightness(1.35) sepia(.25)}100%{filter:brightness(1)}}
+@keyframes art-charge{0%{transform:translateX(-50%) scaleX(var(--art-flip)) scale(var(--art-scale))}
+  50%{transform:translateX(calc(-50% - 40px)) scaleX(var(--art-flip)) scale(var(--art-scale))}
+  100%{transform:translateX(-50%) scaleX(var(--art-flip)) scale(var(--art-scale))}}
+@keyframes art-multi{0%,100%{transform:translateX(-50%) scaleX(var(--art-flip)) scale(var(--art-scale))}
+  20%{transform:translateX(calc(-50% - 20px)) scaleX(var(--art-flip)) scale(var(--art-scale))}
+  40%{transform:translateX(calc(-50% + 16px)) scaleX(var(--art-flip)) scale(var(--art-scale))}
+  60%{transform:translateX(calc(-50% - 16px)) scaleX(var(--art-flip)) scale(var(--art-scale))}
+  80%{transform:translateX(calc(-50% + 10px)) scaleX(var(--art-flip)) scale(var(--art-scale))}}
+@keyframes art-aura{0%{filter:drop-shadow(0 0 0 var(--art-color))}50%{filter:drop-shadow(0 0 26px var(--art-color))}100%{filter:drop-shadow(0 0 0 var(--art-color))}}
+@keyframes art-bite{0%{transform:translateX(-50%) scaleX(var(--art-flip)) scale(var(--art-scale))}
+  40%{transform:translateX(calc(-50% - 18px)) rotate(8deg) scaleX(var(--art-flip)) scale(var(--art-scale))}
+  100%{transform:translateX(-50%) scaleX(var(--art-flip)) scale(var(--art-scale))}}
+@keyframes art-hit{0%,100%{filter:brightness(1)}25%{filter:brightness(2.1) sepia(.5)}
+  50%{filter:brightness(1)}75%{filter:brightness(1.8) sepia(.3)}}
+@keyframes art-death{0%{opacity:1}100%{opacity:0;transform:translateX(-50%) translateY(22px) rotate(14deg) scaleX(var(--art-flip)) scale(var(--art-scale))}}
+@keyframes art-guard{0%,100%{filter:brightness(1)}50%{filter:brightness(1.3) drop-shadow(0 0 18px #8ce6ff)}}
+
+.enemy-art.art-enter .enemy-art-img{animation:art-enter .55s ease-out both}
+.enemy-art.art-hit .enemy-art-img{animation:art-hit .42s linear both}
+.enemy-art.art-death .enemy-art-img{animation:art-death .8s ease-in both}
+.enemy-art.art-guard .enemy-art-img{animation:art-guard .6s ease-in-out both}
+.enemy-art.art-attack[data-motion="slash"] .enemy-art-img{animation:art-slash .55s ease-in-out both}
+.enemy-art.art-attack[data-motion="bash"] .enemy-art-img{animation:art-bash .58s ease-in-out both}
+.enemy-art.art-attack[data-motion="thrust"] .enemy-art-img{animation:art-thrust .5s ease-in-out both}
+.enemy-art.art-attack[data-motion="shot"] .enemy-art-img{animation:art-shot .45s ease-out both}
+.enemy-art.art-attack[data-motion="cast"] .enemy-art-img{animation:art-cast .7s ease-in-out both}
+.enemy-art.art-attack[data-motion="gaze"] .enemy-art-img{animation:art-gaze .7s ease-in-out both}
+.enemy-art.art-attack[data-motion="breath"] .enemy-art-img{animation:art-breath .75s ease-in-out both}
+.enemy-art.art-attack[data-motion="charge"] .enemy-art-img{animation:art-charge .65s ease-in both}
+.enemy-art.art-attack[data-motion="multi"] .enemy-art-img{animation:art-multi .68s ease-in-out both}
+.enemy-art.art-attack[data-motion="aura"] .enemy-art-img{animation:art-aura .7s ease-in-out both}
+.enemy-art.art-attack[data-motion="bite"] .enemy-art-img{animation:art-bite .55s ease-in-out both}
+.enemy-art.art-attack .enemy-art-fx::after{
+  content:"";position:absolute;left:12%;right:12%;top:34%;height:44%;border-radius:50%;
+  border:2px solid var(--art-color);box-shadow:0 0 26px var(--art-color),inset 0 0 22px var(--art-color);
+  opacity:0;animation:emf-pulse .6s ease-out both;
+}
+@keyframes emf-pulse{0%{opacity:0;transform:scale(.5)}45%{opacity:.8;transform:scale(1.08)}100%{opacity:0;transform:scale(1.35)}}
+
+/* --- 専用技のエフェクト（#fx-layer に生成、画像は変更しない） --- */
+.enemy-move-fx{position:fixed;left:50%;top:38%;transform:translate(-50%,-50%);z-index:70;
+  pointer-events:none;text-align:center;--mc:#ffb45a}
+.emf-ring{display:block;width:130px;height:130px;margin:0 auto;border-radius:50%;
+  border:3px solid var(--mc);box-shadow:0 0 34px var(--mc),inset 0 0 28px var(--mc);
+  animation:emf-ring 1s ease-out both}
+.emf-glyph{display:block;position:absolute;left:0;right:0;top:32px;font-size:54px;font-weight:900;
+  color:#fff;text-shadow:0 0 18px var(--mc),0 0 36px var(--mc);animation:emf-glyph 1s ease-out both}
+.emf-name{display:block;margin-top:8px;font-size:15px;font-weight:800;letter-spacing:.08em;
+  color:#fff;text-shadow:0 2px 10px #000,0 0 16px var(--mc);white-space:nowrap}
+@keyframes emf-ring{0%{opacity:0;transform:scale(.35) rotate(0)}40%{opacity:.95;transform:scale(1.1) rotate(90deg)}
+  100%{opacity:0;transform:scale(1.55) rotate(200deg)}}
+@keyframes emf-glyph{0%{opacity:0;transform:scale(.4)}45%{opacity:1;transform:scale(1.2)}100%{opacity:0;transform:scale(.9)}}
+
+/* --- 敵カード：特徴と専用技 --- */
+.enemy-feature{font-size:11px;line-height:1.5;color:#b9c9e4;margin:3px 0}
+.enemy-move{margin:4px 0;padding:5px 8px;border-radius:8px;background:rgba(10,18,38,.55);
+  border:1px solid rgba(140,180,255,.22);font-size:11px;line-height:1.45}
+.enemy-move b{display:block;color:#ffd77a;font-size:12px}
+.enemy-move small{display:block;color:#a9b9d4}
+.combat-move{margin:4px 0;padding:4px 8px;border-radius:8px;background:rgba(10,18,38,.6);
+  border:1px solid rgba(255,180,90,.3);font-size:12px;color:#ffd77a}
+.combat-move small{display:block;color:#b9c9e4;font-size:10px;line-height:1.4}
+
+/* --- 5章ストーリー --- */
+.story-page .story-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(310px,1fr));gap:14px}
+.story-chapter{position:relative;padding:16px;border-radius:14px;border:1px solid rgba(140,180,255,.18);
+  background:linear-gradient(160deg,rgba(22,32,60,.92),rgba(10,16,34,.94))}
+.story-chapter.locked{opacity:.58;filter:grayscale(.4)}
+.story-chapter.cleared{border-color:rgba(120,230,170,.45)}
+.sc-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.sc-head h3{font-size:16px;margin:0}
+.rank-badge{display:inline-block;padding:2px 9px;border-radius:999px;font-weight:900;font-size:12px;
+  background:rgba(120,180,255,.16);border:1px solid rgba(160,200,255,.35);color:#dbeaff}
+.rank-badge.rank-sr,.rank-badge.rank-R{color:#aebfd4}
+.rank-badge.rank-ssr{color:#ffd77a}.rank-badge.rank-ur{color:#ff9ecf}.rank-badge.rank-lr{color:#ff8f6b}
+.sc-place{font-size:12px;color:#9fb6d6;margin:8px 0 4px}
+.story-chapter>p{font-size:13px;line-height:1.65;margin:6px 0}
+.story-chapter>small{display:block;font-size:11px;color:#8fa4c4;line-height:1.5}
+.sc-reward{margin:10px 0;padding:9px;border-radius:10px;background:rgba(8,14,30,.6);
+  border:1px dashed rgba(255,215,122,.3);font-size:12px}
+.sc-reward>b{display:block;color:#ffd77a;margin-bottom:5px}
+.story-mat-row{display:flex;flex-wrap:wrap;gap:6px;margin:5px 0}
+.story-mat{display:inline-flex;align-items:center;gap:4px;padding:3px 7px;border-radius:999px;
+  background:rgba(255,255,255,.06);font-size:11px;white-space:nowrap}
+.sc-status{display:flex;gap:6px;margin:8px 0}
+.story-detail{margin-top:18px;padding:18px}
+.story-detail-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;border-bottom:1px solid rgba(140,180,255,.2);padding-bottom:10px}
+.story-detail-head h3{margin:0;font-size:19px;flex:1}
+.story-meta{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0;font-size:12px;color:#b9c9e4}
+.story-meta span{padding:4px 9px;border-radius:8px;background:rgba(255,255,255,.05)}
+.story-scene{display:flex;align-items:center;gap:18px;margin:14px 0;padding:14px;border-radius:12px;
+  background:linear-gradient(120deg,rgba(30,44,80,.6),rgba(12,20,42,.6))}
+.story-scene.twist{background:linear-gradient(120deg,rgba(80,30,60,.55),rgba(20,12,36,.7));
+  border:1px solid rgba(255,140,180,.3)}
+.story-scene.epilogue{background:linear-gradient(120deg,rgba(40,60,50,.55),rgba(14,24,40,.7))}
+.story-dialog{flex:1;min-width:0}
+.story-speaker{display:inline-block;padding:2px 10px;border-radius:999px;background:rgba(120,180,255,.18);
+  color:#cfe6ff;font-size:12px;font-weight:700}
+.story-dialog p{font-size:14px;line-height:1.8;margin:9px 0 0}
+.stage-list{display:grid;gap:10px;margin:12px 0}
+.stage-card{display:flex;gap:12px;padding:10px;border-radius:12px;border:1px solid rgba(140,180,255,.16);
+  background:rgba(10,18,38,.6)}
+.stage-card.current{border-color:rgba(255,215,122,.6);box-shadow:0 0 0 1px rgba(255,215,122,.2)}
+.stage-card.boss{border-color:rgba(255,140,120,.5)}
+.stage-card.done{opacity:.72}
+.stage-body{flex:1;min-width:0;font-size:13px;line-height:1.6}
+.stage-body>b{display:block;margin:5px 0}
+.stage-body>small{display:block;color:#9fb6d6;font-size:11px}
+.stage-body p{margin:6px 0;color:#c9d8ee}
+.story-ending{text-align:center;padding:18px 8px}
+.ending-mark{font-size:42px;color:#ffd77a;text-shadow:0 0 26px #ffb45a}
+.story-ending h3{font-size:20px;margin:8px 0}
+.story-ending>p{color:#b9c9e4;font-size:13px;line-height:1.7}
+.story-reward{margin:14px auto;padding:12px;max-width:640px;border-radius:12px;text-align:left;
+  background:rgba(8,14,30,.6);border:1px solid rgba(255,215,122,.3)}
+
+/* --- ダンジョン出現設計 / バックアップ / アセット台帳 --- */
+.band-list{display:grid;gap:8px;margin:10px 0}
+.band-row{padding:9px 11px;border-radius:10px;border:1px solid rgba(140,180,255,.16);background:rgba(8,14,30,.5)}
+.band-row.on{border-color:rgba(255,215,122,.55);background:rgba(60,48,20,.35)}
+.band-row>b{display:block;font-size:13px;color:#ffd77a}
+.band-row small{display:block;font-size:11px;color:#9fb6d6;line-height:1.5}
+.band-row p{margin:5px 0;font-size:12px;line-height:1.55;color:#d4e0f2}
+.backup-list{display:grid;gap:8px;max-height:280px;overflow:auto;margin:10px 0}
+.backup-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;
+  padding:9px 11px;border-radius:10px;background:rgba(8,14,30,.55);border:1px solid rgba(140,180,255,.16)}
+.backup-row b{font-size:13px}.backup-row small{display:block;font-size:11px;color:#9fb6d6}
+.asset-kinds{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
+.asset-kind{padding:6px 10px;border-radius:9px;border:1px solid rgba(140,180,255,.2);
+  background:rgba(8,14,30,.55);color:#dbe8ff;font-size:12px;cursor:pointer;text-align:left}
+.asset-kind.on{border-color:rgba(255,215,122,.7);background:rgba(80,62,24,.4);color:#ffe6a8}
+.asset-kind small{display:block;font-size:10px;color:#9fb6d6}
+.asset-detail{display:flex;gap:16px;flex-wrap:wrap;padding:12px;border-radius:12px;
+  background:rgba(8,14,30,.5);border:1px solid rgba(140,180,255,.16)}
+.asset-meta{flex:1;min-width:220px;font-size:13px;line-height:1.6}
+.asset-meta>b{font-size:17px}.asset-meta>p{color:#c9d8ee;margin:6px 0}
+.asset-meta>small{display:block;color:#9fb6d6}
+.asset-files{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:8px;margin:10px 0}
+.asset-file{display:flex;gap:9px;align-items:center;padding:8px;border-radius:10px;
+  background:rgba(255,255,255,.04);border:1px solid rgba(140,180,255,.12);min-width:0}
+.asset-file img{width:52px;height:58px;object-fit:contain;flex:0 0 52px;background:rgba(0,0,0,.25);border-radius:6px}
+.asset-file>div{min-width:0;overflow:hidden}
+.asset-file b{display:block;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.asset-file small{display:block;font-size:10px;color:#9fb6d6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+@media (max-width:640px){
+  .result-enemy-art{width:120px;height:120px}
+  .stage-art{width:72px;height:86px;flex-basis:72px}
+  .asset-preview{width:140px;height:160px;flex-basis:140px}
+  .story-scene{gap:10px;padding:10px}
+  .story-scene .story-art{width:96px;height:118px;flex-basis:96px}
+  .story-dialog p{font-size:13px}
+  .story-page .story-list{grid-template-columns:1fr}
+  .enemy-move-fx{top:32%}
+  .emf-ring{width:96px;height:96px}.emf-glyph{top:20px;font-size:40px}
+}
+@media (prefers-reduced-motion: reduce){
+  .enemy-art .enemy-art-img,.enemy-art.art-float .enemy-art-img,
+  .enemy-art[class*="art-"] .enemy-art-img{animation:none !important}
+}

@@ -6,7 +6,9 @@ import * as S from './state.js?v=2';
 import * as P from './pixel.js?v=2';
 import { Battle } from './battle.js?v=2';
 import { renderScreen, imageFilter, imageTransform, e, charImage, rankVisualStyle } from './ui.js?v=2';
-import * as E3 from './enemy3d.js?v=2';
+import * as EA from './enemyArt.js?v=2';
+import { STORY_CHAPTERS, storyIntegrity } from './story.js?v=2';
+import { ASSET_FILES, ENEMY_KINDS, UNREADABLE_FILES } from './enemyAssets.js?v=2';
 
 const app = {
   screen: 'title', params: {}, tabs: {}, draft: null, look: null, compare: false,
@@ -17,6 +19,8 @@ const app = {
   materialDetail: null, evolveEquip: null, lastBonus: [],
   gacha: null, gachaRatesDetail: false, gachaItemDetail: null,
   jobChangeOffer: null, hintCategory: 'next', evoFxPlaying: false,
+  storyChapter: null, storyBattle: null, assetEnemy: null, assetPage: 0,
+  enemyVariant: 0, backups: [], loadIssue: {},
 };
 let state = S.newState();
 let toastTimer = null, regenTimer = null;
@@ -97,7 +101,7 @@ function ensureEnemySprites() {
 }
 
 function initAfterRender() {
-  E3.syncEnemy3D();   // DOM を作り直しても 3D レイヤのホストを再同期する
+  EA.syncEnemyArt();   // DOM を作り直しても Drive PNG の読み込み状態を再同期する
   const t = $('toast'); if (t && app.toast) t.className = `toast show`;
   if (app.screen === 'create') initEditor('draftStage', 'draft');
   if (app.screen === 'appearance') initEditor('lookStage', 'look');
@@ -229,11 +233,15 @@ async function handleFile(el) {
     } else if (kind === 'import') {
       const text = await el.files?.[0]?.text();
       if (!text) throw new Error('空のファイルです');
+      // 読み込みで現在の状態を置き換える前に、必ず原本を退避する
+      await S.backupCurrent(state, 'セーブ読み込み前のバックアップ');
       const data = S.importSave(text);
       state = data;
       skipEvolutionFx(); evoFx.lastSeq = -1;   // 読み込んだセーブの進化回数と一致しても演出を再生できるように
       app.confirmReset = false; app.look = null; app.materialDetail = null;
       await S.saveState(state, true);
+      app.backups = await S.listBackups();
+      app.loadIssue = S.loadReport();
       ensureEnemySprites();
       await navigate('town');
       toast('セーブデータを読み込みました');
@@ -497,11 +505,12 @@ const SPECIAL_FX = {
   '河岡':   { n:3, color:'#ff9ecf', glyph:'💠', label:'おにーちゃんの加護' },
 };
 function showFx(o) {
-  // 外部 3D アセットのアニメーションを戦闘イベントに割り当てる（戦闘ロジックは不変）
-  if (o.side === 'enemy' && (o.type === 'damage' || o.type === 'statusDamage' || o.type === 'stun')) E3.playEnemy3D('damage');
-  if (o.side === 'enemy' && (o.type === 'skill' || o.type === 'ultimate')) E3.playEnemy3D('attack');
-  if (o.type === 'victory') E3.playEnemy3D('death');
-  if (o.type === 'defeat') E3.playEnemy3D('attack');
+  // 静止 PNG に対する CSS モーションと専用技エフェクト（画像そのものは不変）
+  if (o.move) EA.playEnemyArt('attack', o.move);
+  else if (o.side === 'enemy' && (o.type === 'damage' || o.type === 'statusDamage' || o.type === 'stun')) EA.playEnemyArt('damage');
+  else if (o.side === 'enemy' && (o.type === 'skill' || o.type === 'ultimate')) EA.playEnemyArt('attack');
+  else if (o.type === 'victory') EA.playEnemyArt('victory');
+  else if (o.type === 'defeat') EA.playEnemyArt('defeat');
   const layer = $('fx-layer'); if (!layer) return;
   const el = document.createElement('div');
   if (['damage','heal','statusDamage','miss','stun'].includes(o.type)) {
@@ -548,7 +557,7 @@ async function startBattle(enemyDef, mode = 'cpu', floor = 0) {
   const c = S.activeChar(state);
   if (!c) { toast('先にキャラクターを作成してください', 'error'); return navigate('create'); }
   if (!enemyDef) { toast('相手が見つかりません', 'error'); return; }
-  if (!S.enemyUnlocked(state, enemyDef) && mode !== 'dungeon' && mode !== 'hidden') {
+  if (!S.enemyUnlocked(state, enemyDef) && !['dungeon','hidden','story'].includes(mode)) {
     toast('この相手はまだ解放されていません', 'error'); return;
   }
   S.restoreFull(state, c);
@@ -559,6 +568,9 @@ async function startBattle(enemyDef, mode = 'cpu', floor = 0) {
     onChange: () => { if (ready && app.screen === 'battle') render(); },
     onFx: showFx,
     onEnd: r => {
+      if (app.storyBattle) {
+        r.storyProgress = S.completeStoryStage(state, app.storyBattle.chId, app.storyBattle.stage, r.won);
+      }
       app.result = r; app.battle = null; app.screen = 'result';
       save(true);
       render();
@@ -569,11 +581,14 @@ async function startBattle(enemyDef, mode = 'cpu', floor = 0) {
   b.player.sprite = c.original || c.sprite;
   b.enemy.boss = !!enemyDef.boss;
   b.fixedBattleScale = (c.imageSettings?.battleScale || 1);   // 戦闘中は固定
+  b.enemyVariant = Number(app.enemyVariant) || 0;
   b.enemy.sprite = P.makeEnemySprite(enemyDef);
+  app.storyBattle = mode === 'story' && enemyDef.story
+    ? { chId: enemyDef.story.chId, stage: enemyDef.story.stage } : null;
   app.battle = b; app.result = null; app.battleTab = 'skill'; app.screen = 'battle';
   ready = true;
   render();
-  E3.playEnemy3D('move');   // 登場→待機
+  EA.playEnemyArt('move');   // 登場モーション（静止画の CSS 表現だけ）
   b.start();                 // AUTO 設定が ON なら新しい戦闘でも即座に自動進行を開始
   window.scrollTo({ top:0 });
   sfx('ok');
@@ -852,15 +867,60 @@ async function handleAction(action, ds, el) {
     case 'hintShowBanner': {
       S.clearHintDismissed(state); save(); return commit('街のホーム画面にヒントを表示します');
     }
-    case 'storyRead': {
-      const id = Number(ds.id);
-      const st = state.story || (state.story = { chapter:1, seen:[], cleared:[] });
-      if (!st.seen.includes(id)) st.seen.push(id);
-      if (!st.cleared.includes(id)) st.cleared.push(id);
-      const chapters = 6;
-      if (st.chapter < chapters && st.seen.includes(st.chapter)) st.chapter = Math.min(chapters, st.chapter + 1);
-      save(); return commit(`第${id}章を読みました。進行状況を保存しました`);
+    case 'storyOpen': {
+      const id = ds.id;
+      if (!id) return toast('章が見つかりません', 'error');
+      if (app.storyChapter === id) { app.storyChapter = null; return render(); }
+      const r = S.storySelectChapter(state, id);
+      if (!r.ok) return toast(r.msg, 'error');
+      app.storyChapter = id;
+      save(); return render();
     }
+    case 'storyBack': app.storyChapter = null; return render();
+    case 'storyNext': {
+      if (!app.storyChapter) return toast('章を開いてください', 'error');
+      const r = S.storyNextScene(state, app.storyChapter);
+      if (r.ok) save();
+      return commit(r.msg, r.ok);
+    }
+    case 'storyStage': {
+      const id = app.storyChapter || ds.id, stage = Number(ds.stage) || 0;
+      if (!id) return toast('章を開いてください', 'error');
+      if (!S.storyChapterUnlocked(state, id)) return toast('前章をクリアすると解放されます', 'error');
+      const en = S.storyStageEnemy(id, stage);
+      if (!en) return toast('ステージが見つかりません', 'error');
+      return startBattle(en, 'story', 0);
+    }
+    case 'storyClaim': {
+      const r = S.claimStoryReward(state, ds.id);
+      if (r.ok) { sfx('win'); showFx({ type:'victory', side:'player' }); }
+      save(true); return commit(r.msg, r.ok);
+    }
+    case 'assetEnemy': app.assetEnemy = ds.id; app.assetPage = 0; return render();
+    case 'assetPage': app.assetPage = Math.max(0, Number(ds.page) || 0); return render();
+    case 'enemyVariant': {
+      app.enemyVariant = Number(ds.variant) || 0;
+      EA.setEnemyArtVariant(app.enemyVariant);
+      return render();
+    }
+    /* --- バックアップ / 復元 --- */
+    case 'backupCreate': {
+      const rec = await S.backupCurrent(state, '手動バックアップ');
+      app.backups = await S.listBackups();
+      return commit(rec?.duplicate ? '同じ内容のバックアップが既にあります' : 'バックアップを作成しました', true);
+    }
+    case 'backupRefresh': app.backups = await S.listBackups(); return render();
+    case 'backupRestore': {
+      const restored = await S.restoreBackup(ds.id);
+      state = restored;
+      skipEvolutionFx(); evoFx.lastSeq = -1;
+      app.confirmReset = false; app.look = null; app.materialDetail = null;
+      app.loadIssue = S.loadReport(); app.backups = await S.listBackups();
+      ensureEnemySprites();
+      await navigate('town');
+      return toast(`バックアップを復元しました（${restored.characters.length} 人）`);
+    }
+    case 'backupExport': await S.exportBackup(ds.id); return toast('バックアップを書き出しました');
     case 'skillLearn': { const r = S.learnSkill(state, c, ds.skill, Number(ds.cost)); return commit(r.msg, r.ok); }
     case 'skillToggle': { const ok = S.toggleEquippedSkill(c, ds.skill); return commit(ok ? '技の装備を変更しました' : '装備枠は8つまでです', ok); }
     case 'useBook': { const r = S.useSkillBook(state, c, ds.book); return commit(r.msg, r.ok); }
@@ -1000,6 +1060,8 @@ async function handleAction(action, ds, el) {
     case 'resetCancel': app.confirmReset = false; return render();
     case 'resetGameConfirm': {
       await S.eraseSave();
+      app.backups = await S.listBackups();
+      app.loadIssue = S.loadReport();
       state = S.newState();
       skipEvolutionFx(); evoFx.lastSeq = -1;
       Object.assign(app, { screen:'title', params:{}, tabs:{}, draft:null, look:null, battle:null, result:null,
@@ -1060,16 +1122,22 @@ window.addEventListener('resize', () => {
 });
 
 /* デバッグ・自動テスト用（ゲーム進行には影響しません） */
-window.__OCF = { app, get state() { return state; }, S, D, P, navigate, handleAction, E3 };
+window.__OCF = { app, get state() { return state; }, S, D, P, navigate, handleAction,
+  EA, STORY: { chapters: STORY_CHAPTERS, integrity: storyIntegrity },
+  ASSETS: { files: ASSET_FILES, kinds: ENEMY_KINDS, unreadable: UNREADABLE_FILES } };
 
 /* ---------------- 起動 ---------------- */
 (async function boot() {
   const loaded = await S.loadState();
+  app.loadIssue = S.loadReport();
+  app.backups = await S.listBackups();
   if (loaded) state = loaded;
-  if (state.home?.started) app.screen = 'town';   // 次回起動時も街のホーム画面から
+  // 読込失敗時は「復元 or 新規開始」を選べる設定画面へ。自動保存は停止されている
+  if (app.loadIssue.unreadable) app.screen = 'settings';
+  else if (state.home?.started) app.screen = 'town';   // 次回起動時も街のホーム画面から
   ensureEnemySprites();
   render();
-  E3.initEnemy3D();
+  EA.initEnemyArt();
   // 透過設定だけ保存されている場合、再起動後に透過PNGを作り直す（元画像は不変）
   (async () => {
     for (const ch of state.characters) {

@@ -1,6 +1,7 @@
 /* ===========================================================
    ターン制 CPU 対戦エンジン
    =========================================================== */
+import { enemyMove } from './enemyAssets.js?v=2';
 import { SKILL, ELEMENTS, JOB, ITEM, charRankIndex, EFFECTS,
   ULTIMATE_GAUGE_MAX, ULTIMATE_GAUGE_GAIN, ULTIMATE_GAUGE_HIT_GAIN,
   ULTIMATE_IDS, GOD_JOB_ID, coreStatKey, STAT_NAMES } from './data.js?v=2';
@@ -68,8 +69,12 @@ export class Battle {
       effects: es.effects || {}, statuses:[], buffs:[], cds:{}, shield:0, counter:null, guard:false,
       skills: [...(this.enemyDef.skills || [])], mastery:{},
     };
+    // Google Drive「敵キャラ」1 種類ごとの専用技。状態異常・防御低下・
+    // 自己強化・吸収・必中など、敵の特徴を戦闘効果として実際に発動する。
+    this.enemyMoveSkill = buildEnemyMoveSkill(enemyMove(this.enemyDef));
     this.log(`【対戦開始】 ${this.player.name} Lv.${this.player.level} vs ${this.enemy.name} Lv.${this.enemy.level}`, 'system');
     this.log(`相手の戦闘スタイル：${JOB[this.enemy.job]?.name || '戦士'} / ${this.enemyDef.difficulty || 'CPU'}`, 'system');
+    if (this.enemyMoveSkill) this.log(`相手の専用技：「${this.enemyMoveSkill.name}」 ${this.enemyMoveSkill.desc}`, 'system');
   }
 
   /* ---------- 表示用 ---------- */
@@ -141,7 +146,9 @@ export class Battle {
         usable: side.mp >= (s.mp||0) && (side.cds[s.id]||0) === 0 && this.canAct(side)
           && (!s.ultimate || this.canUseUltimate(s)) }));
     }
-    return side.skills.map(id => SKILL[id]).filter(Boolean);
+    const list = side.skills.map(id => SKILL[id]).filter(Boolean);
+    if (side === this.enemy && this.enemyMoveSkill) list.push(this.enemyMoveSkill);
+    return list;
   }
   usableItems() {
     return Object.entries(this.state.inventory.items)
@@ -309,6 +316,7 @@ export class Battle {
     actor.mp -= (skill.mp||0);
     if (skill.cd) actor.cds[skill.id] = skill.cd;
     this.log(`▶ ${actor.name}：「${skill.name}」`, aKey === 'player'?'playerAct':'enemyAct');
+    if (skill.enemyMove) this.log(`✦ 専用技発動：${skill.enemyMove.desc}`, 'enemyAct');
     if (skill.special === 'すずそう') this.log('🌍 大地が唸り、戦場全体が揺れた！（ボスに特大ダメージ）', 'crit');
     if (skill.special === '河岡') this.log('💠 味方全体に大きな加護が満ち、敵へ光が走る！', 'buff');
     if (skill.ultimate) {
@@ -317,7 +325,8 @@ export class Battle {
         special:skill.special || '', job:actor.job });
       await this.delay(300); // 豪華だが短く（テンポを落とさない）
     } else {
-      this.fx({ type:'skill', side:aKey, name:skill.name, fx:skill.fx || 'slash', element:skill.element || 'none' });
+      this.fx({ type:'skill', side:aKey, name:skill.name, fx:skill.fx || 'slash',
+        element:skill.element || 'none', move: skill.enemyMove || null });
     }
     await this.delay(360);
 
@@ -475,11 +484,15 @@ export class Battle {
       await this.delay(360);
       return;
     }
-    const usable = this.enemy.skills.map(id => SKILL[id]).filter(s => s && s.mp <= this.enemy.mp && (this.enemy.cds[s.id]||0) === 0);
+    const usable = this.actionList(this.enemy)
+      .filter(s => s && (s.mp || 0) <= this.enemy.mp && (this.enemy.cds[s.id] || 0) === 0);
     let pick = null;
     const lowHp = this.hpPct(this.enemy) < 38;
+    const special = usable.find(s => s.enemyMove);
     if (lowHp) pick = usable.find(s => s.parts?.some(p => p.op === 'heal' || p.op === 'summon'));
     if (!pick && this.turn <= 2) pick = usable.find(s => s.parts?.some(p => p.op === 'buff' || p.op === 'shield'));
+    // 専用技は 3 ターンごと / 劣勢 / プレイヤーにとどめを刺せる場面で優先
+    if (!pick && special && (this.turn % 3 === 0 || lowHp || this.hpPct(this.player) < 45)) pick = special;
     if (!pick) {
       const damaging = usable.filter(s => s.parts?.some(p => p.op === 'damage' || p.op === 'summon'));
       pick = damaging.sort((a,b)=> (b.power||0)*(b.parts?.[0]?.hits||1) - (a.power||0)*(a.parts?.[0]?.hits||1))[Math.min(1, damaging.length-1)] || usable[0];
@@ -557,6 +570,24 @@ export class Battle {
     this.log('降参した。', 'lose');
     await this.finish(false);
   }
+}
+
+/** 敵 1 種類の move 定義を、戦闘エンジンが実際に解決できる技へ変換する */
+function buildEnemyMoveSkill(mv) {
+  if (!mv || !mv.id) return null;
+  const parts = [{
+    op:'damage', power: mv.power || 100, scale:'atk', hits: mv.hits || 1,
+    trueHit: !!mv.trueHit, drain: Number(mv.drain) || 0,
+  }];
+  if (mv.status) parts.push({ op:'status', status:mv.status, chance:42, dur:2 });
+  if (Number(mv.debuff)) parts.push({ op:'debuff', stat:'def', amount:Math.abs(Number(mv.debuff)), dur:2 });
+  if (Number(mv.selfBuff)) parts.push({ op:'buff', stat:'atk', amount:Math.abs(Number(mv.selfBuff)), dur:2, target:'self' });
+  return {
+    id: mv.id, name: mv.name, mp:0, cd:2,
+    element: mv.element || 'none', cat:'専用技', power: mv.power || 100,
+    desc: mv.desc || '', fx: mv.motion || 'slash',
+    enemyMove: mv, parts,
+  };
 }
 
 function sfxUltimate() {

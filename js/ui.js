@@ -11,7 +11,11 @@ import {
   ULTIMATE_IDS, SKILL_COUNT, toCoreStats, HINT_CATEGORIES,
   CHAR_RARITIES, CHAR_RARITY, CHAR_RARITY_ORDER, charRankIndex, EVOLUTION_RULES, RATE_TOTAL,
 } from './data.js?v=2';
-import { enemyModelKey } from './enemy3d.js?v=2';
+import { enemyArtHost } from './enemyArt.js?v=2';
+import { ENEMY_KIND, ENEMY_KINDS, ASSET_FILES, FILES_BY_ENEMY, UNREADABLE_FILES,
+  DUNGEON_BANDS } from './enemyAssets.js?v=2';
+import { STORY_CHAPTERS, STORY_CHAPTER_BY_ID, storyRewardMaterials, storyRewardCoins,
+  defaultStoryArc } from './story.js?v=2';
 import {
   fmt, clamp, activeChar, computeStats, powerScore, xpForLevel, jobXpForLevel, levelCap,
   instanceDef, instanceRarity, equipmentStats, findInstance, itemCount,
@@ -23,6 +27,7 @@ import {
   defaultImageSettings, evolutionPreview, equipmentEvolvePreview, instanceRank,
   PITY_LEGENDARY, PITY_MYTHIC, charRank, upgradeMaterial,
   jobChangeCandidates, hintState, hintRewardCoins, equipmentGachaCost, HINT_REWARD_PULLS,
+  dungeonBandInfo,
 } from './state.js?v=2';
 import {
   materialIcon, MATERIAL_ITEMS, MATERIAL_BY_ID, MAT_RANKS, MAT_RANK_INFO,
@@ -100,14 +105,6 @@ export function spriteImg(src, cls = '', aura = 'none') {
   const colors = { blue:'#4fd8ff', gold:'#ffd77a', violet:'#b98bff', rainbow:'#68f7d4', void:'#ff6fae' };
   const glow = colors[aura] ? `--aura:${colors[aura]}` : '';
   return `<img class="sprite ${cls}" src="${e(src)}" alt="キャラクター" style="${glow}">`;
-}
-/** 外部 3D アセット（GLB）を描画するホスト。WebGL 不可時は既存 2D スプライトを残す */
-export function enemy3dHost(en, cls = '', sprite = '', aura = 'none', battle = false) {
-  const key = enemyModelKey(en);
-  return `<div class="enemy-3d ${cls}" data-enemy3d="${e(key)}"${battle ? ' data-enemy3d-battle="1"' : ''}>
-      <div class="enemy-3d-ground"></div>
-      <div class="enemy-3d-fallback">${spriteImg(sprite, cls, aura)}</div>
-    </div>`;
 }
 /* ---------- 素材アイコン ---------- */
 export function itemIcon(id, size = 42) {
@@ -315,22 +312,96 @@ function appearanceScreen(app, s) {
 }
 
 /* ---------------- ストーリー / 素材集め / ヘルプ ---------------- */
-const STORY_CHAPTERS = [
-  { id:1, name:'第1章・旅立ち', text:'クリスタルタウンに一人の冒険者が現れた。まずは自分の姿を確かめ、街の施設を巡ろう。', cond:()=>true },
-  { id:2, name:'第2章・初陣', text:'冒険者ギルドでCPUと手合わせし、初めての勝利を掴む。', cond:(s)=>s.stats.wins>=1 },
-  { id:3, name:'第3章・鍛冶の火', text:'工房で武器を強化し、ランク進化の素材を集める。装備があなたを大きく変える。', cond:(s)=>s.stats.evolutions>=1||s.stats.equipEvolutions>=1 },
-  { id:4, name:'第4章・進化の光', text:'レベルではなくランクの進化。全ステータスが跳ね上がり、新たな技が芽生える。', cond:(s)=>s.characters.some(c=>charRank(c.rarity)>0) },
-  { id:5, name:'第5章・奥義の継承', text:'LRへの進化で職業の奥義が目覚める。指定の名を宿す者は、さらに特別な奥義を継ぐ。', cond:(s)=>s.characters.some(c=>c.ultimateSkills?.length) },
-  { id:6, name:'第6章・虚無の王', text:'ダンジョンの最深部で待つ隠しボス。全ての育成をぶつけろ。', cond:(s)=>s.stats.hiddenKills>=1 },
-];
+/** render() は状態を変えない。保存済み arc を読み取るだけの純粋関数 */
+const storyArcOf = s => ({ ...defaultStoryArc(), ...(s?.story?.arc || {}) });
+const storyArt = id => enemyArtHost(
+  { id, artId:id, name: ENEMY_KIND[id]?.name || id }, 'story-art', '', 'none');
+const storyMatChips = ch => storyRewardMaterials(ch)
+  .map(m => `<span class="story-mat">${itemIcon(m.id, 24)}${e(MATERIAL_BY_ID[m.id]?.name || m.id)} ×${m.n}</span>`).join('');
+
+function storyChapterDetail(app, s, ch, arc) {
+  const claimed = arc.claimed.includes(ch.id);
+  const coins = storyRewardCoins(ch);
+  let body = '';
+  if (arc.phase === 'prologue') {
+    const sc = ch.prologue[Math.min(arc.scene, ch.prologue.length - 1)];
+    body = `<div class="story-scene">${sc.enemyId ? storyArt(sc.enemyId) : ''}
+        <div class="story-dialog"><span class="story-speaker">${e(sc.speaker)}</span><p>${e(sc.text)}</p></div></div>
+      <div class="row-btns"><button class="btn btn-primary" data-action="storyNext" data-id="${e(ch.id)}">次へ（${arc.scene + 1} / ${ch.prologue.length}）</button></div>`;
+  } else if (arc.phase === 'twist') {
+    const tw = ch.twist || { speaker:'', text:'' };
+    body = `<div class="story-scene twist">${tw.enemyId ? storyArt(tw.enemyId) : ''}
+        <div class="story-dialog"><span class="story-speaker">${e(tw.speaker)}</span><p>${e(tw.text)}</p></div></div>
+      <div class="row-btns"><button class="btn btn-primary" data-action="storyNext" data-id="${e(ch.id)}">真実を受け止める →</button></div>`;
+  } else if (arc.phase === 'stages') {
+    body = `<div class="stage-list">${ch.stages.map((st, i) => {
+      const done = i < arc.stage, current = i === arc.stage;
+      const k = ENEMY_KIND[st.enemyId] || {};
+      return `<div class="stage-card ${done ? 'done' : ''} ${current ? 'current' : ''} ${st.boss ? 'boss' : ''}">
+        <div class="stage-art">${storyArt(st.enemyId)}</div>
+        <div class="stage-body"><span class="pill ${done ? 'on' : current ? '' : 'off'}">${done ? '突破済' : current ? '挑戦可能' : '未到達'}</span>
+          <b>Stage ${i + 1}・${e(st.label)}${st.boss ? ' 👑' : ''}</b>
+          <small>${e(k.name || st.enemyId)} / Lv.${st.level} / 専用技「${e(k.move?.name || '—')}」</small>
+          <p>${e(done ? st.outro : current ? st.intro : '—')}</p>
+          ${current ? `<button class="btn btn-primary" data-action="storyStage" data-id="${e(ch.id)}" data-stage="${i}">⚔ 戦う</button>` : ''}
+        </div></div>`;
+    }).join('')}</div>
+    <div class="hint-box">ステージは ${arc.stage} / ${ch.stages.length} 突破。敗北しても同じステージから再挑戦でき、進行はセーブされます。</div>`;
+  } else if (arc.phase === 'epilogue') {
+    const sc = ch.epilogue[Math.min(arc.scene, ch.epilogue.length - 1)];
+    body = `<div class="story-scene epilogue">
+        <div class="story-dialog"><span class="story-speaker">${e(sc.speaker)}</span><p>${e(sc.text)}</p></div></div>
+      <div class="row-btns"><button class="btn btn-primary" data-action="storyNext" data-id="${e(ch.id)}">次へ（${arc.scene + 1} / ${ch.epilogue.length}）</button></div>`;
+  } else {
+    const last = arc.lastReward;
+    body = `<div class="story-ending"><div class="ending-mark">✦</div><h3>${e(ch.ending)}</h3>
+        <p>${e(ch.theme)}</p>
+        <div class="story-reward"><h4>🎁 クリア報酬（1 キャラ分のランクアップ素材）</h4>
+          <div class="story-mat-row">${storyMatChips(ch)}</div>
+          <div class="list-line"><span>進化コイン</span><b>${fmt(coins)} コイン</b></div></div>
+        ${claimed ? '<span class="pill on">✅ 報酬受取済み（二重受取はできません）</span>'
+          : `<button class="btn btn-primary btn-lg" data-action="storyClaim" data-id="${e(ch.id)}">🎁 報酬を受け取る</button>`}
+        ${last && last.chId === ch.id ? `<div class="hint-box">前回受取：${last.materials.map(m => `${e(m.id)}×${m.n}`).join('・')} / ${fmt(last.coins)}コイン</div>` : ''}
+      </div>`;
+  }
+  return `<section class="panel story-detail">
+    <div class="story-detail-head"><span class="rank-badge rank-${ch.rank.toLowerCase()}">${ch.rank}</span>
+      <h3>第${ch.no}章「${e(ch.title)}」</h3>
+      <button class="btn btn-ghost btn-mini" data-action="storyBack">一覧へ戻る</button></div>
+    <div class="story-meta"><span>📍 ${e(ch.place)}</span><span>🎭 ${e(ch.structure)}</span><span>🎯 ${e(ch.objective)}</span></div>
+    ${body}
+  </section>`;
+}
 function storyScreen(app, s) {
-  const cur = s.story?.chapter || 1, seen = s.story?.seen || [];
-  return `${navBar(app,s)}<main class="page"><div class="page-head"><div><h2>📖 ストーリー</h2><p>進行状況はセーブされます。街からいつでも読み返せます。</p></div><button class="btn btn-ghost" data-action="nav" data-to="town">🏰 街へ戻る</button></div>
-    <div class="story-list">${STORY_CHAPTERS.map(ch=>`<section class="story-chapter ${ch.id<=cur?'open':''} ${seen.includes(ch.id)?'read':''}">
-      <div class="sc-head"><span class="pill ${ch.id<=cur?'on':'off'}">${ch.id<=cur?'解放済':'未解放'}</span><h3>${e(ch.name)}</h3></div>
-      <p>${e(ch.text)}</p><small>${ch.cond(s)?'条件達成':'未達成'}${seen.includes(ch.id)?' / 読了':''}</small>
-      ${ch.id===cur?`<button class="btn btn-mini" data-action="storyRead" data-id="${ch.id}">📖 読む</button>`:''}</section>`).join('')}</div>
-    <div class="hint-box">章は育成・対戦・進化の進行に合わせて解放されます。現在の章：<b>第${cur}章</b> / 全 ${STORY_CHAPTERS.length} 章。</div></main>${toastArea(app)}`;
+  const arc = storyArcOf(s);
+  const ch = app.storyChapter ? STORY_CHAPTER_BY_ID[app.storyChapter] : null;
+  const list = STORY_CHAPTERS.map((c, i) => {
+    const unlocked = i === 0 || arc.cleared.includes(STORY_CHAPTERS[i - 1].id);
+    const cleared = arc.cleared.includes(c.id), claimed = arc.claimed.includes(c.id);
+    return `<section class="story-chapter rank-${c.rank.toLowerCase()} ${unlocked ? 'open' : 'locked'} ${cleared ? 'cleared' : ''}">
+      <div class="sc-head"><span class="pill ${unlocked ? 'on' : 'off'}">${unlocked ? '解放済' : '未解放'}</span>
+        <span class="rank-badge sc-rank">${c.rank}</span><h3>第${c.no}章・${e(c.title)}</h3></div>
+      <p class="sc-place">${e(c.place)} / ${e(c.structure)} / ${c.stages.length} ステージ</p>
+      <p>${e(c.objective)}</p><small>${e(c.theme)}</small>
+      <div class="sc-reward"><b>🎁 クリア報酬</b><div class="story-mat-row">${storyMatChips(c)}</div>
+        <small>+ ${fmt(storyRewardCoins(c))} コイン（進化に必要な数と完全一致）</small></div>
+      <div class="sc-status">${cleared ? '<span class="pill on">クリア済</span>' : '<span class="pill off">未クリア</span>'}
+        ${claimed ? '<span class="pill on">報酬受取済</span>' : ''}</div>
+      ${unlocked
+        ? `<div class="row-btns"><button class="btn btn-primary btn-mini" data-action="storyOpen" data-id="${e(c.id)}">📖 ${app.storyChapter === c.id ? '閉じる' : '読む'}</button>
+           ${cleared && !claimed ? `<button class="btn btn-glass btn-mini" data-action="storyClaim" data-id="${e(c.id)}">🎁 報酬を受け取る</button>` : ''}</div>`
+        : '<button class="btn btn-ghost btn-mini" disabled>🔒 前章クリアで解放</button>'}
+    </section>`;
+  }).join('');
+  return `${navBar(app,s)}<main class="page story-page">
+    <div class="page-head"><div><h2>📖 ストーリー「五つの印章」</h2>
+      <p>全 5 章・R / SR / SSR / UR / LR のランクに対応。章ごとに目的・展開・敵の登場・ボス戦後の締めくくりが変わります。</p></div>
+      <button class="btn btn-ghost" data-action="nav" data-to="town">🏰 街へ戻る</button></div>
+    <div class="callout gold">💡 <b>育成の改善：</b>各章のクリア報酬は <b>1 キャラがちょうど 1 段階ランクアップできる素材とコイン</b> に固定されています。素材集めのために複数の施設を周回する必要はありません。クリア・受取状態はセーブされ、同じ章の報酬は二度受け取れません。</div>
+    <div class="story-list">${list}</div>
+    ${ch ? storyChapterDetail(app, s, ch, arc) : ''}
+    <div class="hint-box">登場する敵はすべて Google Drive「敵キャラ」の静止 PNG（全 ${ASSET_FILES.length} ファイルを ${ENEMY_KINDS.length} 体へ割り当て）。3D モデル・アニメーション・動画は使わず、CSS の表示サイズ・向き・接地・攻撃モーション・エフェクトだけで演出します。</div>
+  </main>${toastArea(app)}`;
 }
 function gatherScreen(app, s) {
   const links = [
@@ -342,7 +413,8 @@ function gatherScreen(app, s) {
   ];
   return `${navBar(app,s)}<main class="page"><div class="page-head"><div><h2>💠 素材集め</h2><p>8種類 × 5ランク = 40種の進化素材。入手先へ直行できます。</p></div><button class="btn btn-ghost" data-action="nav" data-to="town">🏰 街へ戻る</button></div>
     <div class="home-menu">${links.map(([icon,name,desc,action,to,facility,tab])=>`<button class="home-menu-card" data-action="${action}" data-to="${to}" data-facility="${facility}" data-tab="${tab}" style="--hc:#9be9ff"><span class="hm-icon">${icon}</span><b>${e(name)}</b><small>${e(desc)}</small></button>`).join('')}</div>
-    <div class="panel soft mt"><h4>📗 素材図鑑を確認</h4><p class="muted">素材をクリックすると必要個数・入手方法・合成先を確認できます。</p><button class="btn btn-glass" data-action="nav" data-to="codex" data-codex-tab="6">素材図鑑を開く</button></div></main>${toastArea(app)}`;
+    <div class="panel soft mt"><h4>📗 素材図鑑を確認</h4><p class="muted">素材をクリックすると必要個数・入手方法・合成先を確認できます。</p><button class="btn btn-glass" data-action="nav" data-to="codex" data-codex-tab="6">素材図鑑を開く</button></div>
+    <div class="panel soft mt"><h4>📖 ストーリークリア報酬（育成の近道）</h4><p class="muted">全 5 章のクリア報酬で、1 キャラを R から LR まで進化させる素材とコインが確実に揃います。</p><button class="btn btn-primary" data-action="nav" data-to="story">5章ストーリーを開く</button></div></main>${toastArea(app)}`;
 }
 function helpScreen(app, s) {
   return `${navBar(app,s)}<main class="page"><div class="page-head"><div><h2>❓ ヘルプ / 遊び方</h2><p>各施設の使い方と育成の仕組み。閲覧してもゲームの進行状況は変わりません。</p></div><button class="btn btn-ghost" data-action="nav" data-to="town">🏰 街へ戻る</button></div>
@@ -1157,11 +1229,15 @@ function trainingTab(tab, app, s) {
 function enemyCard(app, s, en, mode='cpu', floor=0) {
   const unlocked = enemyUnlocked(s,en);
   const st = buildEnemyCombatant(en);
+  const k = ENEMY_KIND[en.artId] || ENEMY_KIND[en.id] || {};
+  const mv = k.move;
   const lockedText = en.hidden ? '覚醒III / ボス3体 / ダンジョン10階' : en.boss ? '6勝 + シルバーランク' : en.tier>=1 ? '3勝で解放' : '';
   return `<div class="enemy-card ${unlocked?'':'locked'}" style="--accent:${en.palette?.accent||'#ffd77a'}">
-    <div class="enemy-sprite">${enemy3dHost(en,'card',app.enemySprites[en.id]||'','none')}</div>
+    <div class="enemy-sprite">${enemyArtHost(en,'card',app.enemySprites[en.id]||'','none',false,Number(app.enemyVariant)||0)}</div>
     <div class="enemy-info"><b>${e(en.name)}</b><small>${e(JOB[en.job]?.name||'')} / Lv.${en.level} / ${e(en.difficulty||'CPU')}</small>
-      <div class="enemy-metrics">${STAT_KEYS.map(k=>`<span>${STAT_ICONS[k]} ${STAT_NAMES[k]} ${fmt(st[k]||0)}</span>`).join('')}</div>
+      ${k.features ? `<div class="enemy-feature">${e(k.features)}</div>` : ''}
+      ${mv ? `<div class="enemy-move"><b>✦ ${e(mv.name)}</b><small>${e(mv.desc)} / ${mv.hits||1}連撃 / ${e((ELEMENTS[mv.element]||ELEMENTS.none).name)}</small></div>` : ''}
+      <div class="enemy-metrics">${STAT_KEYS.map(kk=>`<span>${STAT_ICONS[kk]} ${STAT_NAMES[kk]} ${fmt(st[kk]||0)}</span>`).join('')}</div>
       <div class="enemy-skills">${en.skills.slice(0,3).map(id=>`<span>${e(SKILL[id]?.name||'')}</span>`).join('')}</div>
     </div>
     ${unlocked?`<button class="btn btn-primary" data-action="battleStart" data-enemy="${e(en.id)}" data-mode="${mode}" data-floor="${floor}">⚔ 対戦</button>`:`<button class="btn btn-ghost" disabled>🔒 ${e(lockedText)}</button>`}
@@ -1199,6 +1275,12 @@ function guildTab(tab, app, s) {
         <div class="special-card"><b>🌑 高難易度ダンジョン「深淵」</b><p>敵の能力が約1.6倍。報酬も大幅アップ。</p><small>解放条件：ダンジョン15階踏破（現在 ${d.best}階）</small>${hardDungeonUnlocked(s)?`<button class="btn btn-primary" data-action="dungeonStart" data-hard="1">深淵に挑む</button><button class="btn btn-ghost" data-action="dungeonReset" data-hard="1">深淵をリセット</button>`:'<span class="pill off">未解放</span>'}</div>
         <div class="special-card"><b>☄ 隠しボス「虚無の王 ノクティス」</b><p>撃破で転生の証・BP600・専用称号。</p><small>解放条件：覚醒III / ボス撃破3体 / ダンジョン10階（現在 覚醒${c.awakening}・${s.stats.bossKills}体・${d.best}階）</small>${hiddenBossUnlocked(s,c)?`<button class="btn btn-primary" data-action="hiddenBoss">☄ 挑戦する</button>`:'<span class="pill off">未解放</span>'}</div>
         <div class="special-card"><b>🏅 特別な強敵</b><p>「ボス・隠し」タブから塔の主・時空の番人・星輝の守護者に挑めます。撃破で「強敵の証」を入手。</p><button class="btn btn-glass" data-action="enemyGroup" data-group="boss">強敵一覧へ</button></div>
+      </div>
+      <div class="panel soft mt"><h4>🧭 特徴・強さ別の出現設計</h4>
+        <div class="band-list">${DUNGEON_BANDS.map(b => `<div class="band-row ${dungeonBandInfo(d.floor)?.name === b.name ? 'on' : ''}">
+          <b>${e(b.name)}</b><small>${b.floors[0]}〜${b.floors[1]}階 / ${e(b.ids.map(id => ENEMY_KIND[id]?.name || id).join('・'))}</small>
+          <p>${e(b.desc)}</p><small>👑 階層ボス：${e(ENEMY_KIND[b.boss]?.name || b.boss)}</small></div>`).join('')}</div>
+        <div class="hint-box">階層が上がるほど「武器を持つ小柄な敵 → 骸骨・霊体 → 瞳・石像 → 悪魔 → 最上位悪魔」へと特徴と強さが変わります。敵 1 種類ごとに専用技（連撃・状態異常・防御低下・自己強化・吸収・必中）と専用エフェクトが異なります。</div>
       </div></div>`;
   }
   if (tab === 2) {
@@ -1301,7 +1383,7 @@ function characterScreen(app, s) {
 /* ============================ 図鑑 ============================ */
 function codexScreen(app, s) {
   const tab = app.codexTab || 0;
-  const tabs = ['職業','技','装備','CPU','実績','称号','素材図鑑'];
+  const tabs = ['職業','技','装備','CPU','実績','称号','素材図鑑','敵素材'];
   const collected = collectedSkills(s);
   let body = '';
   if (tab === 0) body = `<div class="callout">収集：${s.catalog.jobs.length} / ${JOBS.length} 職業。転職すると図鑑に記録されます。</div><div class="codex-grid">${JOBS.map(j=>`<div class="codex-card ${s.catalog.jobs.includes(j.id)?'':'unknown'}" style="--jc:${j.color}"><span>${j.icon}</span><b>${s.catalog.jobs.includes(j.id)?e(j.name):'？？？'}</b><small>${['','基本職','上級職','特殊職'][j.tier]} / ${e(jobReqText(j))}</small></div>`).join('')}</div>`;
@@ -1319,6 +1401,31 @@ function codexScreen(app, s) {
   if (tab === 4) body = `<div class="callout">実績：${Object.keys(s.achievements).length} / ${ACHIEVEMENTS.length} 達成</div><div class="codex-grid">${ACHIEVEMENTS.map(a=>`<div class="codex-card ${s.achievements[a.id]?'':'unknown'}"><span>${s.achievements[a.id]?'🏆':'🔒'}</span><b>${e(a.name)}</b><small>${e(a.desc)} / 称号「${e(a.title)}」</small></div>`).join('')}</div>`;
   if (tab === 6) body = materialCodex(app, s);
   if (tab === 5) body = `<div class="callout">称号：${s.titles.length-1} / ${TITLES.length-1} 解放。称号は能力値ボーナスを与えます。</div><div class="codex-grid">${TITLES.filter(t=>t.id!=='t_none').map(t=>`<div class="codex-card ${s.titles.includes(t.id)?'':'unknown'}"><span>🎖</span><b>${s.titles.includes(t.id)?e(t.name):'？？？'}</b><small>${s.titles.includes(t.id)?e(t.desc):'未解放'}</small></div>`).join('')}</div>`;
+  if (tab === 7) {
+    const sel = app.assetEnemy || ENEMY_KINDS[0].id;
+    const k = ENEMY_KIND[sel] || ENEMY_KINDS[0];
+    const files = FILES_BY_ENEMY[sel] || [];
+    const per = 12, page = Math.max(0, Number(app.assetPage) || 0);
+    const pages = Math.max(1, Math.ceil(files.length / per));
+    const slice = files.slice(page * per, page * per + per);
+    const variants = k.variants?.length || 1;
+    body = `<div class="callout">Google Drive「敵キャラ」の全 ${ASSET_FILES.length} ファイルを 1 件ずつ確認し、${ENEMY_KINDS.length} 体の敵へ 1 対 1 で割り当てました。読み込めないファイル <b>${UNREADABLE_FILES.length} 件</b> ／ 3D モデル・アニメーション・動画 <b>0 件</b>。元 PNG は無変換です。</div>
+      <div class="asset-kinds">${ENEMY_KINDS.map(kk => `<button class="asset-kind ${kk.id === sel ? 'on' : ''}" data-action="assetEnemy" data-id="${e(kk.id)}">${e(kk.name)}<small>${(FILES_BY_ENEMY[kk.id] || []).length} ファイル</small></button>`).join('')}</div>
+      <div class="asset-detail">
+        <div class="asset-preview">${enemyArtHost({ id:sel, artId:sel, name:k.name }, 'asset-art', '', 'none', false, Number(app.enemyVariant) || 0)}</div>
+        <div class="asset-meta"><b>${e(k.name)}</b><p>${e(k.features)}</p>
+          <small>${e(k.family)} / ${e(k.build)} / ${e(k.weapon)}</small>
+          <div class="enemy-move"><b>✦ ${e(k.move?.name || '')}</b><small>${e(k.move?.desc || '')}</small></div>
+          <div class="row-btns"><button class="btn btn-mini" data-action="enemyVariant" data-variant="${((Number(app.enemyVariant) || 0) + 1) % variants}">🔄 色違いを切り替える（${variants} 種）</button></div>
+        </div></div>
+      <h4 class="mt">📄 この敵に割り当てたファイル ${files.length} 件（${page + 1} / ${pages}）</h4>
+      <div class="asset-files">${slice.map(f => `<div class="asset-file">
+        <img src="${e(f.src)}" data-fallback="${e(f.fallback)}" loading="lazy" alt="${e(f.name)}" onerror="this.onerror=null;this.src=this.dataset.fallback">
+        <div><b>${e(f.name)}</b><small>${e(f.folder)} / ${e(f.role)} / ${fmt(f.bytes || 0)} bytes</small><small class="muted">Drive ID: ${e(f.id)}</small></div></div>`).join('')}</div>
+      <div class="row-btns">${page > 0 ? `<button class="btn btn-ghost btn-mini" data-action="assetPage" data-page="${page - 1}">← 前へ</button>` : ''}
+        ${page + 1 < pages ? `<button class="btn btn-ghost btn-mini" data-action="assetPage" data-page="${page + 1}">次へ →</button>` : ''}</div>
+      <div class="hint-box">台帳の全行は <code>assets/enemies/ASSET_MANIFEST.md</code> と <code>js/enemyAssets.js</code> にあります。原本 180 ファイル（約 224 MB）はリポジトリへ登録せず、各敵の代表 PNG を元バイトのまま同梱しています。</div>`;
+  }
   return `${navBar(app,s)}<main class="page codex-page"><div class="page-head"><div><h2>📖 図鑑</h2><p>職業・技・装備・CPU・実績・称号の収集状況</p></div><button class="btn btn-ghost" data-action="nav" data-to="town">🏰 街へ</button></div>
     <div class="facility-tabs">${tabs.map((t,i)=>`<button class="ftab ${tab===i?'on':''}" data-action="codexTab" data-i="${i}">${t}</button>`).join('')}</div>
     <section class="panel soft">${body}</section></main>${toastArea(app)}`;
@@ -1354,8 +1461,10 @@ function endgameScreen(app, s) {
 
 /* ============================ 設定 ============================ */
 function settingsScreen(app, s) {
+  const bks = Array.isArray(app.backups) ? app.backups : [];
+  const issue = app.loadIssue || {};
   return `${navBar(app,s)}<main class="page settings-page">
-    <div class="page-head"><div><h2>⚙ 設定・セーブ</h2><p>進行状況はブラウザ内の IndexedDB に自動保存されます</p></div><button class="btn btn-ghost" data-action="nav" data-to="town">🏰 街へ</button></div>
+    <div class="page-head"><div><h2>⚙ 設定・セーブ</h2><p>進行状況はブラウザ内の IndexedDB に自動保存されます。更新前の自動バックアップと復元に対応しています。</p></div><button class="btn btn-ghost" data-action="nav" data-to="town">🏰 街へ</button></div>
     <div class="two-col">
       <div class="panel soft"><h4>ゲーム設定</h4>
         <div class="setting-line"><div><b>効果音</b><small>戦闘・ボタンの効果音（WebAudioで生成）</small></div><button class="btn btn-mini ${s.settings.sfx?'on':''}" data-action="toggleSfx">${s.settings.sfx?'ON':'OFF'}</button></div>
@@ -1371,6 +1480,22 @@ function settingsScreen(app, s) {
         <label class="btn btn-glass full" for="importFile">📥 セーブデータを読み込む</label><input id="importFile" type="file" accept="application/json,.json" data-file="import" hidden>
         <button class="btn btn-ghost full mt" data-action="resetGame">🗑 データを初期化</button>
         ${app.confirmReset?`<div class="danger-box"><b>本当に初期化しますか？</b><p>全キャラクター・画像・進行状況が消えます。元に戻せません。</p><div class="row-btns"><button class="btn btn-danger" data-action="resetGameConfirm">初期化を確定</button><button class="btn btn-ghost" data-action="resetCancel">キャンセル</button></div></div>`:''}
+        <h4 class="mt">🛡 バックアップと復元 <span class="pill">${bks.length} 件</span></h4>
+        ${issue.unreadable ? `<div class="danger-box"><b>⚠ セーブデータを読み込めませんでした</b>
+          <p>${e(issue.reason || '形式不一致')}。原本はパースせず隔離保存し、自動保存を停止して上書きを防いでいます。下の一覧から「復元」または「書き出す」を選んでください。</p>
+          <p class="muted">隔離元: ${e(issue.source || '—')} / バックアップID: ${e(issue.backupId || '—')}</p>
+          <button class="btn btn-ghost btn-mini" data-action="backupRefresh">🔄 隔離データを一覧に反映</button></div>` : ''}
+        <div class="hint-box">アップデート前の自動バックアップ・手動バックアップ・破損セーブの隔離原本を保存します。復元は明示的な操作のときだけ行い、既存プレイヤーのデータを勝手に初期化・上書きしません。古いセーブ形式は「足りない項目だけ」補完して移行します。</div>
+        <div class="backup-list">${bks.length ? bks.map(b => `<div class="backup-row">
+          <div><b>${e(b.reason || 'バックアップ')}</b>
+            <small>${new Date(b.at || Date.now()).toLocaleString('ja-JP')} / ${fmt(b.bytes || 0)} 文字 / v${b.version ?? '—'} / ${b.chars ?? '—'} 人 / ${e(b.format || 'state')}</small></div>
+          <div class="row-btns"><button class="btn btn-mini" data-action="backupRestore" data-id="${e(b.id)}">復元</button>
+            <button class="btn btn-ghost btn-mini" data-action="backupExport" data-id="${e(b.id)}">書き出す</button></div></div>`).join('')
+          : '<p class="muted">まだバックアップはありません</p>'}</div>
+        <div class="row-btns"><button class="btn btn-primary" data-action="backupCreate">💾 今すぐバックアップ</button>
+          <button class="btn btn-glass" data-action="backupRefresh">🔄 一覧を更新</button></div>
+        <div class="list-line"><span>今回の読み込み</span><b>${issue.loaded ? '既存セーブを復元' : issue.unreadable ? '読込失敗（保護中）' : '新規ゲーム'}</b></div>
+        <div class="list-line"><span>形式移行</span><b>v${issue.fromVersion ?? s.version} → v${s.version}${issue.backupCreated ? ' / 更新前バックアップ作成済' : ''}</b></div>
         <h4 class="mt">あそび方</h4><ol class="flow"><li>タイトル「ゲームスタート」→ 画像を読み込み、そのままキャラクター登録</li><li>街の5施設でレベル・職業・技・装備・覚醒を育成</li><li>冒険者ギルドのCPU対戦でコイン・EXP・BP・ランクPを獲得</li><li>対戦ポイントで限定技・特別装備・覚醒素材と交換</li><li>ダンジョン・隠しボス・転生で長期的な目標に挑戦</li></ol>
         <div class="hint-box">CPU対戦はローカル完結。友達とのオンライン対戦を後から追加できるよう、対戦エンジンはプレイヤー/CPUを独立したデータ構造で分離しています。</div>
       </div>
@@ -1385,11 +1510,12 @@ function combatPanel(b, side, label, char) {
   const rarity = isP ? (char?.rarity || 'R')
     : (side.hidden ? 'S' : side.boss ? 'M' : side.level >= 40 ? 'L' : side.level >= 25 ? 'E' : 'R');
   return `<div class="combatant ${isP?'p1':'p2'} ${isP&&char?.jobId===GOD_JOB_ID?'god-mode':''}" id="${isP?'arena-player':'arena-enemy'}">
-    <div class="combat-sprite ${isP?'':'mirrored'}">${isP && char ? charImage(char,'battle') : enemy3dHost(b.enemyDef,'battle',side.sprite,side.aura,true)}</div>
+    <div class="combat-sprite ${isP?'':'mirrored'}">${isP && char ? charImage(char,'battle') : enemyArtHost(b.enemyDef,'battle',side.sprite,side.aura,true,Number(b.enemyVariant)||0)}</div>
     ${isP && char ? `<div class="combat-rank">${rankBadge(char.rarity)}</div>` : ''}
     <div class="combat-info">
       <div class="combat-name">${e(side.name)}</div>
       <div class="combat-meta"><span class="pill">${e(rarity)}</span><span>Lv.${side.level}</span><span>${e(jobName)}</span></div>
+      ${!isP && b.enemyMoveSkill ? `<div class="combat-move">✦ ${e(b.enemyMoveSkill.name)}<small>${e(b.enemyMoveSkill.desc)}</small></div>` : ''}
       ${bar(side.hp,side.maxHp,'linear-gradient(90deg,#ff5f6d,#ffb37b)',`HP ${fmt(side.hp)} / ${fmt(side.maxHp)}`)}
       ${bar(side.mp,side.maxMp,'linear-gradient(90deg,#4f8cff,#8ce6ff)',`MP ${fmt(side.mp)} / ${fmt(side.maxMp)}`)}
       <div class="combat-status">${side.shield?`<span class="st shield">🛡 ${fmt(side.shield)}</span>`:''}${side.guard?'<span class="st">防御</span>':''}${statuses?`<span class="st bad">${e(statuses)}</span>`:''}${side.buffs.filter(x=>x.amount>0).map(x=>`<span class="st good">${e(({hp:'HP↑',atk:'攻↑',def:'防↑',mp:'MP↑',hit:'命中↑',dodge:'回避↑',crit:'会心↑'})[x.stat]||x.stat)}</span>`).join('')}</div>
@@ -1409,7 +1535,7 @@ function battleScreen(app, s) {
   return `<div class="battle-screen" style="background-image:url('assets/battle_bg.jpg')">
     <div class="battle-shade"></div>
     <header class="battle-top">
-      <div class="battle-turn"><span class="eyebrow">${b.mode==='dungeon'?`ダンジョン ${b.floor}階`:b.mode==='hidden'?'隠しボス戦':'CPU対戦'} / ${e(phaseLabel)}</span><h2>⚔ TURN ${b.turn}</h2></div>
+      <div class="battle-turn"><span class="eyebrow">${b.mode==='dungeon'?`ダンジョン ${b.floor}階`:b.mode==='hidden'?'隠しボス戦':b.mode==='story'?'ストーリーバトル':'CPU対戦'} / ${e(phaseLabel)}</span><h2>⚔ TURN ${b.turn}</h2></div>
       <div class="battle-top-right">
         <span class="pill ${b.phase==='player'?'on':''}">${e(phaseLabel)}</span>
         <span class="pill ${b.autoMode?'on':'off'} auto-state">AUTO <b>${b.autoMode?'ON':'OFF'}</b></span>
@@ -1475,7 +1601,7 @@ function resultScreen(app, s) {
   ];
   return `<div class="result-screen" style="background-image:linear-gradient(180deg,rgba(8,12,26,.8),rgba(8,12,26,.96)),url('assets/title_bg.jpg')">
     <div class="result-card ${r.won?'win':'lose'}">
-      <div class="result-enemy-3d">${enemy3dHost(r.enemy,'result','','none',true)}</div>
+      <div class="result-enemy-art">${enemyArtHost(r.enemy,'result','','none',true,Number(app.enemyVariant)||0)}</div>
       <div class="result-crest">${r.won?'🏆':'⚔'}</div>
       <h1>${r.won?'VICTORY':'DEFEAT'}</h1><h2>${r.won?'勝利！':'敗北…'}</h2>
       <p>${e(r.enemy.trueName||r.enemy.name)} との対戦を ${r.turns} ターンで終えた。</p>
@@ -1483,10 +1609,13 @@ function resultScreen(app, s) {
       ${r.rewards?.materials?.length ? `<div class="reward-mats"><h4>🎁 入手素材</h4><div class="mat-chip-row">${r.rewards.materials.map(id=>matChip(id,1)).join('')}</div></div>` : ''}
       ${r.won&&r.enemy.boss?'<div class="callout gold">強敵の証を獲得！覚醒・特殊職の条件が進みました。</div>':''}
       ${r.won&&r.enemy.hidden?'<div class="callout violet">虚無の王を撃破！転生の証と専用称号を獲得。</div>':''}
+      ${r.mode==='story'&&r.storyProgress?.ok?`<div class="callout gold">📖 ${e(r.storyProgress.msg)} ストーリーへ戻って続きを確認しましょう。</div>`:''}
+      ${r.mode==='story'&&r.storyProgress&&!r.storyProgress.ok?`<div class="hint-box">📖 ${e(r.storyProgress.msg)}</div>`:''}
       ${!r.won?'<div class="hint-box">敗北でも少額のコイン・EXP・BPを獲得できます。育成して再挑戦しましょう。</div>':''}
       <div class="reward-table">${rows.map(([k,v])=>`<div class="list-line"><span>${k}</span><b>${e(v)}</b></div>`).join('')}</div>
       <div class="row-btns">
         ${r.mode==='dungeon'&&r.won?`<button class="btn btn-primary btn-lg" data-action="resultNextFloor">次の階へ →</button>`:''}
+        ${r.mode==='story'?`<button class="btn btn-primary btn-lg" data-action="nav" data-to="story">📖 ストーリーへ戻る</button>`:''}
         <button class="btn btn-glass btn-lg" data-action="resultRetry">🔁 再戦する</button>
         <button class="btn btn-glass btn-lg" data-action="nav" data-to="town">🏰 街へ戻る</button>
         <button class="btn btn-ghost btn-lg" data-action="nav" data-to="facility" data-facility="guild" data-tab="0">対戦一覧</button>

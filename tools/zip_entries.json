@@ -1,0 +1,170 @@
+[
+ {
+  "zip": "cfbad317d088e375e71d6df408c215d9.zip",
+  "zip_id": "1SepTPZl-WLo4KRo7N2hcqtV8SDoSGYDZ",
+  "entry_raw": "æSâJâëü[_âîâCâX/1.âîâCâX.png",
+  "entry": "assets/enemies/source/1SepTPZl-WLo4KRo7N2hcqtV8SDoSGYDZ_zip0.png",
+  "ok": true,
+  "size": 1196469,
+  "sha256": "8a79b691bb50dc626d4b08d2a622762d83dd9e23910333cd167a20225efccf77",
+  "png": {
+   "w": 1747,
+   "h": 1275,
+   "colortype": 6
+  }
+ },
+ {
+  "zip": "cfbad317d088e375e71d6df408c215d9.zip",
+  "zip_id": "1SepTPZl-WLo4KRo7N2hcqtV8SDoSGYDZ",
+  "entry_raw": "æSâJâëü[_âîâCâX/2.âîâCâX.png",
+  "entry": "assets/enemies/source/1SepTPZl-WLo4KRo7N2hcqtV8SDoSGYDZ_zip1.png",
+  "ok": true,
+  "size": 1207505,
+  "sha256": "2d40cd5c66010174b51067ebbe10fbd6068350b013b0f74e621a042c48fd4e86",
+  "png": {
+   "w": 1747,
+   "h": 1275,
+   "colortype": 6
+  }
+ },
+ {
+  "zip": "cfbad317d088e375e71d6df408c215d9.zip",
+  "zip_id": "1SepTPZl-WLo4KRo7N2hcqtV8SDoSGYDZ",
+  "entry_raw": "æSâJâëü[_âîâCâX/3.âîâCâX.png",
+  "entry": "assets/enemies/source/1SepTPZl-WLo4KRo7N2hcqtV8SDoSGYDZ_zip2.png",
+  "ok": true,
+  "size": 1254325,
+  "sha256": "48b5d0500e4fc32a69212690fe98b14f55cc5e38a9d5c69cb920eb355f211832",
+  "png": {
+   "w": 1747,
+   "h": 1275,
+   "colortype": 6
+  }
+ },
+ {
+  "zip": "cfbad317d088e375e71d6df408c215d9.zip",
+  "zip_id": "1SepTPZl-WLo4KRo7N2hcqtV8SDoSGYDZ",
+  "entry_raw": "æSâJâëü[_âîâCâX/4.âîâCâX.png",
+  "entry": "assets/enemies/source/1SepTPZl-WLo4KRo7N2hcqtV8SDoSGYDZ_zip3.png",
+  "ok": true,
+  "size": 1220195,
+  "sha256": "c3fed1aba7043122ba7971249e83804de24cb6766406ccc649b59d6171883d91",
+  "png": {
+   "w": 1747,
+   "h": 1275,
+   "colortype": 6
+  }
+ },
+ {
+  "zip": "c25633b927e784671ddb0504626baf7b.zip",
+  "zip_id": "1QgXImZOuCpwRL9mJFVewaoIAgvGvfL5C",
+  "entry_raw": "æSâJâëü[_âWâââbâNâëâôâ^âô/1.âWâââbâNâëâôâ^âô.png",
+  "entry": "assets/enemies/source/1QgXImZOuCpwRL9mJFVewaoIAgvGvfL5C_zip0.png",
+  "ok": true,
+  "size": 1445714,
+  "sha256": "d400693afaa2f74be1e88f1998acc8e4eb35b599e53a0c26d2fb8b63b715710d",
+  "png": {
+   "w": 1275,
+   "h": 1742,
+   "colortype": 6
+  }
+ },
+ {
+  "zip": "c25633b927e784671ddb0504626baf7b.zip",
+  "zip_id": "1QgXImZOuCpwRL9mJFVewaoIAgvGvfL5C",
+  "entry_raw": "æSâJâëü[_âWâââbâNâëâôâ^âô/2.âWâââbâNâëâôâ^âô.png",
+  "entry": "assets/enemies/source/1QgXImZOuCpwRL9mJFVewaoIAgvGvfL5C_zip1.png",
+  "ok": true,
+  "size": 1492147,
+  "sha256": "6ddd4e22f048727353a01d29ae2c0aaa40a0f74b792a16668e7b2bd4cd00fed2",
+  "png": {
+   "w": 1275,
+   "h": 1742,
+   "colortype": 6
+  }
+ },
+ {
+  "zip": "c25633b927e784671ddb0504626baf7b.zip",
+  "zip_id": "1QgXImZOuCpwRL9mJFVewaoIAgvGvfL5C",
+  "entry_raw": "æSâJâëü[_âWâââbâNâëâôâ^âô/3.âWâââbâNâëâôâ^âô.png",
+  "entry": "assets/enemies/source/1QgXImZOuCpwRL9mJFVewaoIAgvGvfL5C_zip2.png",
+  "ok": true,
+  "size": 1459988,
+  "sha256": "32d7210ca7ab72ab2b1268e1c91413f001d61e43d281a9b4302f762047ef0b8d",
+  "png": {
+   "w": 1275,
+   "h": 1742,
+   "colortype": 6
+  }
+ },
+ {
+  "zip": "c25633b927e784671ddb0504626baf7b.zip",
+  "zip_id": "1QgXImZOuCpwRL9mJFVewaoIAgvGvfL5C",
+  "entry_raw": "æSâJâëü[_âWâââbâNâëâôâ^âô/4.âWâââbâNâëâôâ^âô.png",
+  "entry": "assets/enemies/source/1QgXImZOuCpwRL9mJFVewaoIAgvGvfL5C_zip3.png",
+  "ok": true,
+  "size": 1470212,
+  "sha256": "a65d97b5fdbddd1a830e2588a5a6ae32eeb06b78bef2e9c3f8efb638d7da5637",
+  "png": {
+   "w": 1275,
+   "h": 1742,
+   "colortype": 6
+  }
+ },
+ {
+  "zip": "41f31b9ae9e7f76877456493ba309327.zip",
+  "zip_id": "1DNfvWG-sWTMNm5BjCACWqP0UaV7H5nnv",
+  "entry_raw": "æSâJâëü[_âtâ@âôâgâÇ/1.âtâ@âôâgâÇ.png",
+  "entry": "assets/enemies/source/1DNfvWG-sWTMNm5BjCACWqP0UaV7H5nnv_zip0.png",
+  "ok": true,
+  "size": 757342,
+  "sha256": "eda452af4c6ae540bf40be22cfd70312c157137885dceffbc6069895fac487b5",
+  "png": {
+   "w": 1450,
+   "h": 1100,
+   "colortype": 6
+  }
+ },
+ {
+  "zip": "41f31b9ae9e7f76877456493ba309327.zip",
+  "zip_id": "1DNfvWG-sWTMNm5BjCACWqP0UaV7H5nnv",
+  "entry_raw": "æSâJâëü[_âtâ@âôâgâÇ/2.âtâ@âôâgâÇ.png",
+  "entry": "assets/enemies/source/1DNfvWG-sWTMNm5BjCACWqP0UaV7H5nnv_zip1.png",
+  "ok": true,
+  "size": 762620,
+  "sha256": "9d758d55a7fa197a0f5f93932d9462c26b3bd2400929637c7854deaf725a9ff8",
+  "png": {
+   "w": 1450,
+   "h": 1100,
+   "colortype": 6
+  }
+ },
+ {
+  "zip": "41f31b9ae9e7f76877456493ba309327.zip",
+  "zip_id": "1DNfvWG-sWTMNm5BjCACWqP0UaV7H5nnv",
+  "entry_raw": "æSâJâëü[_âtâ@âôâgâÇ/3.âtâ@âôâgâÇ.png",
+  "entry": "assets/enemies/source/1DNfvWG-sWTMNm5BjCACWqP0UaV7H5nnv_zip2.png",
+  "ok": true,
+  "size": 761396,
+  "sha256": "37c5e4be8d4bd3ce21661d74a7abb051ddb79bc0b9ff59ebb37c4c7e54fc1cdc",
+  "png": {
+   "w": 1450,
+   "h": 1100,
+   "colortype": 6
+  }
+ },
+ {
+  "zip": "41f31b9ae9e7f76877456493ba309327.zip",
+  "zip_id": "1DNfvWG-sWTMNm5BjCACWqP0UaV7H5nnv",
+  "entry_raw": "æSâJâëü[_âtâ@âôâgâÇ/4.âtâ@âôâgâÇ.png",
+  "entry": "assets/enemies/source/1DNfvWG-sWTMNm5BjCACWqP0UaV7H5nnv_zip3.png",
+  "ok": true,
+  "size": 761679,
+  "sha256": "95251094483867cb3d9e7819534581c1f441e62d84c1172057d42d3966aa367d",
+  "png": {
+   "w": 1450,
+   "h": 1100,
+   "colortype": 6
+  }
+ }
+]

@@ -1,0 +1,49 @@
+[
+ {
+  "file": "tools/contact_1.png",
+  "kinds": [
+   "archdemon",
+   "chariots",
+   "founder",
+   "gargoyle",
+   "gazer",
+   "goblin",
+   "goblin_archer"
+  ]
+ },
+ {
+  "file": "tools/contact_2.png",
+  "kinds": [
+   "goblin_japan",
+   "goblin_king",
+   "goblin_shaman",
+   "greater",
+   "hobgoblin",
+   "imp",
+   "incubus"
+  ]
+ },
+ {
+  "file": "tools/contact_3.png",
+  "kinds": [
+   "jack",
+   "lesser",
+   "lich_f",
+   "lich_m",
+   "no_life_king",
+   "phantom",
+   "shade"
+  ]
+ },
+ {
+  "file": "tools/contact_4.png",
+  "kinds": [
+   "skeleton",
+   "specter",
+   "succubus",
+   "vampire",
+   "wickerman",
+   "wraith"
+  ]
+ }
+]

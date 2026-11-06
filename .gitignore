@@ -9,3 +9,9 @@ js/_cache_probe.js
 # OS / エディタ
 .DS_Store
 *.swp
+
+# Google Drive「敵キャラ」原本（180ファイル / 約224MB）は大容量データセットのため
+# リポジトリへ登録せず、ローカルの assets/enemies/source/ に保持する。
+# 全ファイルの Drive ID・SHA256・敵との対応は assets/enemies/ASSET_MANIFEST.md と
+# js/enemyAssets.js の ASSET_FILES で管理し、配信時は各敵の代表画像（元バイトそのまま）を使う。
+assets/enemies/source/

@@ -13,6 +13,10 @@ import {
   toCoreStats, LEGACY_TO_CORE, LEGACY_STAT_KEYS, HINT_CATEGORIES,
 } from './data.js?v=2';
 import { MATERIAL_ITEMS, MATERIAL_BY_ID, MAT_RANKS, MAT_RANK_INFO, RANK_REQUIREMENTS, materialUpgradeTarget } from './materials.js?v=2';
+import { ENEMY_KIND, ENEMY_KINDS, DUNGEON_BANDS, DUNGEON_PLAN } from './enemyAssets.js?v=2';
+import { STORY_CHAPTERS, STORY_CHAPTER_BY_ID, storyRewardMaterials, storyRewardCoins,
+  defaultStoryArc, storyIntegrity } from './story.js?v=2';
+import { createBackup, listBackups, readBackup, quarantineUnreadable, backupSummary } from './saveBackup.js?v=2';
 import {
   currentBanner, bannerRates, pickupDefIds, normalDefIds, allDefIds,
   isPickup, isHidden, PICKUP_SHARE,
@@ -29,7 +33,17 @@ export const xpForLevel = lv => Math.round(70 + lv * lv * 16 + lv * 22);
 export const jobXpForLevel = lv => Math.round(30 + lv * 24);
 export const levelCap = c => MAX_LEVEL_BASE + (c.rebirth || 0) * 10;
 
-/* ---------- セーブ（IndexedDB / localStorage フォールバック） ---------- */
+/* ---------- セーブ（IndexedDB / localStorage フォールバック） ----------
+   アップデート方針
+   -----------------------------------------------------------
+   1. 新規ゲームの初期化は newState() だけが行う。
+   2. 既存プレイヤーの更新は updateExistingSave() だけが行い、
+      newState() を呼ばず、既存の値を初期化・上書き・削除しない
+      （足りないキーだけを既定値で補完する）。
+   3. 形式が違う / 壊れたセーブは原本バイト列を隔離保存し、
+      自動保存を停止して上書きを防ぐ。復元は明示操作のみ。
+   4. 形式更新が必要なら、移行前に必ず自動バックアップを作る。
+   ----------------------------------------------------------- */
 const DB_NAME = 'original_character_fighters';
 const STORE = 'saves';
 const LS_KEY = 'ocf_save_v3';
@@ -50,7 +64,20 @@ function openDB() {
   return dbPromise;
 }
 
-export async function loadState() {
+let saveGuard = false;                 // true の間は一切書き込まない（破損原本の保護）
+let loadInfo = {};
+function blankLoadInfo() {
+  return { loaded:false, source:null, unreadable:false, quarantined:false, reason:null,
+    backupCreated:false, backupId:null, backupDuplicate:false, migrated:false,
+    fromVersion:null, toVersion:VERSION, characters:0, restoredFrom:null };
+}
+loadInfo = blankLoadInfo();
+export function saveBlocked() { return saveGuard; }
+export function resumeSaving() { saveGuard = false; }
+export function loadReport() { return { ...loadInfo }; }
+
+/** 保存されている「原本」を文字列として読む。IDB 優先、無ければ localStorage */
+async function readRawSave() {
   try {
     const db = await openDB();
     const data = await new Promise((res, rej) => {
@@ -59,20 +86,80 @@ export async function loadState() {
       r.onsuccess = () => res(r.result);
       r.onerror = () => rej(r.error);
     });
-    if (data && data.state) return migrate(data.state);
+    if (data && data.state) return { raw: JSON.stringify(data.state), source: 'idb' };
   } catch (e) { /* 下のフォールバック */ }
   try {
     const raw = localStorage.getItem(LS_KEY);
-    if (raw) return migrate(JSON.parse(raw));
-  } catch (e) { /* no save */ }
+    if (raw) return { raw, source: 'localStorage' };
+  } catch (e) { /* 保存なし */ }
   return null;
+}
+
+/** 読めなかった原本をパースせず隔離し、自動保存を止める */
+async function quarantineRaw(rec, reason) {
+  loadInfo.unreadable = true;
+  loadInfo.quarantined = true;
+  loadInfo.reason = reason;
+  loadInfo.source = rec.source;
+  try {
+    const bk = await quarantineUnreadable(rec.raw, reason,
+      rec.source === 'idb' ? 'idb-state-json' : 'localStorage-text');
+    loadInfo.backupCreated = !!bk;
+    loadInfo.backupId = bk?.id || null;
+    loadInfo.backupDuplicate = !!bk?.duplicate;
+  } catch (e) {
+    loadInfo.quarantineError = String(e?.message || e);
+  }
+  saveGuard = true;
+  console.warn('[セーブ保護] 読み込めないセーブを隔離し、上書きを停止しました:', reason);
+  return null;
+}
+
+export async function loadState() {
+  loadInfo = blankLoadInfo();
+  const rec = await readRawSave();
+  if (!rec) return null;                       // セーブなし = 新規ゲーム
+  let data;
+  try { data = JSON.parse(rec.raw); }
+  catch (err) { return await quarantineRaw(rec, `JSON を解析できません: ${err.message}`); }
+  if (!data || typeof data !== 'object' || !Array.isArray(data.characters)) {
+    return await quarantineRaw(rec, 'characters 配列がありません（セーブ形式不一致）');
+  }
+  const needsUpdate = data.version !== VERSION || !data.story?.arc;
+  loadInfo.source = rec.source;
+  loadInfo.fromVersion = data.version ?? null;
+  loadInfo.migrated = needsUpdate;
+  if (needsUpdate) {
+    try {
+      const bk = await createBackup(rec.raw, 'アップデート前の自動バックアップ', {
+        version: data.version ?? null, schema: VERSION, chars: data.characters.length,
+      });
+      loadInfo.backupCreated = !!bk;
+      loadInfo.backupId = bk?.id || null;
+      loadInfo.backupDuplicate = !!bk?.duplicate;
+    } catch (e) { loadInfo.backupError = String(e?.message || e); }
+  }
+  try {
+    const updated = updateExistingSave(data);   // 既存プレイヤー専用（newState は呼ばない）
+    loadInfo.loaded = true;
+    loadInfo.toVersion = VERSION;
+    loadInfo.characters = updated.characters.length;
+    saveGuard = false;
+    return updated;
+  } catch (err) {
+    return await quarantineRaw(rec, `移行に失敗: ${err.message}`);
+  }
 }
 
 let saveTimer = null;
 let pendingState = null;
 export function saveState(state, immediate = false) {
+  if (saveGuard) {
+    console.warn('[セーブ保護] 破損原本を守るため書き込みをスキップしました');
+    return Promise.resolve(false);
+  }
   pendingState = state;
-  if (!state.settings.autosave && !immediate) return Promise.resolve();
+  if (!state.settings.autosave && !immediate) return Promise.resolve(false);
   clearTimeout(saveTimer);
   const run = async () => {
     const snapshot = clone(state);
@@ -90,12 +177,18 @@ export function saveState(state, immediate = false) {
         console.warn('セーブ容量不足', e2);
       }
     }
+    return true;
   };
   if (immediate) { clearTimeout(saveTimer); return run(); }
   return new Promise(res => { saveTimer = setTimeout(() => run().then(res), 300); });
 }
 
 export async function eraseSave() {
+  try {
+    const rec = await readRawSave();
+    if (rec) await createBackup(rec.raw, 'データ初期化前のバックアップ',
+      { version: VERSION, schema: VERSION, chars: 0 });
+  } catch (e) { /* バックアップ失敗でも初期化操作は続ける */ }
   try {
     const db = await openDB();
     await new Promise(res => {
@@ -106,6 +199,7 @@ export async function eraseSave() {
   } catch (e) {}
   localStorage.removeItem(LS_KEY);
   localStorage.removeItem('ocf_has_save');
+  saveGuard = false;                          // 明示的な新規開始なので書き込みを再開
 }
 
 export function exportSave(state) {
@@ -117,11 +211,49 @@ export function exportSave(state) {
   setTimeout(() => URL.revokeObjectURL(a.href), 3000);
 }
 
+/** ファイルから読み込む場合も「既存プレイヤーの更新」経路だけを使う */
 export function importSave(text) {
-  const data = JSON.parse(text);
+  let data;
+  try { data = JSON.parse(text); }
+  catch (err) { throw new Error(`セーブデータの JSON が壊れています: ${err.message}`); }
   if (!data || !Array.isArray(data.characters)) throw new Error('セーブデータの形式が正しくありません');
-  return migrate(data);
+  saveGuard = false;                          // 正常なデータを明示的に読み込んだので保護解除
+  return updateExistingSave(data);
 }
+
+/* ---------- バックアップ / 復元の公開 API ---------- */
+export async function backupCurrent(state, reason = '手動バックアップ') {
+  const raw = JSON.stringify(state);
+  return createBackup(raw, reason,
+    { version: state.version ?? VERSION, schema: VERSION, chars: state.characters?.length ?? 0 });
+}
+export async function restoreBackup(id) {
+  const rec = await readBackup(id);
+  if (!rec || typeof rec.rawText !== 'string') throw new Error('バックアップが見つかりません');
+  let data;
+  try { data = JSON.parse(rec.rawText); }
+  catch (err) { throw new Error(`この原本は JSON として読めません（隔離データの可能性）: ${err.message}`); }
+  if (!data || !Array.isArray(data.characters)) throw new Error('バックアップの形式が正しくありません');
+  const restored = updateExistingSave(data);
+  saveGuard = false;
+  await saveState(restored, true);
+  loadInfo.restoredFrom = id;
+  loadInfo.unreadable = false;
+  loadInfo.quarantined = false;
+  return restored;
+}
+export async function exportBackup(id) {
+  const rec = await readBackup(id);
+  if (!rec || typeof rec.rawText !== 'string') throw new Error('バックアップが見つかりません');
+  const blob = new Blob([rec.rawText], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `オリキャラファイターズ_バックアップ_${id}.json`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+  return rec;
+}
+export { listBackups, backupSummary };
 
 function normalizePity(p) {
   const src = p || {};
@@ -134,23 +266,30 @@ function normalizePity(p) {
   };
 }
 
-function migrate(s) {
-  const d = newState();
-  const merged = { ...d, ...s };
-  merged.settings = { ...d.settings, ...(s.settings || {}) };
-  merged.inventory = { ...d.inventory, ...(s.inventory || {}) };
-  merged.stats = { ...d.stats, ...(s.stats || {}) };
-  merged.catalog = { ...d.catalog, ...(s.catalog || {}) };
+/** 既定値を「足りないキーだけ」再帰的に補う。既存値は絶対に触らない */
+function fillMissing(target, defaults) {
+  for (const [k, v] of Object.entries(defaults)) {
+    if (target[k] === undefined) target[k] = clone(v);
+    else if (v && typeof v === 'object' && !Array.isArray(v)
+      && target[k] && typeof target[k] === 'object' && !Array.isArray(target[k])) {
+      fillMissing(target[k], v);
+    }
+  }
+  return target;
+}
+
+/** 既存プレイヤー専用の形式更新。newState() は呼ばない / 既存データを消さない */
+export function updateExistingSave(s) {
+  if (!s || typeof s !== 'object' || !Array.isArray(s.characters)) {
+    throw new Error('セーブデータの形式が正しくありません');
+  }
+  const merged = fillMissing(s, defaultSaveFields());
   merged.pity = { weapon: normalizePity(s.pity?.weapon), armor: normalizePity(s.pity?.armor) };
-  merged.catalog.materials = s.catalog?.materials || [];
-  merged.stats.evolutions = s.stats?.evolutions || 0;
-  merged.stats.equipEvolutions = s.stats?.equipEvolutions || 0;
-  merged.draftSave = s.draftSave || null;
-  delete merged.pendingLevelUp;
-  merged.dungeon = { ...d.dungeon, ...(s.dungeon || {}) };
-  merged.quests = s.quests || {};
-  merged.achievements = s.achievements || {};
-  merged.characters = (s.characters || []).map(c => ({
+  merged.settings.autoSpeed = clamp(Number(merged.settings.autoSpeed) || 1, 1, 3);
+  merged.settings.autoUltimate = merged.settings.autoUltimate !== false;
+  merged.settings.autoOn = !!merged.settings.autoOn;
+  merged.inventory.equipment = (merged.inventory.equipment || []).map(eq => ({ rank: eq.rank || 'R', ...eq }));
+  merged.characters = (s.characters || []).map(c => normalizeCharacter({
     ...blankCharacter(), ...c,
     alloc: { ...emptyStats(), ...(c.alloc || {}) },
     jobLevels: c.jobLevels || {}, jobExp: c.jobExp || {},
@@ -162,22 +301,19 @@ function migrate(s) {
     transparentData: c.transparentData || '',
     skillMastery: c.skillMastery || {},
     record: { wins:0,losses:0,streak:0,bestStreak:0,damage:0, ...(c.record || {}) },
-  }));
-  merged.inventory.equipment = (merged.inventory.equipment || []).map(eq => ({ rank: eq.rank || 'R', ...eq }));
-  merged.version = VERSION;
-  merged.home = { ...d.home, ...(s.home || {}) };
-  merged.story = { ...d.story, ...(s.story || {}), seen:s.story?.seen || [], cleared:s.story?.cleared || [] };
-  // 旧チュートリアルの報酬受取状況だけ hints へ引き継ぎ、進行データは破棄する
+  }, merged));
+  // 旧 story.seen / cleared / chapter はそのまま残し、新しい 5 章の進行だけ追加
+  merged.story.arc = normalizeStoryArc(s.story?.arc);
+  if (merged.story.arc.migratedFromVersion === undefined) {
+    merged.story.arc.migratedFromVersion = s.version ?? null;
+  }
   merged.hints = normalizeHints(s.hints, s.tutorial);
-  delete merged.tutorial;
-  merged.settings = { ...d.settings, ...(s.settings || {}) };
-  merged.settings.autoSpeed = clamp(Number(merged.settings.autoSpeed) || 1, 1, 3);
-  merged.settings.autoUltimate = merged.settings.autoUltimate !== false;
-  merged.settings.autoOn = !!merged.settings.autoOn;
-  merged.characters = merged.characters.map(c => normalizeCharacter(c, merged));
+  merged.version = VERSION;
   if (merged.lastDaily !== nowDate()) resetDailyQuests(merged);
   return merged;
 }
+export function storyIntegrityReport() { return storyIntegrity(); }
+
 function foldLegacyStats(obj) {
   if (!obj || typeof obj !== 'object') return;
   for (const k of LEGACY_STAT_KEYS) {
@@ -276,7 +412,11 @@ function blankCharacter() {
   };
 }
 
-export function newState() {
+/** 新規ゲームの初期化。ここ以外に初期化経路は存在しない */
+export function newState() { return defaultSaveFields(); }
+
+/** 既定値の唯一の定義。updateExistingSave はこれを「補完用」にだけ使う */
+export function defaultSaveFields() {
   return {
     version: VERSION,
     createdAt: new Date().toISOString(), savedAt: null,
@@ -287,7 +427,7 @@ export function newState() {
     settings: { sfx: true, bgm: false, animSpeed: 1, autosave: true,
       autoOn: false, autoSpeed: 1, autoUltimate: true },
     home: { started:false, lastVisit:null, lastMenu:null },
-    story: { chapter:1, seen:[], cleared:[] },
+    story: { chapter:1, seen:[], cleared:[], arc: defaultStoryArc() },
     hints: defaultHints(),
     inventory: { items: { potion_s:3, ether_s:2, antidote:1, mat_ore:2, evo_stone_R:3, weapon_ore_R:2 }, equipment: [] },
     pity: { weapon: normalizePity(), armor: normalizePity() },
@@ -298,7 +438,7 @@ export function newState() {
     quests: {},
     questsDate: nowDate(),
     trainingQuests: {},
-    dungeon: { floor:1, best:0, active:false, hard:false, claimed:[] },
+    dungeon: { floor:1, best:0, active:false, hard:false, claimed:[], planVersion: VERSION },
     rankClaimed: [],
     exchangePurchased: [],
     stats: { battles:0, wins:0, losses:0, pulls:0, trainings:0, awakenings:0, rebirths:0,
@@ -1395,28 +1535,199 @@ export function claimRankReward(state, idx) {
   return { ok:true, msg:`${RANKS[idx].name} ランク報酬 +${fmt(coins)}コイン` };
 }
 
+/* ===========================================================
+   メインストーリー 5 章（R / SR / SSR / UR / LR）
+   -----------------------------------------------------------
+   - 章データは js/story.js。登場敵はすべて Google Drive「敵キャラ」。
+   - 進行・クリア・報酬受取は state.story.arc に保存する。
+   - 報酬は RANK_REQUIREMENTS と完全一致し、1 キャラが確実に
+     1 段階ランクアップできる。受取済み ID で二重付与を防ぐ。
+   =========================================================== */
+export function normalizeStoryArc(arc) {
+  const d = defaultStoryArc();
+  const a = arc && typeof arc === 'object' ? arc : {};
+  const out = { ...d, ...a };
+  for (const k of ['cleared','claimed','seen']) out[k] = Array.isArray(a[k]) ? [...a[k]] : [];
+  out.chapter = clamp(Number(a.chapter) || 1, 1, STORY_CHAPTERS.length);
+  out.scene = Math.max(0, Number(a.scene) || 0);
+  out.stage = Math.max(0, Number(a.stage) || 0);
+  out.twistSeen = !!a.twistSeen;
+  out.phase = ['prologue','stages','twist','epilogue','done'].includes(a.phase) ? a.phase : 'prologue';
+  return out;
+}
+export function storyState(state) {
+  const st = state.story || (state.story = { chapter:1, seen:[], cleared:[] });
+  st.arc = normalizeStoryArc(st.arc);
+  return st.arc;
+}
+export function storyChapterUnlocked(state, chId) {
+  const i = STORY_CHAPTERS.findIndex(c => c.id === chId);
+  if (i < 0) return false;
+  if (i === 0) return true;
+  return storyState(state).cleared.includes(STORY_CHAPTERS[i - 1].id);
+}
+/** 章を開く。既に別の章を進めていて、前章クリア済みなら新しい章へ初期化 */
+export function storySelectChapter(state, chId) {
+  const ch = STORY_CHAPTER_BY_ID[chId];
+  if (!ch) return { ok:false, msg:'章が見つかりません' };
+  if (!storyChapterUnlocked(state, chId)) return { ok:false, msg:'前の章をクリアすると解放されます' };
+  const arc = storyState(state);
+  // 単一の arc で章を順に進めるため、章を切り替えるときだけ進行を初期化する。
+  // 前章クリア直後は chapter が次章を指し phase が 'done' のままなので、
+  // 「章番号が同じでも phase が done なら新しい章として開始」する。
+  const cleared = arc.cleared.includes(chId);
+  if (arc.chapter !== ch.no || arc.phase === 'done') {
+    arc.chapter = ch.no;
+    arc.phase = cleared ? 'done' : 'prologue';
+    arc.scene = 0;
+    arc.stage = cleared ? ch.stages.length : 0;
+    arc.twistSeen = cleared;
+  }
+  return { ok:true, chapter:ch.no, phase:arc.phase };
+}
+/** テキスト送り。プロローグ→ステージ→転→エピローグ→クリア確定 */
+export function storyNextScene(state, chId) {
+  const ch = STORY_CHAPTER_BY_ID[chId];
+  if (!ch) return { ok:false, msg:'章が見つかりません' };
+  const arc = storyState(state);
+  if (arc.phase === 'prologue') {
+    arc.scene++;
+    if (arc.scene >= ch.prologue.length) { arc.scene = 0; arc.phase = 'stages'; }
+    return { ok:true, msg:'物語を進めました', phase:arc.phase };
+  }
+  if (arc.phase === 'twist') {
+    arc.twistSeen = true; arc.phase = 'stages';
+    return { ok:true, msg:'真相が明かされた', phase:arc.phase };
+  }
+  if (arc.phase === 'epilogue') {
+    arc.scene++;
+    if (arc.scene >= ch.epilogue.length) {
+      const r = finishStoryChapter(state, chId);
+      return { ok:r.ok, msg:r.msg, phase:'done', reward:r.reward };
+    }
+    return { ok:true, msg:'物語を進めました', phase:arc.phase };
+  }
+  return { ok:false, msg:'現在はバトルステージです' };
+}
+/** ステージの敵定義。Drive 素材の artId と章固有の登場情報を持たせる */
+export function storyStageEnemy(chId, stageIdx) {
+  const ch = STORY_CHAPTER_BY_ID[chId];
+  const st = ch?.stages?.[stageIdx];
+  if (!ch || !st) return null;
+  const k = ENEMY_KIND[st.enemyId];
+  const base = ENEMY[st.enemyId] || {};
+  return {
+    ...base,
+    id: `story_${chId}_${stageIdx}`,
+    name: `${k?.name || base.name || st.enemyId}（第${ch.no}章・${st.label}）`,
+    trueName: null,
+    artId: st.enemyId,
+    job: base.job || 'warrior', style: base.style || 'balanced',
+    level: st.level, mul: st.mul,
+    tier: Math.min(4, k?.tier ?? 0),
+    boss: !!st.boss, hidden: false,
+    skills: base.skills || JOB.warrior.skills.slice(),
+    equipment: base.equipment || [],
+    palette: base.palette || { hair:'#a9b4c4', cloth:'#a9b4c4', skin:'#e8c9a6', accent:'#ffd77a' },
+    difficulty: `${ch.rank}章 / ${st.label}`,
+    desc: `${k?.features || ''} / ${st.intro}`,
+    story: { chId, stage:stageIdx, label:st.label, intro:st.intro, outro:st.outro },
+  };
+}
+/** バトル終了時に 1 回だけ呼ぶ。勝利時のみステージを進める */
+export function completeStoryStage(state, chId, stageIdx, won) {
+  const ch = STORY_CHAPTER_BY_ID[chId];
+  const arc = storyState(state);
+  if (!ch || !ch.stages[stageIdx]) return { ok:false, msg:'ステージが見つかりません' };
+  arc.lastStage = { chId, stage:stageIdx, won:!!won, at:new Date().toISOString() };
+  if (!won) {
+    logEvent(state, `第${ch.no}章「${ch.title}」${ch.stages[stageIdx].label}で敗北。同じステージから再挑戦できます。`, 'story');
+    return { ok:false, msg:'敗北。同じステージから再挑戦できます', won:false };
+  }
+  if (arc.stage === stageIdx) arc.stage = Math.min(ch.stages.length, stageIdx + 1);
+  if (ch.twist && arc.stage === ch.twistAt && !arc.twistSeen) arc.phase = 'twist';
+  else if (arc.stage >= ch.stages.length) { arc.phase = 'epilogue'; arc.scene = 0; }
+  else arc.phase = 'stages';
+  addCatalog(state.catalog.enemies, `story_${chId}_${stageIdx}`);
+  logEvent(state, `第${ch.no}章「${ch.title}」${ch.stages[stageIdx].label}を突破（${arc.stage}/${ch.stages.length}）。`, 'story');
+  return { ok:true, msg:`${ch.stages[stageIdx].label} 突破（${arc.stage}/${ch.stages.length}）`, phase:arc.phase, won:true };
+}
+export function finishStoryChapter(state, chId) {
+  const ch = STORY_CHAPTER_BY_ID[chId];
+  if (!ch) return { ok:false, msg:'章が見つかりません' };
+  const arc = storyState(state);
+  if (arc.cleared.includes(chId)) return { ok:false, msg:'この章はクリア済みです' };
+  if (arc.stage < ch.stages.length) return { ok:false, msg:'まだバトルステージが残っています' };
+  arc.cleared.push(chId);
+  arc.phase = 'done';
+  arc.chapter = Math.min(STORY_CHAPTERS.length, ch.no + 1);
+  // 旧ストーリー進行（ヒント判定で参照）も消さずに進める
+  const legacy = state.story;
+  if (!legacy.seen.includes(ch.no)) legacy.seen.push(ch.no);
+  if (!legacy.cleared.includes(ch.no)) legacy.cleared.push(ch.no);
+  legacy.chapter = Math.min(6, Math.max(Number(legacy.chapter) || 1, ch.no + 1));
+  const reward = { materials:storyRewardMaterials(ch), coins:storyRewardCoins(ch) };
+  logEvent(state, `第${ch.no}章「${ch.title}」をクリア。${ch.ending} 進化素材報酬を受け取れます。`, 'story');
+  return { ok:true, msg:`第${ch.no}章クリア！ ${ch.ending}`, reward };
+}
+/** 1 章につき 1 回だけ。必要素材数とコインをまるごと付与する */
+export function claimStoryReward(state, chId) {
+  const ch = STORY_CHAPTER_BY_ID[chId];
+  if (!ch) return { ok:false, msg:'章が見つかりません' };
+  const arc = storyState(state);
+  if (arc.claimed.includes(chId)) return { ok:false, msg:'この章の報酬は受け取り済みです' };
+  if (!arc.cleared.includes(chId)) return { ok:false, msg:'章をクリアすると受け取れます' };
+  const mats = storyRewardMaterials(ch), coins = storyRewardCoins(ch);
+  arc.claimed.push(chId);                        // 先に記録 → 二重付与を確実に防ぐ
+  grantMaterials(state, Object.fromEntries(mats.map(m => [m.id, m.n])));
+  addCoins(state, coins);
+  arc.lastReward = { chId, materials:mats, coins, at:new Date().toISOString() };
+  logEvent(state,
+    `第${ch.no}章クリア報酬：${mats.map(m => `${m.id}×${m.n}`).join('・')} / ${fmt(coins)}コイン（1キャラ分のランクアップ素材）`, 'story');
+  return { ok:true, mats, coins,
+    msg:`${ch.rank}章の報酬：進化素材 ${mats.reduce((a,m)=>a+m.n,0)} 個 + ${fmt(coins)} コイン` };
+}
+
 /* ---------- ダンジョン・隠し要素 ---------- */
 export function hiddenBossUnlocked(state, c) {
   return c.awakening >= 3 && state.stats.bossKills >= 3 && state.dungeon.best >= 10;
 }
 export function hardDungeonUnlocked(state) { return state.dungeon.best >= 15; }
+/** 特徴・強さの帯ごとに出現敵を組み立てる（js/enemyAssets.js の DUNGEON_PLAN） */
+export function dungeonBandInfo(floor) {
+  const f = Math.max(1, Number(floor) || 1);
+  return DUNGEON_BANDS.find(b => f >= b.floors[0] && f <= b.floors[1])
+    || DUNGEON_BANDS[DUNGEON_BANDS.length - 1];
+}
 export function dungeonEnemy(state, floor, hard = false) {
-  // model3d を持つ敵は後から追加した 3D アセット専用の CPU 対戦相手。
-  // ダンジョンの出現順は既存セーブの進行を変えないよう、元の敵だけを使う。
-  const pool = ENEMIES.filter(e => !e.boss && !e.model3d);
-  const base = pool[(floor * 3) % pool.length];
-  const isBoss = floor % 5 === 0;
-  const bossPool = ENEMIES.filter(e => e.boss && !e.hidden && !e.model3d);
-  const src = isBoss ? bossPool[Math.floor(floor / 5) % bossPool.length] : base;
-  const mul = (src.mul || 1) * (1 + floor * (hard ? 0.11 : 0.065)) * (hard ? 1.55 : 1);
+  const f = Math.max(1, Number(floor) || 1);
+  const plan = DUNGEON_PLAN[(f - 1) % DUNGEON_PLAN.length] || DUNGEON_PLAN[0];
+  const band = dungeonBandInfo(f);
+  const isBoss = f % 5 === 0;
+  // 5 の倍数階は「直前に踏破した帯」のボス。帯の境目で次の帯のボスを出さない
+  const bossBand = isBoss ? dungeonBandInfo(f - 1) : band;
+  const kindId = isBoss ? bossBand.boss : plan.enemyId;
+  const k = ENEMY_KIND[kindId] || ENEMY_KINDS[0];
+  const base = ENEMY[kindId] || ENEMY[ENEMY_KINDS[0].id] || {};
+  const tier = k.tier || 0;
+  // 階層 × 特徴帯 × 高難易度で素直に強くなる。敵ごとの専用技は move が持つ
+  const strength = 1 + (f - 1) * 0.055 + tier * 0.16 + (hard ? 0.55 : 0);
   return {
-    ...src,
-    id: `dungeon_${hard?'h':'n'}_${floor}`,
-    name: `${src.name}（${floor}階）`,
-    level: Math.max(3, Math.round(src.level + floor * (hard ? 2.6 : 1.5))),
-    mul,
-    floor,
+    ...base,
+    id: `dungeon_${hard?'h':'n'}_${f}`,
+    name: `${k.name}（${f}階・${isBoss ? '階層ボス' : plan.label}）`,
+    trueName: null,
+    artId: kindId,
+    level: Math.max(3, Math.round(4 + f * 1.45 + tier * 5 + (hard ? 8 : 0))),
+    mul: (base.mul || 1) * strength,
+    floor: f,
     dungeon: true,
+    band: isBoss ? bossBand.name : band.name,
+    tier,
+    boss: isBoss,
+    hidden: false,
+    difficulty: `${band.name} / ${isBoss ? '階層ボス' : plan.label}`,
+    desc: `${k.features} / ${k.weapon} / ${k.move?.name || ''}`,
   };
 }
 export function advanceDungeon(state, won, hard) {

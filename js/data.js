@@ -1,4 +1,5 @@
 import { MATERIAL_ITEMS } from './materials.js?v=2';
+import { ENEMY_KINDS } from './enemyAssets.js?v=2';
 
 /* ===========================================================
    オリキャラファイターズ / ゲームデータ定義
@@ -6,7 +7,7 @@ import { MATERIAL_ITEMS } from './materials.js?v=2';
    - すべてプログラムで実体を持つデータ（ダミーなし）
    =========================================================== */
 
-export const VERSION = 7;
+export const VERSION = 8;
 export const MAX_LEVEL_BASE = 60;
 export const AWAKENING_NAMES = ['未覚醒', '覚醒I・萌芽', '覚醒II・進化', '覚醒III・超越', '覚醒IV・神化', '覚醒V・極致'];
 
@@ -588,36 +589,69 @@ const BOSS_ARCHETYPES = [
   { key:'hidden', name:['？','虚無の王 ノクティス'], job:'timeweaver', style:'magic', palette:{hair:'#161028',cloth:'#1c1230',skin:'#b9a2c9',accent:'#c58cff'}, tier:3, boss:true, hidden:true },
 ];
 /* -----------------------------------------------------------
-   外部 3D アセット専用の追加敵。
-   既存 31 体の定義・順序・能力・報酬は一切変更せず、末尾に追加するだけ。
-   model3d は js/enemy3d.js の ENEMY_MODELS のキー。
+   Google Drive「敵キャラ」の静止 PNG だけを登録する敵カタログ。
+   -----------------------------------------------------------
+   - ENEMY_KINDS の 1 種類 = 1 体の敵。全 180 ファイルは ASSET_FILES で
+     いずれか 1 体へ必ず紐づく（js/enemyAssets.js の台帳を参照）。
+   - 3D モデル・アニメーション・動画・生成画像は一切使わない。
+   - 元 PNG は変換せず、CSS の表示サイズ / 向き / 接地 / 攻撃モーション /
+     エフェクトだけを変える（js/enemyArt.js + css/style.css）。
+   - 既存 31 体にも artId を割り当て、CPU 戦の敵画像をすべて Drive 素材へ
+     統一する。能力値・報酬・並び順・セーブデータは変更しない。
    ----------------------------------------------------------- */
-const MODEL_ENEMY_ARCHETYPES = [
-  { id:'m3d_angel',    name:'天翔る使徒 ルミエル',       job:'apostle',      style:'guard',    difficulty:'強敵', level:24, mul:1.10, tier:0, model3d:'angel',    palette:{hair:'#f4e6b0',cloth:'#e9f2ff',skin:'#f2d3b0',accent:'#ffe9a8'} },
-  { id:'m3d_demon',    name:'角魔公 アザゼル',           job:'destroyer',    style:'power',    difficulty:'強敵', level:26, mul:1.16, tier:0, model3d:'demon',    palette:{hair:'#39101c',cloth:'#5b1626',skin:'#c8796a',accent:'#ff6b5f'} },
-  { id:'m3d_beast',    name:'異形の怪物 ヴォイド',       job:'monk',         style:'speed',    difficulty:'強敵', level:22, mul:1.08, tier:0, model3d:'monster',  palette:{hair:'#2c5d46',cloth:'#24443b',skin:'#8fcf9c',accent:'#8ef0b0'} },
-  { id:'m3d_fallen',   name:'堕ちた聖騎士 ガウェイン',   job:'knight',       style:'balanced', difficulty:'強敵', level:25, mul:1.12, tier:0, model3d:'fallen',   palette:{hair:'#3a3540',cloth:'#2b2f46',skin:'#dbc0a2',accent:'#b8a6d9'} },
-  { id:'m3d_reaper',   name:'死神 モルト',               job:'timeweaver',   style:'magic',    difficulty:'強敵', level:27, mul:1.18, tier:0, model3d:'reaper',   palette:{hair:'#181426',cloth:'#211c37',skin:'#c6b9d6',accent:'#c58cff'} },
-  { id:'m3d_abyss',    name:'深海の異形 クトゥルフ',     job:'alchemist',    style:'magic',    difficulty:'強敵', level:28, mul:1.18, tier:0, model3d:'abyss',    palette:{hair:'#164b54',cloth:'#123a42',skin:'#7fb9a6',accent:'#5fe0c8'} },
-  { id:'m3d_dragon',   name:'古竜 リヴァイア',           job:'dragonknight', style:'power',    difficulty:'強敵', level:38, mul:1.34, tier:1, model3d:'dragon',   palette:{hair:'#7a2a1c',cloth:'#4a2320',skin:'#dba06e',accent:'#ff9a5a'} },
-  { id:'m3d_guardian', name:'古代の守護者 ゴーレム',     job:'starguard',    style:'guard',    difficulty:'強敵', level:40, mul:1.38, tier:1, model3d:'guardian', palette:{hair:'#6f7689',cloth:'#3e4658',skin:'#b8bcc8',accent:'#ffe6a1'} },
-  { id:'m3d_titan',    name:'巨人王 ムシュール',         job:'destroyer',    style:'power',    difficulty:'強敵', level:42, mul:1.42, tier:1, model3d:'titan',    palette:{hair:'#8b5b2a',cloth:'#5d3c25',skin:'#e0b07e',accent:'#ffc46b'} },
-  { id:'m3d_lich',     name:'死者の魔導士 ネクロス',     job:'archmage',     style:'magic',    difficulty:'強敵', level:44, mul:1.44, tier:1, model3d:'lich',     palette:{hair:'#2b2140',cloth:'#1b1830',skin:'#b6a9c7',accent:'#a98cff'} },
+const DRIVE_JOB_RULES = [
+  [/弓|矢|ボウ|アーチャー/, 'archer'],
+  [/杖|魔法|呪|術|球|魔導|呪文|マジック/, 'mage'],
+  [/槍|突|ランス|スピア/, 'fencer'],
+  [/斧|棍棒|槌|大剣|剛|王/, 'warrior'],
+  [/爪|牙|噛|翼|飛|浮遊/, 'monk'],
+  [/盾|甲|兜|角|重|石/, 'knight'],
+  [/鎌|影|死|霊|骸骨|幽|瞳/, 'assassin'],
+  [/銃|砲|弾/, 'gunner'],
 ];
-function appendModelEnemies(list) {
-  for (const a of MODEL_ENEMY_ARCHETYPES) {
-    const job = JOB[a.job];
+function driveJob(k) {
+  const t = `${k.weapon || ''} ${k.features || ''} ${k.build || ''} ${k.move?.name || ''}`;
+  for (const [re, id] of DRIVE_JOB_RULES) if (re.test(t) && JOB[id]) return id;
+  return k.tier >= 3 ? 'timeweaver' : k.tier >= 1 ? 'spellblade' : 'warrior';
+}
+function driveStyle(k) {
+  if (k.move?.status) return 'critical';
+  if (k.move?.motion === 'cast' || k.move?.motion === 'gaze') return 'magic';
+  if (k.tier >= 3) return 'guard';
+  if (k.display?.float || k.build?.includes('小型')) return 'speed';
+  if ((k.move?.hits || 1) > 1) return 'balanced';
+  return 'power';
+}
+function appendDriveEnemies(list) {
+  for (const k of ENEMY_KINDS) {
+    const jobId = driveJob(k), job = JOB[jobId];
+    const level = 4 + k.tier * 9 + Math.min(4, (k.fileIds?.length || 1) % 5);
+    const mul = Number((0.88 + k.tier * 0.16).toFixed(2));
     const skillIds = [...job.skills];
-    if (a.tier >= 1) skillIds.push('sk_ultimate', 'sk_greaterheal');
+    if (k.tier >= 1) skillIds.push('sk_ultimate');
+    if (k.tier >= 3) skillIds.push('sk_greaterheal');
+    const color = k.move?.color || '#a9b4c4';
     list.push({
-      id:a.id, name:a.name, trueName:null,
-      job:a.job, style:a.style, difficulty:a.difficulty, level:a.level, mul:a.mul,
-      palette:a.palette, tier:a.tier, boss:false, hidden:false, model3d:a.model3d,
-      skills:[...new Set(skillIds)],
-      equipment:RARITIES.slice(0, Math.min(6, 1 + a.tier)).map((r,k)=>({slot:SLOTS[k],rarity:r.id})),
-      desc:`${job.name} / ${a.difficulty} / Lv.${a.level}`,
+      id: k.id, name: k.name, trueName: null,
+      job: jobId, style: driveStyle(k),
+      difficulty: ['ノーマル','強敵','上級','最上級','深淵'][k.tier] || '強敵',
+      level, mul,
+      palette: { hair:color, cloth:color, skin:'#e8c9a6', accent:color },
+      tier: k.tier, boss:false, hidden:false,
+      artId: k.id, assetKind: k.id,
+      skills: [...new Set(skillIds)],
+      equipment: RARITIES.slice(0, Math.min(6, 1 + k.tier)).map((r,i)=>({ slot:SLOTS[i], rarity:r.id })),
+      desc: `${k.family} / ${k.build} / ${k.weapon} / ${k.move?.name || ''}`,
     });
   }
+  // 既存 CPU も含め、全敵が必ずいずれかの Drive 素材を参照する
+  list.forEach((en, i) => {
+    if (en.artId) return;
+    const tier = Math.min(4, en.tier || 0);
+    const pool = ENEMY_KINDS.filter(k => k.tier === tier);
+    const k = (pool.length ? pool : ENEMY_KINDS)[(i * 7 + tier * 3) % (pool.length || ENEMY_KINDS.length)];
+    en.artId = k.id;
+  });
   return list;
 }
 function buildEnemies() {
@@ -645,7 +679,7 @@ function buildEnemies() {
   BOSS_ARCHETYPES.forEach((a, i) => {
     add(a, 0, a.hidden ? '隠しボス' : 'ボス', a.hidden ? 90 : 30 + i * 12, a.hidden ? 2.5 : 1.5 + i * 0.25);
   });
-  return appendModelEnemies(list);
+  return appendDriveEnemies(list);
 }
 export const ENEMIES = buildEnemies();
 export const ENEMY = Object.fromEntries(ENEMIES.map(e => [e.id, e]));
