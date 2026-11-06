@@ -282,6 +282,45 @@ def main():
           and 'assertOldCharsIntact' in nct and "?newchar=2" in nct,
           '指定 1〜8 の実動作テスト（既存キャラ維持・再起動）が存在')
 
+    print('== 10. 敵画像が戦闘画面に表示されない不具合の根本修正 ==')
+    check(re.search(r'\.combat-sprite\{[^}]*width:100%[^}]*\}', css),
+          '敵側コンテナ .combat-sprite に幅 100%（p2 の flex-end で 0px に潰れる根本原因を修正）')
+    check('.combatant.p2{align-items:flex-end}' in css,
+          '敵パネルの右寄せレイアウト自体は維持（画像を動かさない）')
+    check(re.search(r'\.enemy-art \.enemy-art-img\{[^}]*object-fit:contain', css)
+          and re.search(r'\.enemy-art \.enemy-art-img\{[^}]*image-rendering:auto', css)
+          and '.enemy-art[data-pixel-art="1"] .enemy-art-img{image-rendering:pixelated' in css
+          and '.enemy-art{' in css,
+          '縦横比維持 (contain) / 高解像度は補間 / ドット絵のみ pixelated / 親内に収める')
+    check('.enemy-art-error' in css and '.enemy-art[data-failed="1"] .enemy-art-error' in css,
+          '失敗時に原因を表示する CSS を用意')
+    ea = open('js/enemyArt.js', encoding='utf-8').read()
+    eaa = open('js/enemyAssets.js', encoding='utf-8').read()
+    check('loading="${battle ? \'eager\' : \'lazy\'}"' in ea,
+          '戦闘中は eager 読み込み（lazy による空白を防止）')
+    check('data-enemy-art="${id}"' in ea and 'ENEMY_KIND[a.id]' in ea
+          and 'ENEMY_KIND[enemy?.artId || enemy?.id]' in eaa,
+          '画像は名前ではなく固有 ID (artId / ENEMY_KIND.id) で引く')
+    check('data-pixel-art=' in ea and "role === 'primary'" in ea and '<= 256' in ea,
+          '素材の解像度で鮮明さの補間方式を判定（高解像度イラストを劣化させない）')
+    check('.asset-file-img' in ea and '.enemy-art-img, .asset-file-img' in ea,
+          '複数敵・台帳一覧の全画像へ読み込み監視を配線')
+    check('enemy-art-error' in ea and 'role="alert"' in ea
+          and 'console.error(' in ea and 'ART_ERRORS' in ea,
+          '失敗時は敵 ID / 参照先 / 代替候補 / 理由を画面・コンソール・レポートへ出力')
+    check('models3d: 0, animationClips: 0' in ea and 'errors: enemyArtErrors()' in ea,
+          '静止 PNG であることを正直に報告し、3D/アニメの成功を偽らない')
+    check('class="sprite"' not in ea and 'enemy-art-fallback' not in ea,
+          '✦ / 仮スプライト / .enemy-art-fallback による代用を撤去')
+    check('P.makeEnemySprite(' not in mn and 'b.enemy.sprite = null' in mn,
+          'アプリ側で四角形・丸の生成スプライトを作らない')
+    check('enemyArtReport' in ui and 'asset-file-img' in ui and 'data-asset-id' in ui,
+          '台帳 UI もエラー情報を表示し、インライン onerror での隠蔽を撤去')
+    eact = open('tests/check_enemy_art.mjs', encoding='utf-8').read()
+    check(os.path.isfile('tests/check_enemy_art.mjs') and 'ENEMY ART CHECK OK' in eact
+          and 'getComputedStyle' in eact and 'dungeonStart' in eact and 'resolveAction' in eact,
+          'ダンジョン→遭遇→描画→攻撃→撃破→戦闘後までの実動作テストが存在')
+
     print('\nUPDATE STATIC CHECK OK — 全ファイル照合・3D 残存ゼロ・章/セーブ/UI 整合性・新機能')
     return 0
 

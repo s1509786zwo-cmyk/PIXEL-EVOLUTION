@@ -21,9 +21,9 @@ def free_port():
         return s.getsockname()[1]
 
 
-def request(port, path, headers=None):
+def request(port, path, headers=None, method='GET'):
     conn = http.client.HTTPConnection('127.0.0.1', port, timeout=10)
-    conn.request('GET', path, headers=headers or {})
+    conn.request(method, path, headers=headers or {})
     r = conn.getresponse()
     body = r.read()
     out = (r.status, dict(r.getheaders()), body)
@@ -131,6 +131,19 @@ def main():
               '新しい ID 発行と「追加のみ」の保存処理が配信される')
         check("app.screen !== 'create'" in ui,
               '作成画面に過去キャラの名前・画像を出さない UI が配信される')
+        _, _, ea_js = request(port, '/js/enemyArt.js?h=x')
+        eaj = ea_js.decode('utf-8')
+        check('enemy-art-error' in eaj and 'loading="${battle ? \'eager\' : \'lazy\'}"' in eaj
+              and '.asset-file-img' in eaj and 'ART_ERRORS' in eaj
+              and 'enemy-art-fallback' not in eaj and 'class="sprite"' not in eaj,
+              '敵画像の即時読み込み・エラー表示・代用禁止が配信される')
+        check('.combat-sprite{display:flex;justify-content:center;align-items:flex-end;height:210px;width:100%' in cs
+              and 'image-rendering:auto' in cs and 'data-pixel-art="1"' in cs and '.enemy-art-error' in cs,
+              '幅 0px の根本修正・解像度別の鮮明化・エラー UI の CSS が配信される')
+        check('data-pixel-art=' in eaj, '解像度判定が enemyArt.js に配信される')
+        check('P.makeEnemySprite(' not in t and 'b.enemy.sprite = null' in t
+              and 'enemyArtReport' in ui and 'asset-file-img' in ui,
+              '生成スプライトでの代用を止め、台帳 UI のエラー表示も配信される')
 
         print('== 3. 敵 PNG の配信 ==')
         pngs = sorted(f for f in os.listdir(os.path.join(ROOT, 'assets', 'enemies')) if f.endswith('.png'))
@@ -148,6 +161,25 @@ def main():
         src = sorted(f for f in os.listdir(os.path.join(ROOT, 'assets', 'enemies', 'source')) if f.endswith('.png'))[0]
         status, _, body = request(port, '/assets/enemies/source/' + src)
         check(status == 200 and body[:8] == b'\x89PNG\r\n\x1a\n', 'Drive 原本 PNG も配信可能（ローカル）')
+
+        print('== 3b. Google Drive 原本 180 ファイルが実際に HTTP 配信される ==')
+        manifest = json.loads(subprocess.check_output(
+            ['node', '--input-type=module', '-e',
+             "import {ASSET_FILES} from './js/enemyAssets.js';"
+             "console.log(JSON.stringify(ASSET_FILES.map(r=>({src:r.src,bytes:r.bytes,readable:r.readable}))))"],
+            cwd=ROOT).decode('utf-8'))
+        check(len(manifest) == 180, f'台帳 180 件（実際 {len(manifest)}）')
+        bad = []
+        for r in manifest:
+            if not r['readable']:
+                continue
+            status, h, _ = request(port, '/' + r['src'], method='HEAD')
+            if status != 200 or int(h.get('Content-Length', '0') or 0) != r['bytes']:
+                bad.append((r['src'], status, h.get('Content-Length')))
+            if 'no-store' not in h.get('Cache-Control', ''):
+                bad.append((r['src'], 'cache', h.get('Cache-Control')))
+        check(not bad,
+              f'原本 180 ファイルすべて 200 / バイト数一致 / no-store（不一致 {len(bad)}）: {bad[:3]}')
 
         print('== 4. 削除済み 3D 資産は 404 ==')
         for path in ('/assets/models/enemies/ASSETS.md', '/assets/models/enemies/big_demon.glb',

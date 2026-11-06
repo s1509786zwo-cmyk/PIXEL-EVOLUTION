@@ -11,7 +11,7 @@ import {
   ULTIMATE_IDS, SKILL_COUNT, toCoreStats, HINT_CATEGORIES,
   CHAR_RARITIES, CHAR_RARITY, CHAR_RARITY_ORDER, charRankIndex, EVOLUTION_RULES, RATE_TOTAL,
 } from './data.js?v=2';
-import { enemyArtHost } from './enemyArt.js?v=2';
+import { enemyArtHost, enemyArtReport } from './enemyArt.js?v=2';
 import { ENEMY_KIND, ENEMY_KINDS, ASSET_FILES, FILES_BY_ENEMY, UNREADABLE_FILES,
   DUNGEON_BANDS } from './enemyAssets.js?v=2';
 import { STORY_CHAPTERS, STORY_CHAPTER_BY_ID, storyRewardMaterials, storyRewardCoins,
@@ -1285,7 +1285,7 @@ function enemyCard(app, s, en, mode='cpu', floor=0) {
   const mv = k.move;
   const lockedText = en.hidden ? '覚醒III / ボス3体 / ダンジョン10階' : en.boss ? '6勝 + シルバーランク' : en.tier>=1 ? '3勝で解放' : '';
   return `<div class="enemy-card ${unlocked?'':'locked'}" style="--accent:${en.palette?.accent||'#ffd77a'}">
-    <div class="enemy-sprite">${enemyArtHost(en,'card',app.enemySprites[en.id]||'','none',false,Number(app.enemyVariant)||0)}</div>
+    <div class="enemy-sprite">${enemyArtHost(en,'card','','none',false,Number(app.enemyVariant)||0)}</div>
     <div class="enemy-info"><b>${e(en.name)}</b><small>${e(JOB[en.job]?.name||'')} / Lv.${en.level} / ${e(en.difficulty||'CPU')}</small>
       ${k.features ? `<div class="enemy-feature">${e(k.features)}</div>` : ''}
       ${mv ? `<div class="enemy-move"><div class="sk-head"><b>✦ ${e(mv.name)}</b>${SI.skillBadge(SI.resolveSkill(mv.id),{cd:false})}</div><small>${e(mv.desc)} / ${mv.hits||1}連撃 / ${e((ELEMENTS[mv.element]||ELEMENTS.none).name)}</small></div>` : ''}
@@ -1461,7 +1461,12 @@ function codexScreen(app, s) {
     const pages = Math.max(1, Math.ceil(files.length / per));
     const slice = files.slice(page * per, page * per + per);
     const variants = k.variants?.length || 1;
-    body = `<div class="callout">Google Drive「敵キャラ」の全 ${ASSET_FILES.length} ファイルを 1 件ずつ確認し、${ENEMY_KINDS.length} 体の敵へ 1 対 1 で割り当てました。読み込めないファイル <b>${UNREADABLE_FILES.length} 件</b> ／ 3D モデル・アニメーション・動画 <b>0 件</b>。元 PNG は無変換です。</div>
+    const report = enemyArtReport();
+    const errBox = report.errors.length
+      ? `<div class="danger-box"><b>⚠ 敵画像の読み込みエラー ${report.errors.length} 件</b>${report.errors.slice(-6).map(x =>
+          `<p><code>${e(x.id)}</code> / ${e(x.src)}<br><small>${e(x.reason)} / 代替候補 ${e(x.fallback)}</small></p>`).join('')}
+          <p class="muted">代替画像には差し替えていません。戦闘画面にも同じエラーが表示されます。</p></div>` : '';
+    body = `<div class="callout">Google Drive「敵キャラ」の全 ${ASSET_FILES.length} ファイルを 1 件ずつ確認し、${ENEMY_KINDS.length} 体の敵へ 1 対 1 で割り当てました。読み込めないファイル <b>${UNREADABLE_FILES.length} 件</b> ／ 3D モデル・アニメーション・動画 <b>0 件</b> ／ 表示中の読み込みエラー <b>${report.errors.length} 件</b>。元 PNG は無変換です。${errBox}</div>
       <div class="asset-kinds">${ENEMY_KINDS.map(kk => `<button class="asset-kind ${kk.id === sel ? 'on' : ''}" data-action="assetEnemy" data-id="${e(kk.id)}">${e(kk.name)}<small>${(FILES_BY_ENEMY[kk.id] || []).length} ファイル</small></button>`).join('')}</div>
       <div class="asset-detail">
         <div class="asset-preview">${enemyArtHost({ id:sel, artId:sel, name:k.name }, 'asset-art', '', 'none', false, Number(app.enemyVariant) || 0)}</div>
@@ -1471,8 +1476,10 @@ function codexScreen(app, s) {
           <div class="row-btns"><button class="btn btn-mini" data-action="enemyVariant" data-variant="${((Number(app.enemyVariant) || 0) + 1) % variants}">🔄 色違いを切り替える（${variants} 種）</button></div>
         </div></div>
       <h4 class="mt">📄 この敵に割り当てたファイル ${files.length} 件（${page + 1} / ${pages}）</h4>
-      <div class="asset-files">${slice.map(f => `<div class="asset-file">
-        <img src="${e(f.src)}" data-fallback="${e(f.fallback)}" loading="lazy" alt="${e(f.name)}" onerror="this.onerror=null;this.src=this.dataset.fallback">
+      <div class="asset-files">${slice.map(f => `<div class="asset-file" data-asset-id="${e(f.id)}">
+        <div class="asset-file-thumb"><img class="asset-file-img" src="${e(f.src)}"
+          data-art-src="${e(f.src)}" data-fallback="${e(f.fallback)}" loading="lazy"
+          alt="${e(f.name)}"><code class="asset-file-error" hidden></code></div>
         <div><b>${e(f.name)}</b><small>${e(f.folder)} / ${e(f.role)} / ${fmt(f.bytes || 0)} bytes</small><small class="muted">Drive ID: ${e(f.id)}</small></div></div>`).join('')}</div>
       <div class="row-btns">${page > 0 ? `<button class="btn btn-ghost btn-mini" data-action="assetPage" data-page="${page - 1}">← 前へ</button>` : ''}
         ${page + 1 < pages ? `<button class="btn btn-ghost btn-mini" data-action="assetPage" data-page="${page + 1}">次へ →</button>` : ''}</div>
@@ -1562,7 +1569,7 @@ function combatPanel(b, side, label, char) {
   const rarity = isP ? (char?.rarity || 'R')
     : (side.hidden ? 'S' : side.boss ? 'M' : side.level >= 40 ? 'L' : side.level >= 25 ? 'E' : 'R');
   return `<div class="combatant ${isP?'p1':'p2'} ${isP&&char?.jobId===GOD_JOB_ID?'god-mode':''}" id="${isP?'arena-player':'arena-enemy'}">
-    <div class="combat-sprite ${isP?'':'mirrored'}">${isP && char ? charImage(char,'battle') : enemyArtHost(b.enemyDef,'battle',side.sprite,side.aura,true,Number(b.enemyVariant)||0)}</div>
+    <div class="combat-sprite ${isP?'':'mirrored'}">${isP && char ? charImage(char,'battle') : enemyArtHost(b.enemyDef,'battle','',side.aura,true,Number(b.enemyVariant)||0)}</div>
     ${isP && char ? `<div class="combat-rank">${rankBadge(char.rarity)}</div>` : ''}
     <div class="combat-info">
       <div class="combat-name">${e(side.name)}</div>

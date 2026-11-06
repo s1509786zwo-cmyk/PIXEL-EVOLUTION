@@ -442,7 +442,7 @@ small{font-size:11px}
 .combat-row{display:grid;grid-template-columns:1fr 60px 1fr;align-items:end;gap:8px;min-height:280px}
 .combatant{display:flex;flex-direction:column;gap:8px}
 .combatant.p2{align-items:flex-end}
-.combat-sprite{display:flex;justify-content:center;align-items:flex-end;height:210px}
+.combat-sprite{display:flex;justify-content:center;align-items:flex-end;height:210px;width:100%;min-width:0}
 .combat-sprite.mirrored .sprite{transform:scaleX(-1)}
 .combat-sprite .sprite.battle{filter:drop-shadow(0 0 10px rgba(101,217,255,.45)) drop-shadow(0 12px 12px rgba(0,0,0,.7))}
 .combat-info{width:min(320px,100%);padding:10px;border-radius:12px;border:1px solid rgba(255,255,255,.18);background:rgba(8,13,29,.8);backdrop-filter:blur(6px)}
@@ -1508,6 +1508,9 @@ button.job-card:disabled.locked{cursor:not-allowed}
   filter:drop-shadow(0 7px 12px rgba(3,6,18,.38));
   transition:opacity .22s ease;
 }
+/* 低解像度のピクセルアートだけ最近傍補間で鮮明にする。
+   高解像度イラストに pixelated を掛けるとジャギで元のデザインが変わるため使わない。 */
+.enemy-art[data-pixel-art="1"] .enemy-art-img{image-rendering:pixelated;image-rendering:crisp-edges}
 .enemy-art-ground{
   position:absolute;left:12%;right:12%;bottom:2%;height:11%;z-index:1;border-radius:50%;
   background:radial-gradient(ellipse,rgba(4,8,20,.62),rgba(4,8,20,0) 72%);
@@ -1520,10 +1523,21 @@ button.job-card:disabled.locked{cursor:not-allowed}
   opacity:.16;filter:blur(12px);pointer-events:none;
 }
 .enemy-art-fx{position:absolute;inset:0;z-index:3;pointer-events:none}
-.enemy-art-fallback{position:absolute;inset:0;z-index:1;display:grid;place-items:center;opacity:0;transition:opacity .2s ease}
-.enemy-art-fallback img{max-width:100%;max-height:100%;object-fit:contain}
 .enemy-art[data-failed="1"] .enemy-art-img{opacity:0}
-.enemy-art[data-failed="1"] .enemy-art-fallback{opacity:1}
+/* 読み込み失敗時は「正常に見せる」代替画像を出さず、ID / パス / 理由を明示する */
+.enemy-art-error{position:absolute;inset:0;z-index:4;display:none;place-content:center;gap:4px;
+  padding:8px;text-align:center;background:rgba(26,8,16,.94);border:1px solid #ff6f8d;border-radius:8px;
+  color:#ffd7e0;font-size:11px;line-height:1.35;overflow:auto;pointer-events:auto}
+.enemy-art-error[hidden]{display:none !important}
+.enemy-art-error b{color:#ff9db1;font-size:11px}
+.enemy-art-error small{color:#c9a3b0;font-size:10px}
+.enemy-art-error code{display:block;white-space:pre-wrap;word-break:break-all;text-align:left;
+  font-size:10px;color:#ffc9d5;background:rgba(0,0,0,.32);padding:4px;border-radius:4px}
+.enemy-art[data-failed="1"] .enemy-art-error{display:grid}
+/* 原本が落ちて代表 PNG に切り替えた場合も、警告を残して「正常に見せかけ」ない */
+.enemy-art[data-recovered="1"]::after{content:'⚠ 原本を読み込めず代表 PNG を表示';position:absolute;
+  left:4px;right:4px;bottom:3px;z-index:4;padding:2px 4px;border-radius:4px;
+  background:rgba(92,60,8,.92);color:#ffd77a;font-size:9px;text-align:center;pointer-events:none}
 .enemy-art.art-float .enemy-art-img{animation:art-float 3.2s ease-in-out infinite}
 .enemy-art.art-wide .enemy-art-img{object-fit:contain;object-position:50% 100%}
 .enemy-sprite .enemy-art,.combat-sprite .enemy-art,.result-enemy-art .enemy-art,
@@ -1692,12 +1706,23 @@ button.job-card:disabled.locked{cursor:not-allowed}
 .asset-meta>b{font-size:17px}.asset-meta>p{color:#c9d8ee;margin:6px 0}
 .asset-meta>small{display:block;color:#9fb6d6}
 .asset-files{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:8px;margin:10px 0}
-.asset-file{display:flex;gap:9px;align-items:center;padding:8px;border-radius:10px;
+.asset-file{position:relative;display:flex;gap:9px;align-items:center;padding:8px;border-radius:10px;
   background:rgba(255,255,255,.04);border:1px solid rgba(140,180,255,.12);min-width:0}
 .asset-file img{width:52px;height:58px;object-fit:contain;flex:0 0 52px;background:rgba(0,0,0,.25);border-radius:6px}
 .asset-file>div{min-width:0;overflow:hidden}
 .asset-file b{display:block;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .asset-file small{display:block;font-size:10px;color:#9fb6d6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* 台帳サムネも代替画像で隠さず、失敗時は敵 ID / パス / 理由をその場に表示する */
+.asset-file-thumb{position:relative;flex:0 0 52px;width:52px;height:58px}
+.asset-file[data-failed="1"] .asset-file-img{opacity:.18}
+.asset-file-error{position:absolute;left:0;top:0;width:52px;height:58px;z-index:2;display:none;
+  overflow:auto;padding:3px;border-radius:6px;background:rgba(26,8,16,.96);
+  color:#ffc9d5;font-size:7px;line-height:1.2;white-space:pre-wrap;word-break:break-all}
+.asset-file-error[hidden]{display:none !important}
+.asset-file[data-failed="1"] .asset-file-error{display:block}
+.asset-file[data-recovered="1"] .asset-file-thumb::after{content:'⚠ 代表PNG';position:absolute;
+  left:0;right:0;bottom:0;z-index:2;padding:1px 0;text-align:center;border-radius:0 0 6px 6px;
+  background:rgba(92,60,8,.94);color:#ffd77a;font-size:7px;pointer-events:none}
 
 @media (max-width:640px){
   .result-enemy-art{width:120px;height:120px}

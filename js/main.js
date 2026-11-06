@@ -107,7 +107,9 @@ async function prepareLook() {
 function srcObj(target) { return target === 'look' ? app.look : app.draft; }
 
 function ensureEnemySprites() {
-  for (const en of D.ENEMIES) if (!app.enemySprites[en.id]) app.enemySprites[en.id] = P.makeEnemySprite(en);
+  // 敵は必ず組み込み PNG を表示する。四角形・丸などの生成スプライトによる
+  // 「読み込み失敗の代用」は行わない（失敗時は敵 ID / パス / 理由を明示する）。
+  // 旧 API 互換のため app.enemySprites 自体は空のまま残す。
 }
 
 function initAfterRender() {
@@ -592,7 +594,7 @@ async function startBattle(enemyDef, mode = 'cpu', floor = 0) {
   b.enemy.boss = !!enemyDef.boss;
   b.fixedBattleScale = (c.imageSettings?.battleScale || 1);   // 戦闘中は固定
   b.enemyVariant = Number(app.enemyVariant) || 0;
-  b.enemy.sprite = P.makeEnemySprite(enemyDef);
+  b.enemy.sprite = null;   // 代替スプライトは使わない（敵 ID に紐付く PNG のみ表示）
   app.storyBattle = mode === 'story' && enemyDef.story
     ? { chId: enemyDef.story.chId, stage: enemyDef.story.stage } : null;
   app.battle = b; app.result = null; app.battleTab = 'skill'; app.screen = 'battle';
