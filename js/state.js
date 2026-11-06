@@ -16,7 +16,10 @@ import { MATERIAL_ITEMS, MATERIAL_BY_ID, MAT_RANKS, MAT_RANK_INFO, RANK_REQUIREM
 import { ENEMY_KIND, ENEMY_KINDS, DUNGEON_BANDS, DUNGEON_PLAN } from './enemyAssets.js?v=2';
 import { STORY_CHAPTERS, STORY_CHAPTER_BY_ID, storyRewardMaterials, storyRewardCoins,
   defaultStoryArc, storyIntegrity } from './story.js?v=2';
-import { createBackup, listBackups, readBackup, quarantineUnreadable, backupSummary } from './saveBackup.js?v=2';
+import { createBackup, listBackups, readBackup, quarantineUnreadable, backupSummary,
+  findLatestValidBackup, BACKUP_PHASES } from './saveBackup.js?v=2';
+import { validateState, assertNoLoss, assertPreserved, protectedFingerprint,
+  hashString, stableClone } from './dataGuard.js?v=2';
 import {
   currentBanner, bannerRates, pickupDefIds, normalDefIds, allDefIds,
   isPickup, isHidden, PICKUP_SHARE,
@@ -47,6 +50,8 @@ export const levelCap = c => MAX_LEVEL_BASE + (c.rebirth || 0) * 10;
 const DB_NAME = 'original_character_fighters';
 const STORE = 'saves';
 const LS_KEY = 'ocf_save_v3';
+const HAS_SAVE_FLAG = 'ocf_has_save';
+const SAVE_META_KEY = 'ocf_save_meta_v1';
 let dbPromise = null;
 
 function openDB() {
@@ -69,15 +74,34 @@ let loadInfo = {};
 function blankLoadInfo() {
   return { loaded:false, source:null, unreadable:false, quarantined:false, reason:null,
     backupCreated:false, backupId:null, backupDuplicate:false, migrated:false,
-    fromVersion:null, toVersion:VERSION, characters:0, restoredFrom:null };
+    fromVersion:null, toVersion:VERSION, characters:0, restoredFrom:null,
+    // 読み込み失敗時の保護手順（1 保護 / 2 原因 / 3 再試行 / 4 復元 / 5 停止）の記録
+    attempts:[], retryCount:0, recoveredByRetry:false, autoRecovered:false,
+    recoveryChecked:0, recoveryError:null, retryError:null,
+    errorDetail:null, protectedExisting:true, hasSaveFlag:false, storageError:null };
 }
 loadInfo = blankLoadInfo();
+
+// 最後に「書き込み成功を確認できた」状態と、保存処理の監査レポート。
+let lastSavedState = null;
+let saveGeneration = 0;
+let lastSaveReport = { ok:null, at:null, verified:false, beforeBackup:null,
+  afterBackup:null, loss:null, error:null, chars:null, hash:null, generation:0, source:null };
 export function saveBlocked() { return saveGuard; }
 export function resumeSaving() { saveGuard = false; }
 export function loadReport() { return { ...loadInfo }; }
+export function saveReport() { return { ...lastSaveReport }; }
+export function lastGoodState() { return lastSavedState ? stableClone(lastSavedState) : null; }
+export { validateState, assertPreserved, assertNoLoss, protectedFingerprint };
 
-/** 保存されている「原本」を文字列として読む。IDB 優先、無ければ localStorage */
+/** 保存されている「原本」を文字列として読む。IDB 優先、無ければ localStorage。
+ *  「読めなかった」のか「本当に存在しない」のかを必ず区別して返す。
+ *  ocf_has_save / 保存メタ / IDB エラーのいずれかがあれば expected=true
+ *  （＝新規ゲームと混同せず、書き込みを止めて保護手順へ進む）。 */
 async function readRawSave() {
+  let hasFlag = false, lsError = null, idbError = null;
+  try { hasFlag = localStorage.getItem(HAS_SAVE_FLAG) === '1'; }
+  catch (e) { lsError = String(e?.message || e); }
   try {
     const db = await openDB();
     const data = await new Promise((res, rej) => {
@@ -86,45 +110,138 @@ async function readRawSave() {
       r.onsuccess = () => res(r.result);
       r.onerror = () => rej(r.error);
     });
-    if (data && data.state) return { raw: JSON.stringify(data.state), source: 'idb' };
-  } catch (e) { /* 下のフォールバック */ }
+    if (data && data.state)
+      return { raw:JSON.stringify(data.state), source:'idb', hasFlag, lsError, idbError:null, expected:true };
+  } catch (e) { idbError = String(e?.message || e); }
   try {
     const raw = localStorage.getItem(LS_KEY);
-    if (raw) return { raw, source: 'localStorage' };
-  } catch (e) { /* 保存なし */ }
+    if (raw) return { raw, source:'localStorage', hasFlag, lsError:null, idbError, expected:true };
+  } catch (e) { lsError = String(e?.message || e); }
+  let meta = null;
+  try { meta = JSON.parse(localStorage.getItem(SAVE_META_KEY) || 'null'); }
+  catch (e) { /* メタは存在証拠としてだけ使う */ }
+  // IndexedDB が「最初から無い」環境は localStorage へ切り替えるだけの正常動作。
+  // 「IDB があるのに開けない / 読めない」場合だけを異常として扱う。
+  const idbUnavailable = /no indexedDB|not supported|undefined/i.test(idbError || '');
+  return { raw:null, source:null, hasFlag, lsError, idbError, meta,
+    expected: hasFlag || !!meta || (!!idbError && !idbUnavailable) || !!lsError };
+}
+
+/** 既存データは一切書き換えずに、読み出しだけを再試行する */
+async function retryReadRaw(times = 3, requireValid = true) {
+  for (let i = 0; i < times; i++) {
+    loadInfo.retryCount++;
+    await new Promise(r => setTimeout(r, 30 * (i + 1)));
+    let r;
+    try { r = await readRawSave(); }
+    catch (e) { r = { raw:null, source:null, error:String(e?.message || e) }; }
+    loadInfo.attempts.push({ n:i + 1, source:r.source, hasRaw:!!r.raw,
+      idbError:r.idbError || null, lsError:r.lsError || null });
+    if (!r.raw) continue;
+    if (!requireValid) return r;
+    // 壊れた原本を「読めた」と誤判定しない。検証に通った原本だけで復帰する。
+    try { if (validateState(JSON.parse(r.raw)).ok) return r; }
+    catch (e) { /* 次の試行へ */ }
+    loadInfo.retryError = `試行 ${i + 1}: 原本が不正`;
+  }
   return null;
 }
 
-/** 読めなかった原本をパースせず隔離し、自動保存を止める */
+/** 手順 1: 現在のデータを保護する（原本をパースせず隔離＋書き込み停止） */
 async function quarantineRaw(rec, reason) {
   loadInfo.unreadable = true;
-  loadInfo.quarantined = true;
   loadInfo.reason = reason;
-  loadInfo.source = rec.source;
-  try {
-    const bk = await quarantineUnreadable(rec.raw, reason,
-      rec.source === 'idb' ? 'idb-state-json' : 'localStorage-text');
-    loadInfo.backupCreated = !!bk;
-    loadInfo.backupId = bk?.id || null;
-    loadInfo.backupDuplicate = !!bk?.duplicate;
-  } catch (e) {
-    loadInfo.quarantineError = String(e?.message || e);
+  loadInfo.source = rec.source || null;
+  loadInfo.protectedExisting = true;
+  if (rec.raw) {
+    loadInfo.quarantined = true;
+    try {
+      const bk = await quarantineUnreadable(rec.raw, reason,
+        rec.source === 'idb' ? 'idb-state-json' : 'localStorage-text');
+      loadInfo.backupCreated = !!bk;
+      loadInfo.backupId = bk?.id || null;
+      loadInfo.backupDuplicate = !!bk?.duplicate;
+    } catch (e) { loadInfo.quarantineError = String(e?.message || e); }
   }
   saveGuard = true;
-  console.warn('[セーブ保護] 読み込めないセーブを隔離し、上書きを停止しました:', reason);
+  console.warn('[セーブ保護] 既存データを保護し、上書きを停止しました:', reason);
   return null;
 }
 
-export async function loadState() {
+/** 手順 2〜5: 原因記録 → 再試行 → 検証済みバックアップ復元 → 停止 */
+async function protectAndRecover(rec, reason, autoRecover) {
+  await quarantineRaw(rec, reason);                 // 1. 保護
+  loadInfo.errorDetail = reason;                  // 2. 原因
+  // 3. 既存データを保持したまま（書き込みゼロで）読み込みを再試行
+  const retry = await retryReadRaw(3);
+  if (retry?.raw) {
+    try {
+      const data = JSON.parse(retry.raw);
+      const v = validateState(data);
+      if (v.ok) {
+        const updated = updateExistingSave(data);
+        loadInfo.loaded = true; loadInfo.unreadable = false;
+        loadInfo.recoveredByRetry = true; loadInfo.source = retry.source;
+        loadInfo.characters = updated.characters.length;
+        saveGuard = false;
+        lastSavedState = stableClone(updated);
+        return updated;
+      }
+      loadInfo.retryError = `再試行で読めた原本も不正: ${v.reason}`;
+    } catch (err) { loadInfo.retryError = String(err?.message || err); }
+  }
+  // 4. バックアップを「正常性確認」してから復元（隔離原本は消さない）
+  if (autoRecover) {
+    try {
+      const found = await findLatestValidBackup([BACKUP_PHASES.AFTER, BACKUP_PHASES.MIGRATION]);
+      loadInfo.recoveryChecked = found.checked.length;
+      if (found?.data) {
+        const restored = updateExistingSave(stableClone(found.data));
+        const v = validateState(restored);
+        if (v.ok) {
+          loadInfo.autoRecovered = true;
+          loadInfo.recoveredFrom = found.meta.id;
+          loadInfo.restoredFrom = found.meta.id;
+          loadInfo.loaded = true; loadInfo.unreadable = false;
+          loadInfo.characters = v.chars;
+          saveGuard = false;
+          lastSavedState = stableClone(restored);
+          return restored;
+        }
+        loadInfo.recoveryError = `復元候補が不正: ${v.reason}`;
+      } else loadInfo.recoveryError = '検証に通る保存成功後のバックアップがありません';
+    } catch (err) { loadInfo.recoveryError = String(err?.message || err); }
+  }
+  // 5. 復旧できない場合はエラーを残して停止（空データで上書きしない）
+  return null;
+}
+
+export async function loadState(opts = {}) {
   loadInfo = blankLoadInfo();
+  // アプリ起動時だけ自動復元を有効にする（既存の手動復元テスト／運用は維持）
+  const autoRecover = opts.autoRecover === true;
   const rec = await readRawSave();
-  if (!rec) return null;                       // セーブなし = 新規ゲーム
+  loadInfo.hasSaveFlag = rec.hasFlag;
+  loadInfo.storageError = rec.idbError || rec.lsError || null;
+
+  // 「データが読めない」と「データが存在しない」を絶対に混同しない
+  if (!rec.raw) {
+    if (!rec.expected) return null;             // 本当にセーブなし = 新規ゲーム
+    const reason = `保存済みデータが読み出せません (has_save=${rec.hasFlag}, `
+      + `idb=${rec.idbError || 'ok'}, ls=${rec.lsError || 'ok'})`;
+    // 保護 → 原因 → 再試行 → 検証復元 → 停止 は protectAndRecover が一括で担当
+    return await protectAndRecover({ ...rec, raw:'' }, reason, autoRecover);
+  }
+
   let data;
   try { data = JSON.parse(rec.raw); }
-  catch (err) { return await quarantineRaw(rec, `JSON を解析できません: ${err.message}`); }
-  if (!data || typeof data !== 'object' || !Array.isArray(data.characters)) {
-    return await quarantineRaw(rec, 'characters 配列がありません（セーブ形式不一致）');
+  catch (err) {
+    return await protectAndRecover(rec, `JSON を解析できません: ${err.message}`, autoRecover);
   }
+  const v0 = validateState(data);
+  if (!v0.ok)
+    return await protectAndRecover(rec, `セーブ形式不一致: ${v0.reason}`, autoRecover);
+
   const needsUpdate = data.version !== VERSION || !data.story?.arc;
   loadInfo.source = rec.source;
   loadInfo.fromVersion = data.version ?? null;
@@ -132,7 +249,8 @@ export async function loadState() {
   if (needsUpdate) {
     try {
       const bk = await createBackup(rec.raw, 'アップデート前の自動バックアップ', {
-        version: data.version ?? null, schema: VERSION, chars: data.characters.length,
+        version: data.version ?? null, schema: VERSION, chars: v0.chars,
+        phase:BACKUP_PHASES.MIGRATION, validated:v0.ok, ids:v0.ids,
       });
       loadInfo.backupCreated = !!bk;
       loadInfo.backupId = bk?.id || null;
@@ -141,18 +259,34 @@ export async function loadState() {
   }
   try {
     const updated = updateExistingSave(data);   // 既存プレイヤー専用（newState は呼ばない）
+    const v1 = validateState(updated);
+    if (!v1.ok) throw new Error(`移行結果が不正: ${v1.reason}`);
     loadInfo.loaded = true;
     loadInfo.toVersion = VERSION;
-    loadInfo.characters = updated.characters.length;
+    loadInfo.characters = v1.chars;
     saveGuard = false;
+    lastSavedState = stableClone(updated);
     return updated;
   } catch (err) {
-    return await quarantineRaw(rec, `移行に失敗: ${err.message}`);
+    return await protectAndRecover(rec, `移行に失敗: ${err.message}`, autoRecover);
   }
 }
 
 let saveTimer = null;
 let pendingState = null;
+
+/** 保存に失敗したら、それ以降の書き込みを止めて以前の正常セーブを守る。
+ *  復元 / resumeSaving() でだけ解除できる。 */
+function failSave(reason) {
+  saveGuard = true;
+  lastSaveReport = { ...lastSaveReport, ok:false, verified:false,
+    at:new Date().toISOString(), error:reason };
+  console.error('[セーブ保護] ' + reason + ' / 以前の正常なセーブは保持しています');
+  return false;
+}
+
+/** 保存：破損検知 → 保存前バックアップ → 二重書き込み → 成功確認
+ *  → 保存成功後バックアップ。途中で失敗しても既存セーブを消さない。 */
 export function saveState(state, immediate = false) {
   if (saveGuard) {
     console.warn('[セーブ保護] 破損原本を守るため書き込みをスキップしました');
@@ -162,21 +296,90 @@ export function saveState(state, immediate = false) {
   if (!state.settings.autosave && !immediate) return Promise.resolve(false);
   clearTimeout(saveTimer);
   const run = async () => {
-    const snapshot = clone(state);
+    const snapshot = stableClone(state);
     snapshot.savedAt = new Date().toISOString();
-    try { localStorage.setItem('ocf_has_save', '1'); } catch (e) {}
+
+    // 破損検知：壊れた内容は絶対に書き込まない
+    const v = validateState(snapshot);
+    if (!v.ok) return failSave(`保存内容が破損しているため書き込みを中止: ${v.reason}`);
+    // 消失検知：ゲーム進行による値の変化は許可し、ID / 項目の消滅だけを記録
+    const loss = assertNoLoss(lastSavedState, snapshot);
+    const newRaw = JSON.stringify(snapshot);
+    const newHash = hashString(newRaw);
+
+    // 1) 保存前バックアップ（以前の正常な原本を、パースせずそのまま退避）
+    let beforeId = null;
+    try {
+      const prev = await readRawSave();
+      if (prev.raw) {
+        let pv = { ok:false, ids:[], chars:null };
+        try { pv = validateState(JSON.parse(prev.raw)); } catch (e) { /* 壊れていても原本は退避 */ }
+        const b = await createBackup(prev.raw, '保存前バックアップ', {
+          version:null, schema:VERSION, phase:BACKUP_PHASES.BEFORE,
+          validated:pv.ok, ids:pv.ids, chars:pv.chars,
+        });
+        beforeId = b?.id || null;
+      }
+    } catch (e) {
+      return failSave(`保存前バックアップを作成できませんでした: ${e?.message || e}`);
+    }
+
+    // 2) 二重書き込みと「書き込めたか」の成功確認
+    let source = null, verified = false;
     try {
       const db = await openDB();
       await new Promise((res, rej) => {
         const tx = db.transaction(STORE, 'readwrite');
-        tx.objectStore(STORE).put({ state: snapshot }, 'main');
+        tx.objectStore(STORE).put({ state:snapshot }, 'main');
         tx.oncomplete = res; tx.onerror = () => rej(tx.error);
       });
+      const back = await new Promise((res, rej) => {
+        const tx = db.transaction(STORE, 'readonly');
+        const r = tx.objectStore(STORE).get('main');
+        r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+      });
+      if (!back?.state || JSON.stringify(back.state) !== newRaw)
+        throw new Error('書き込み後の照合に失敗');
+      source = 'idb'; verified = true;
     } catch (e) {
-      try { localStorage.setItem(LS_KEY, JSON.stringify(snapshot)); } catch (e2) {
-        console.warn('セーブ容量不足', e2);
+      const idbErr = String(e?.message || e);
+      try {
+        localStorage.setItem(LS_KEY, newRaw);
+        if (localStorage.getItem(LS_KEY) !== newRaw) throw new Error('照合不一致');
+        source = 'localStorage'; verified = true;
+      } catch (e2) {
+        return failSave(`保存先へ書き込めません (idb: ${idbErr} / ls: ${e2?.message || e2})`);
       }
     }
+    if (!verified) return failSave('保存の成功確認ができませんでした');
+
+    // 存在証拠・世代・指紋を localStorage に残す（本文は IDB 側）
+    try { localStorage.setItem(HAS_SAVE_FLAG, '1'); } catch (e) {}
+    try {
+      localStorage.setItem(SAVE_META_KEY, JSON.stringify({
+        generation:++saveGeneration, hash:newHash, chars:v.chars, ids:v.ids,
+        at:snapshot.savedAt, verified:true, source,
+      }));
+    } catch (e) {}
+    // IDB が健全な間に古い LS 本文を残さない（IDB 障害時に古いデータを読ませない）
+    if (source === 'idb') { try { localStorage.removeItem(LS_KEY); } catch (e) {} }
+
+    // 3) 保存成功後バックアップ（自動復元はこの世代だけを候補にする）
+    let afterId = null;
+    let afterBackupError = null;
+    try {
+      const a = await createBackup(newRaw, '保存成功後バックアップ', {
+        version:snapshot.version ?? VERSION, schema:VERSION,
+        phase:BACKUP_PHASES.AFTER, validated:true, ids:v.ids, chars:v.chars,
+      });
+      afterId = a?.id || null;
+    } catch (e) { afterBackupError = String(e?.message || e); }
+
+    lastSavedState = stableClone(snapshot);
+    lastSaveReport = { ok:true, at:snapshot.savedAt, verified:true,
+      beforeBackup:beforeId, afterBackup:afterId, afterBackupError,
+      loss:loss.ok ? null : loss.issues, error:null,
+      chars:v.chars, hash:newHash, generation:saveGeneration, source };
     return true;
   };
   if (immediate) { clearTimeout(saveTimer); return run(); }
@@ -186,8 +389,8 @@ export function saveState(state, immediate = false) {
 export async function eraseSave() {
   try {
     const rec = await readRawSave();
-    if (rec) await createBackup(rec.raw, 'データ初期化前のバックアップ',
-      { version: VERSION, schema: VERSION, chars: 0 });
+    if (rec?.raw) await createBackup(rec.raw, 'データ初期化前のバックアップ',
+      { version: VERSION, schema: VERSION, chars: 0, phase:BACKUP_PHASES.BEFORE });
   } catch (e) { /* バックアップ失敗でも初期化操作は続ける */ }
   try {
     const db = await openDB();
@@ -216,16 +419,21 @@ export function importSave(text) {
   let data;
   try { data = JSON.parse(text); }
   catch (err) { throw new Error(`セーブデータの JSON が壊れています: ${err.message}`); }
-  if (!data || !Array.isArray(data.characters)) throw new Error('セーブデータの形式が正しくありません');
+  const v = validateState(data);
+  if (!v.ok) throw new Error(`セーブデータの形式が正しくありません: ${v.reason}`);
   saveGuard = false;                          // 正常なデータを明示的に読み込んだので保護解除
-  return updateExistingSave(data);
+  const updated = updateExistingSave(data);
+  lastSavedState = stableClone(updated);
+  return updated;
 }
 
 /* ---------- バックアップ / 復元の公開 API ---------- */
 export async function backupCurrent(state, reason = '手動バックアップ') {
   const raw = JSON.stringify(state);
+  const v = validateState(state);
   return createBackup(raw, reason,
-    { version: state.version ?? VERSION, schema: VERSION, chars: state.characters?.length ?? 0 });
+    { version: state.version ?? VERSION, schema: VERSION, chars:v.chars,
+      phase:BACKUP_PHASES.MANUAL, validated:v.ok, ids:v.ids });
 }
 export async function restoreBackup(id) {
   const rec = await readBackup(id);
@@ -233,10 +441,17 @@ export async function restoreBackup(id) {
   let data;
   try { data = JSON.parse(rec.rawText); }
   catch (err) { throw new Error(`この原本は JSON として読めません（隔離データの可能性）: ${err.message}`); }
-  if (!data || !Array.isArray(data.characters)) throw new Error('バックアップの形式が正しくありません');
+  const v = validateState(data);
+  if (!v.ok) throw new Error(`バックアップの形式が正しくありません: ${v.reason}`);
+  if (v.chars === 0 && lastSavedState?.characters?.length)
+    throw new Error('復元候補にキャラクターがいません（空データでの上書きを防止）');
   const restored = updateExistingSave(data);
+  // 復元前の現在状態も退避してから保存する
+  try { await createBackup(JSON.stringify(lastSavedState || {}), '復元前のバックアップ',
+    { phase:BACKUP_PHASES.RESTORE, schema:VERSION }); } catch (e) {}
   saveGuard = false;
-  await saveState(restored, true);
+  const ok = await saveState(restored, true);
+  if (!ok) throw new Error('復元結果を保存できませんでした。元のセーブは保持されています');
   loadInfo.restoredFrom = id;
   loadInfo.unreadable = false;
   loadInfo.quarantined = false;
@@ -335,6 +550,8 @@ function normalizeCharacter(c, state) {
   const eb = c.evolutionBonus || {};
   c.evolutionBonus = { ...Object.fromEntries(STAT_KEYS.map(k => [k, 0])), ...eb,
     effects: { crit:0, critDamage:0, ultimatePower:0, ...(eb.effects || {}) } };
+  // 保存済みの装備スナップショットは「読み込み時に再計算して上書き」しない。
+  // 再計算は装備を変更した操作のときだけ行う（既存データ保護の恒久ルール）。
   c.equipmentBonus = c.equipmentBonus || null;
   c.jobChangeHistory = Array.isArray(c.jobChangeHistory) ? c.jobChangeHistory : [];
   c.ultimateSkills = Array.isArray(c.ultimateSkills) ? c.ultimateSkills : [];
@@ -356,7 +573,7 @@ function normalizeCharacter(c, state) {
     if (uidv && !has(uidv)) learnSkillDirect(c, state, uidv, true);
   }
   for (const k of c.skills) if (ULTIMATE_IDS.has(k.id) && !c.ultimateSkills.includes(k.id)) c.ultimateSkills.push(k.id);
-  syncEquipmentSnapshot(state, c);
+  if (!c.equipmentBonus) syncEquipmentSnapshot(state, c);   // 足りないキーだけ補う（既存値は保持）
   return c;
 }
 export { normalizeCharacter };

@@ -321,7 +321,60 @@ def main():
           and 'getComputedStyle' in eact and 'dungeonStart' in eact and 'resolveAction' in eact,
           'ダンジョン→遭遇→描画→攻撃→撃破→戦闘後までの実動作テストが存在')
 
-    print('\nUPDATE STATIC CHECK OK — 全ファイル照合・3D 残存ゼロ・章/セーブ/UI 整合性・新機能')
+    print('== 11. 恒久データ保護（全アップデートの必須ゲート） ==')
+    dg = open('js/dataGuard.js', encoding='utf-8').read()
+    bk = open('js/saveBackup.js', encoding='utf-8').read()
+    guard = open('tests/check_data_guard.mjs', encoding='utf-8').read()
+    gate = open('tests/verify_all.sh', encoding='utf-8').read()
+    rule = open('tools/DATA_PROTECTION.md', encoding='utf-8').read()
+    check(all(f'export function {n}' in dg for n in
+              ('validateState', 'diffPreserved', 'assertPreserved', 'assertNoLoss',
+               'protectedFingerprint', 'mergeAdditive')),
+          'dataGuard.js に検証・消失検知・指紋・additive 統合の純関数')
+    check('for (const [k, v] of Object.entries(before))' in dg
+          and 'MUTABLE_KEYS' in dg,
+          '未知の将来キーもホワイトリストなしで保護（MUTABLE は日次項目のみ）')
+    check('validateState(snapshot)' in st and 'assertNoLoss(lastSavedState, snapshot)' in st
+          and 'function failSave(' in st and 'export function saveReport()' in st,
+          '保存前の破損検知・消失検知・失敗時停止・監査レポート')
+    check('保存前バックアップ' in st and '保存成功後バックアップ' in st
+          and 'BACKUP_PHASES.BEFORE' in st and 'BACKUP_PHASES.AFTER' in st,
+          '保存前／保存成功後の二重バックアップを世代分離')
+    check("if (!back?.state || JSON.stringify(back.state) !== newRaw)" in st
+          and "if (localStorage.getItem(LS_KEY) !== newRaw)" in st,
+          '書き込み直後の読み直し照合で保存成功を確認（IDB / localStorage 両方）')
+    check('function protectAndRecover(' in st and 'retryReadRaw(3)' in st
+          and 'findLatestValidBackup(' in st and 'autoRecover === true' in st,
+          '読込失敗は 保護→原因→再試行→検証復元→停止 の順で処理')
+    check('expected: hasFlag || !!meta' in st and 'idbUnavailable' in st,
+          '「読めない」と「存在しない」を区別（IDB 非対応は正常フォールバック）')
+    check('if (!c.equipmentBonus) syncEquipmentSnapshot(state, c);' in st,
+          '読み込み時に保存済み装備スナップショットを再計算で上書きしない')
+    check('export async function findLatestValidBackup(' in bk
+          and 'BACKUP_PHASES' in bk and 'QUARANTINE' in bk,
+          '復元候補は本文・JSON・形状・ハッシュを検証し隔離原本を除外')
+    check('S.loadState({ autoRecover:true })' in mn and 'app.saveReport = S.saveReport()' in mn,
+          '起動時に自動復元し、保護レポートを常時 UI へ渡す')
+    check('🛡 データ保護レポート' in ui and 'g.beforeBackup' in ui and 'issue.autoRecovered' in ui,
+          '設定画面に二重バックアップ・消失検知・自動復元の結果を表示')
+    check('DATA GUARD CHECK OK' in guard and 'autoRecover:true' in guard
+          and '再起動' in guard and '保存成功後' in guard,
+          '変更前後・再起動・二重バックアップ・読込失敗の動的保護テスト')
+    idbt = open('tests/check_idb.mjs', encoding='utf-8').read()
+    check("r1.source === 'idb'" in idbt and 'readBackup(after.id)' in idbt
+          and 'BrokenIDB' in idbt and 'autoRecover:true' in idbt,
+          'IndexedDB 本来の保存先でも成功確認・二重バックアップ・破損時自動復元を検証')
+    check('check_data_guard.mjs' in gate and 'check_idb.mjs' in gate
+          and 'check_save.mjs' in gate
+          and 'check_runtime.mjs' in gate and 'check_served.py' in gate
+          and 'PROTECTION GATE FAILED' in gate and 'git stash push -u' in gate,
+          '全変更で実行する保護ゲートと、失敗時に適用せず戻す手順')
+    check('機能の追加よりも既存データの保護を優先' in rule
+          and 'データを守れないアップデートは実行しない' in rule
+          and '過去のキャラクターの復旧は行いません' in rule,
+          '恒久ルール文書（今回は過去キャラの復旧を行わない旨も明記）')
+
+    print('\nUPDATE STATIC CHECK OK — 全ファイル照合・3D 残存ゼロ・章/セーブ/UI 整合性・新機能・恒久データ保護')
     return 0
 
 

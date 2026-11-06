@@ -22,7 +22,7 @@ const app = {
   gacha: null, gachaRatesDetail: false, gachaItemDetail: null,
   jobChangeOffer: null, hintCategory: 'next', evoFxPlaying: false,
   storyChapter: null, storyBattle: null, assetEnemy: null, assetPage: 0,
-  enemyVariant: 0, backups: [], loadIssue: {},
+  enemyVariant: 0, backups: [], loadIssue: {}, saveReport: {},
   creator: { open:false, mode:'closed' },   // 製作者ツールの表示状態（セーブ対象外・通常プレイ無影響）
   skillDetail: null, skillCheckEnemy: null,   // 技情報の詳細モーダル / 戦闘前の技確認
 };
@@ -33,6 +33,7 @@ let audioCtx = null, bgmTimer = null;
 /* ---------------- 基本 ---------------- */
 const $ = id => document.getElementById(id);
 function render() {
+  app.saveReport = S.saveReport();   // 保存の成功確認・二重バックアップ・消失検知を常時表示
   $('app').innerHTML = renderScreen(app, state);
   initAfterRender();
   consumeLevelUp();
@@ -1161,7 +1162,7 @@ window.__OCF = { app, get state() { return state; }, S, D, P, navigate, handleAc
 
 /* ---------------- 起動 ---------------- */
 (async function boot() {
-  const loaded = await S.loadState();
+  const loaded = await S.loadState({ autoRecover:true });   // 起動時は検証済みバックアップから自動復元
   app.loadIssue = S.loadReport();
   app.backups = await S.listBackups();
   if (loaded) state = loaded;

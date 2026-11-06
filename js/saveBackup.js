@@ -6,12 +6,20 @@
      書き込みを停止する（上書き防止）。復元は明示的な操作でだけ行う。
    - 保存先は IndexedDB（未対応環境は localStorage にフォールバック）。
    =========================================================== */
+import { validateState } from './dataGuard.js?v=2';
 
 const BK_DB = 'original_character_fighters_backups';
 const BK_STORE = 'backups';
 const BK_LS = 'ocf_backups_v8';
 const MAX_BACKUPS = 12;
 let bkPromise = null;
+
+/** バックアップの世代。after = 最後に「保存成功を確認できた」状態だけを
+ *  自動復元の候補にする（古い手動バックアップで最新データを戻さない）。 */
+export const BACKUP_PHASES = Object.freeze({
+  BEFORE:'before', AFTER:'after', MIGRATION:'migration',
+  MANUAL:'manual', RESTORE:'restore', QUARANTINE:'quarantine',
+});
 
 function openBackupDB() {
   if (bkPromise) return bkPromise;
@@ -57,6 +65,8 @@ export async function createBackup(rawText, reason = '手動バックアップ',
   const rec = {
     id: backupId(), at: new Date().toISOString(), reason,
     version: meta.version ?? null, schema: meta.schema ?? null,
+    phase: meta.phase ?? BACKUP_PHASES.MANUAL,
+    validated: meta.validated ?? null, ids: meta.ids ?? null,
     chars: meta.chars ?? null, bytes: text.length, hash: fingerprint(text),
     format: meta.format || 'state', rawText: text,
   };
@@ -124,10 +134,38 @@ export async function readBackup(id) {
 export async function quarantineUnreadable(rawText, reason, format = 'state') {
   // 原本をパースせず、そのままのバイト列（テキスト）を隔離する
   return createBackup(rawText, `読込失敗セーブの隔離: ${reason}`,
-    { format: format || 'raw', schema: null });
+    { format: format || 'raw', schema: null, phase:BACKUP_PHASES.QUARANTINE });
 }
 
 export function backupSummary(list) {
   return { count: list.length, newest: list[0]?.at || null,
-    reasons: [...new Set(list.map(b => b.reason))] };
+    reasons: [...new Set(list.map(b => b.reason))],
+    after: list.filter(b => b.phase === BACKUP_PHASES.AFTER).length,
+    before: list.filter(b => b.phase === BACKUP_PHASES.BEFORE).length };
+}
+
+/** 自動復元の候補を探す。新しい順に「本文を実際に読み → JSON パース →
+ *  validateState → 保存時ハッシュと照合」まで行い、全部通った最初の 1 件だけを返す。
+ *  壊れたバックアップや隔離原本は絶対に復元候補にしない。 */
+export async function findLatestValidBackup(phases = [BACKUP_PHASES.AFTER]) {
+  const want = new Set(phases);
+  const list = await listBackups();
+  const checked = [];
+  for (const meta of list) {
+    if (!want.has(meta.phase)) continue;
+    const rec = await readBackup(meta.id);
+    if (!rec || typeof rec.rawText !== 'string' || !rec.rawText.length) {
+      checked.push({ id:meta.id, ok:false, reason:'本文なし' }); continue;
+    }
+    if (meta.hash && fingerprint(rec.rawText) !== meta.hash) {
+      checked.push({ id:meta.id, ok:false, reason:'ハッシュ不一致' }); continue;
+    }
+    let data;
+    try { data = JSON.parse(rec.rawText); }
+    catch (err) { checked.push({ id:meta.id, ok:false, reason:'JSON 不良' }); continue; }
+    const v = validateState(data);
+    if (!v.ok) { checked.push({ id:meta.id, ok:false, reason:v.reason }); continue; }
+    return { rec, data, validation:v, meta, checked };
+  }
+  return { rec:null, data:null, validation:null, meta:null, checked };
 }

@@ -54,8 +54,8 @@ def main():
         print('== 1. no-store と内容ハッシュ ==')
         for path in ('/', '/index.html', '/js/main.js', '/js/state.js', '/js/ui.js',
                      '/js/enemyAssets.js', '/js/enemyArt.js', '/js/story.js',
-                     '/js/saveBackup.js', '/js/creatorTools.js', '/js/skillInfo.js',
-                     '/css/style.css'):
+                     '/js/saveBackup.js', '/js/dataGuard.js', '/js/creatorTools.js',
+                     '/js/skillInfo.js', '/css/style.css'):
             status, h, _ = request(port, path)
             cc = h.get('Cache-Control', '')
             check(status == 200 and 'no-store' in cc and 'max-age=0' in cc,
@@ -86,6 +86,15 @@ def main():
         st = state_js.decode('utf-8')
         check('export function updateExistingSave' in st and 'アップデート前の自動バックアップ' in st,
               '既存更新と更新前バックアップが配信される')
+        check("from './dataGuard.js?h=" in st and 'validateState(snapshot)' in st
+              and '保存前バックアップ' in st and '保存成功後バックアップ' in st
+              and 'protectAndRecover' in st and 'autoRecover === true' in st,
+              '保護レイヤー・二重バックアップ・読込失敗時の復元チェーンが配信される')
+        _, _, dg_js = request(port, '/js/dataGuard.js?h=x')
+        dgt = dg_js.decode('utf-8')
+        check('export function validateState' in dgt and 'export function assertPreserved' in dgt
+              and 'export function mergeAdditive' in dgt and 'MUTABLE_KEYS' in dgt,
+              'dataGuard.js 本体が最新ビルドで配信される（将来キーも保護）')
         _, _, ui_js = request(port, '/js/ui.js?h=x')
         ui = ui_js.decode('utf-8')
         check('全 5 章' in ui and 'backup-list' in ui and 'asset-kind' in ui,

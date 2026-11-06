@@ -1522,6 +1522,7 @@ function endgameScreen(app, s) {
 function settingsScreen(app, s) {
   const bks = Array.isArray(app.backups) ? app.backups : [];
   const issue = app.loadIssue || {};
+  const g = app.saveReport || {};
   return `${navBar(app,s)}<main class="page settings-page">
     <div class="page-head"><div><h2>⚙ 設定・セーブ</h2><p>進行状況はブラウザ内の IndexedDB に自動保存されます。更新前の自動バックアップと復元に対応しています。</p></div><button class="btn btn-ghost" data-action="nav" data-to="town">🏰 街へ</button></div>
     <div class="two-col">
@@ -1555,6 +1556,16 @@ function settingsScreen(app, s) {
           <button class="btn btn-glass" data-action="backupRefresh">🔄 一覧を更新</button></div>
         <div class="list-line"><span>今回の読み込み</span><b>${issue.loaded ? '既存セーブを復元' : issue.unreadable ? '読込失敗（保護中）' : '新規ゲーム'}</b></div>
         <div class="list-line"><span>形式移行</span><b>v${issue.fromVersion ?? s.version} → v${s.version}${issue.backupCreated ? ' / 更新前バックアップ作成済' : ''}</b></div>
+        <h4 class="mt">🛡 データ保護レポート <span class="pill">${g.ok === false ? '停止中' : g.ok ? '正常' : '未保存'}</span></h4>
+        <div class="hint-box">保存のたびに <b>保存前バックアップ → 破損検知 → 二重書き込み → 成功確認 → 保存成功後バックアップ</b> を実行します。書き込みに失敗したら自動保存を停止し、以前の正常なセーブは絶対に消しません。読み込み失敗時は原本を隔離 → 原因記録 → 再試行 → 検証済みバックアップ復元 → 停止の順で処理します。</div>
+        <div class="list-line"><span>最終保存</span><b>${g.ok === false ? '⚠ 失敗（書き込み停止中）' : g.ok ? '✅ 成功確認済み' : '—'}</b></div>
+        <div class="list-line"><span>保存前 / 保存後バックアップ</span><b>${g.beforeBackup ? '✅' : '—'} / ${g.afterBackup ? '✅' : '—'}</b></div>
+        <div class="list-line"><span>書き込み先 / 世代 / キャラ</span><b>${e(g.source || '—')} / ${g.generation || 0} / ${g.chars ?? '—'} 人</b></div>
+        <div class="list-line"><span>消失検知（ID・保護項目）</span><b>${g.loss ? `⚠ ${g.loss.length} 件` : '問題なし'}</b></div>
+        <div class="list-line"><span>読み込み再試行 / 自動復元</span><b>${issue.retryCount || 0} 回 / ${issue.autoRecovered ? `✅ ${e(issue.recoveredFrom || '')}` : issue.recoveredByRetry ? '✅ 再試行で復帰' : '—'}</b></div>
+        ${g.error ? `<div class="danger-box"><b>⚠ 保存エラー</b><p>${e(g.error)}</p><p class="muted">以前の正常なセーブと保存前バックアップは保持されています。下の一覧から復元してください。</p></div>` : ''}
+        ${g.loss ? `<div class="danger-box"><b>⚠ データ消失の兆候</b>${g.loss.map(x => `<p>${e(x)}</p>`).join('')}<p class="muted">意図したキャラクター削除でなければ、保存前バックアップから復元してください。</p></div>` : ''}
+        ${issue.errorDetail ? `<div class="danger-box"><b>${issue.autoRecovered || issue.recoveredByRetry ? '⚠ 読み込みトラブル（自動復旧済み）' : '⚠ 読み込みエラーの詳細'}</b><p>${e(issue.errorDetail)}</p><p class="muted">再試行 ${issue.retryCount || 0} 回 / 復元候補確認 ${issue.recoveryChecked || 0} 件${issue.autoRecovered ? ` / 復元元 ${e(issue.recoveredFrom || '')}` : ''}${issue.recoveryError ? ` / ${e(issue.recoveryError)}` : ''}。原本は隔離済みで、空データでの上書きは行っていません。</p></div>` : ''}
         <h4 class="mt">あそび方</h4><ol class="flow"><li>タイトル「ゲームスタート」→ 画像を読み込み、そのままキャラクター登録</li><li>街の5施設でレベル・職業・技・装備・覚醒を育成</li><li>冒険者ギルドのCPU対戦でコイン・EXP・BP・ランクPを獲得</li><li>対戦ポイントで限定技・特別装備・覚醒素材と交換</li><li>ダンジョン・隠しボス・転生で長期的な目標に挑戦</li></ol>
         <div class="hint-box">CPU対戦はローカル完結。友達とのオンライン対戦を後から追加できるよう、対戦エンジンはプレイヤー/CPUを独立したデータ構造で分離しています。</div>
       </div>
